@@ -14,6 +14,38 @@ Format:
 
 ---
 
+## 2026-05-27 — Phase 2 prep: input schema, interpolation, SEO, SSR trend page
+
+**Done:**
+- `lib/trends/input-schema.ts` — Zod discriminated union (image / text / select); strict snake_case names; per-type constraints; superRefine for duplicate names + image min≤max; `DEFAULT_TREND_INPUT` matches migration 0002's column default
+- `lib/trends/interpolate.ts` — `{{field_name}}` substitution honouring text/select only; image fields excluded (multimodal-only); throws on unknown placeholder or required-missing; `collectImageInputs` returns ordered URLs for Gemini
+- `lib/trends/repository.ts` — `listActiveTrends`, `getActiveTrendBySlug` with column projection + safe `input_schema` coercion (falls back to DEFAULT on parse fail) + `faq` array coercion
+- `components/upload/SchemaForm.tsx` — `'use client'` rendering any TrendInput; separate `values` (text/select) vs `files` (image File[]) state; per-field validation against schema constraints (min_count, max_count, required); raw `<input type=file>` + `<input type=text>` + `<select>` (shadcn upgrade Phase 4 polish)
+- `lib/seo/json-ld.ts` — `buildHowToJsonLd` (positioned steps, custom totalTime) + `buildFAQJsonLd`
+- `app/(public)/layout.tsx` — public-group passthrough
+- `app/(public)/trend/[slug]/page.tsx` — SSR + ISR (3600) + async `generateMetadata` with OG + Twitter + canonical, HowTo + FAQ JSON-LD via `dangerouslySetInnerHTML`, `notFound()` on missing/inactive
+- `app/(public)/trend/[slug]/opengraph-image.tsx` — Next 16 OG file convention; 1200×630 PNG via `next/og`; gradient + title + description
+- `app/sitemap.ts` — dynamic sitemap from `listActiveTrends`, hourly revalidate
+- `app/robots.ts` — allow `/`, disallow `/admin/*` `/result/*` `/me/*` `/api/`, sitemap reference
+- Test suites: `lib/trends/interpolate.test.ts` (12) + `lib/seo/json-ld.test.ts` (3) → 15 new cases; total 18/18 pass
+
+**Decisions surfaced:**
+- Image fields cannot be referenced in `prompt_template` — they pass to Gemini multimodal alongside the prompt
+- `app/page.tsx` (placeholder) stays at root until Phase 2 implementation moves the real grid into `app/(public)/page.tsx` (route-group collision avoided)
+- ISR revalidate = 3600s matches plan §"Phase 2 verification"
+- Raw `<img>` in trend page intentional until `next/image` remotePatterns confirmed against Supabase Storage public-URL domain
+
+**Commits:**
+- `ad12071` feat: phase 2 prep - input schema, interpolation, SEO utils, SSR trend page
+
+**Phase 2 implementation (blocked on Supabase running):**
+- Admin CRUD `/admin/trends` (list + create + edit + activate)
+- SchemaBuilder admin component (dnd-kit drag-reorder fields)
+- Eval workflow (upload references → run prompt × inputs in parallel → grid review → pass/fail)
+- Replace `app/page.tsx` placeholder with `app/(public)/page.tsx` trends grid
+
+---
+
 ## 2026-05-27 — Phase 1 continued: auth + Stripe stub + CI + Sentry/PostHog + Next 16 proxy
 
 **Done (this session continuation):**

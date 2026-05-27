@@ -118,27 +118,32 @@ External prerequisites (run in parallel where possible):
 
 ## Phase 2 — Trends + Admin (3–4 days)
 
-- [ ] Admin trends CRUD route (`/admin/trends`)
-- [ ] `SchemaBuilder` component — drag fields, set required, min/max counts
-- [ ] Trend create form persists `input_schema jsonb`
-- [ ] `prompt_template` interpolates `{{field_name}}` from schema
-- [ ] `prompt_template_history` array appended on edit; admin "revert" button
+**Phase 2 prep complete (no creds needed):**
+- [x] `lib/trends/input-schema.ts` — Zod discriminated union (image|text|select), DEFAULT_TREND_INPUT matches migration 0002
+- [x] `lib/trends/interpolate.ts` + tests — `{{field_name}}` substitution (12 cases, all pass)
+- [x] `lib/trends/repository.ts` — `listActiveTrends`, `getActiveTrendBySlug` with safe schema coercion
+- [x] `components/upload/SchemaForm.tsx` — client component rendering any TrendInput with per-field validation
+- [x] `lib/seo/json-ld.ts` + tests — `buildHowToJsonLd`, `buildFAQJsonLd`
+- [x] `app/(public)/trend/[slug]/page.tsx` — SSR + ISR(3600) + async generateMetadata (OG + Twitter) + JSON-LD scripts + notFound()
+- [x] `app/(public)/trend/[slug]/opengraph-image.tsx` — Next 16 OG convention (1200x630 PNG)
+- [x] `app/sitemap.ts` — dynamic, hourly revalidate
+- [x] `app/robots.ts` — allow public, disallow `/admin/*` `/result/*` `/me/*` `/api/`
+
+**Phase 2 implementation (blocked on Supabase running):**
+- [ ] Admin trends CRUD route (`/admin/trends`) — list + create + edit + activate
+- [ ] `SchemaBuilder` admin component — drag fields, set required, min/max counts (dnd-kit)
+- [ ] Trend create form persists `input_schema jsonb` (write side; read side ready)
+- [ ] `prompt_template_history` revert button in admin (DB trigger already appends on edit — see migration 0002)
 - [ ] Eval workflow
-  - [ ] Upload eval reference photos to `trend_eval_inputs`
+  - [ ] Upload eval reference photos to `trend_eval_inputs` (admin-side)
   - [ ] "Test trend" button runs prompt × all eval inputs in parallel (8 concurrent)
   - [ ] Eval grid UI shows outputs
   - [ ] Admin marks pass/fail → `eval_status` updated
-  - [ ] Re-run triggered on `prompt_template` or `model` change
-- [ ] Public home grid lists `is_active=true` trends
-- [ ] `/trend/[slug]` SSR page with:
-  - [ ] OG image via `@vercel/og` (sample after-image + title)
-  - [ ] JSON-LD `HowTo` schema
-  - [ ] FAQ block from `trends.faq`
-  - [ ] Sample gallery placeholder
-- [ ] `/sitemap.xml` lists active trends with `lastmod`
-- [ ] `/robots.txt` allows crawl, blocks `/admin/*` + `/result/*`
-- [ ] ISR: `revalidate: 3600`
-- [ ] Verification: `curl /trend/<slug>` returns full HTML + meta + JSON-LD; eval gate blocks publish
+  - [ ] Re-run triggered on `prompt_template` or `model` change (DB trigger already forces `eval_status='untested'` + `is_active=false` on change)
+- [ ] Public home grid lists `is_active=true` trends (replace placeholder `app/page.tsx`, move into `(public)`)
+- [ ] Sample gallery placeholder under trend page (Phase 4 if public-gallery opt-in lands)
+- [ ] Wire SchemaForm into `/trend/[slug]/page.tsx` (Phase 3 — needs `/api/generate` first)
+- [ ] Verification: `curl /trend/<slug>` returns full HTML + meta + JSON-LD; eval gate blocks publish (DB constraint already in 0002)
 
 ---
 
