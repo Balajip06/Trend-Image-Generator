@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/playwright-report
+/test-results
+/playwright/.cache
 
 # next.js
 /.next/
@@ -30,8 +33,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (template only — never commit real secrets)
 .env*
+!.env.example
+!.env.local.example
 
 # vercel
 .vercel
@@ -39,3 +44,21 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Supabase
+/supabase/.branches
+/supabase/.temp
+/supabase/.env
+
+# Sentry
+.sentryclirc
+.sentry-build-plugin
+
+# IDE
+.idea
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Scratch
+.claude/draft/
