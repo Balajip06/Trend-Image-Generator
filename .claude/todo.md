@@ -38,24 +38,27 @@ External prerequisites (run in parallel where possible):
 ## Phase 1 — Foundation (3–4 days)
 
 ### 1.1 Scaffold
-- [ ] `npx create-next-app@latest` — App Router, TS, Tailwind, src/ no
-- [ ] shadcn/ui init
-- [ ] ESLint + Prettier + strict TS
-- [ ] pnpm/npm choice locked
-- [ ] Git init + first commit
+- [x] `pnpm dlx create-next-app@latest` — Next 16.2, App Router, TS strict, Tailwind v4, no src/ — scaffolded via `scaffold-tmp/` then merged (folder-name caps+space workaround)
+- [ ] shadcn/ui init (deferred — primitives installed: clsx, tailwind-merge, cva, lucide; init when first component built)
+- [x] ESLint 9 (flat config from create-next-app) + Prettier 3 with tailwind plugin
+- [x] Strict TS (tsconfig from scaffold; `pnpm typecheck` clean)
+- [x] pnpm chosen + `pnpm-workspace.yaml` present
+- [x] Git initial commit `ff8f84a` — feat: phase 1 foundation scaffold
 
 ### 1.2 Supabase
-- [ ] Supabase project created (US-East region for global latency balance)
-- [ ] `supabase init` local + linked
-- [ ] Migration 0001: profiles (with all amended columns — `credits_balance`, `free_used_this_week`, `free_week_starts_at`, `referral_code`, `referred_by`, `bonus_credits_earned`, `push_subscription`, `deleted_at`)
-- [ ] Migration 0002: trends (`input_schema`, `prompt_template`, `version`, `prompt_template_history`, `expires_at`, `eval_status`, `seo_title`, `seo_description`, `faq`)
-- [ ] Migration 0003: generations (`idempotency_key`, `attempts`, `cost_usd`, `trend_version`, `purge_at`, `is_public`, `share_count`)
-- [ ] Migration 0004: referrals, trend_eval_inputs, trend_eval_runs, trend_suggestions, admin_audit_log, webhook_events, anonymous_attempts
-- [ ] RLS policies — quota block (`free_used_this_week >= 5 AND credits_balance <= 0`), public gallery gate, soft-delete cascade
-- [ ] DB trigger — admin_audit_log on admin actions
-- [ ] DB trigger — credits_balance decrement on generation insert
-- [ ] DB constraint — `is_active=true` requires `eval_status='passed'`
-- [ ] Generated TS types committed to `lib/supabase/types.ts`
+- [ ] Supabase project created (US-East region for global latency balance) — **BLOCKED on user-created project**
+- [x] `pnpm supabase init` local (config.toml + .gitignore + .temp/ created)
+- [x] Migration 0001: profiles — with credits_balance, free_used_this_week, free_week_starts_at, referral_code, referred_by, bonus_credits_earned cap=50, push_subscription, deleted_at, auto-create-on-signup trigger, RLS self-read/self-update
+- [x] Migration 0002: trends — input_schema JSONB default, prompt_template_history + version-bump trigger (forces re-eval), expires_at, eval_status enum + eval_gate constraint, SEO columns, public-read RLS (active + not-expired)
+- [x] Migration 0003: generations — idempotency_key (user_id, key) unique, cost_usd, trend_version snapshot, purge_at (tier-aware trigger), is_public, share_count, quota consume + refund triggers, RLS own+public
+- [x] Migration 0004: referrals + farming-guarded reward trigger (fires after referee's first completed gen, caps bonus at 50), trend_eval_inputs, trend_eval_runs, trend_suggestions, admin_audit_log, webhook_events (Stripe dedup), anonymous_attempts (fingerprint+IP unique, 24h TTL)
+- [x] Migration 0005: pg_cron — weekly free reset (Sun 00:00 UTC), daily purges (generations, anonymous, soft-deleted profiles)
+- [x] RLS policies — quota block via trigger raise_exception, public gallery gate, soft-delete cascade via deleted_at filter
+- [x] DB trigger — credits_balance/free_used_this_week consume on insert, refund on failure, version bump on prompt change
+- [x] DB constraint — `is_active=true` requires `eval_status='passed'`
+- [ ] **Apply migrations** to local Supabase (`pnpm supabase start && pnpm supabase db reset`) — blocked on Docker Desktop running locally OR remote project linked
+- [ ] Generated TS types committed (`pnpm supabase:types` after apply)
+- [ ] Admin audit-log trigger (deferred — implement when admin CRUD lands in Phase 2)
 
 ### 1.3 Auth
 - [ ] Google OAuth provider configured in Supabase
@@ -77,13 +80,17 @@ External prerequisites (run in parallel where possible):
 - [ ] `webhook_events` idempotency table tested with duplicate event
 
 ### 1.6 Observability
-- [ ] PostHog SDK installed (web + server)
-- [ ] Sentry day-1: `@sentry/nextjs` installed, wrap Edge Functions, env `SENTRY_DSN`/`SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/`SENTRY_PROJECT`
+- [x] PostHog SDK installed (posthog-js + posthog-node)
+- [x] Sentry SDK installed (@sentry/nextjs)
+- [ ] PostHog provider component + bootstrap (deferred — needs project key)
+- [ ] `pnpm dlx @sentry/wizard@latest -i nextjs` to generate sentry.client/server/edge config + wrap next.config.ts (deferred — needs DSN + auth token)
 
 ### 1.7 Test Stack
-- [ ] Vitest installed (unit tests, same tsconfig)
-- [ ] Playwright installed — projects: chromium + webkit
-- [ ] CI workflow: lint → typecheck → vitest → playwright
+- [x] Vitest installed + config (jsdom, 80% coverage threshold)
+- [x] @testing-library/react + jest-dom matchers wired in vitest.setup.ts
+- [x] Playwright installed + config (chromium, webkit, mobile-chrome, mobile-safari projects; webServer = pnpm dev)
+- [ ] `pnpm exec playwright install` to download browser binaries
+- [ ] CI workflow (.github/workflows/ci.yml): lint → typecheck → vitest → playwright
 - [ ] agent-browser installed for nightly cron (`cargo install agent-browser` or `npm i -g agent-browser`)
 
 ### 1.8 Anonymous Trial Infrastructure

@@ -14,6 +14,52 @@ Format:
 
 ---
 
+## 2026-05-27 — Phase 1 foundation scaffolded + committed
+
+**Done:**
+- Generated VAPID keypair (saved location: user `.env.local` only — example template has empty values for safety)
+- Scaffolded Next.js 16.2 via `create-next-app` into `scaffold-tmp/` (folder-caps+space workaround), merged contents to root preserving our CLAUDE.md
+- Rewrote `package.json` (name = `trend-image-generator`, scripts: typecheck, format, format:check, test, test:watch, test:ui, test:e2e, supabase:*)
+- Installed runtime deps: @supabase/{supabase-js,ssr}, zod, stripe, resend, web-push, @vercel/og, posthog-{js,node}, @sentry/nextjs, @upstash/{ratelimit,redis}, @fingerprintjs/fingerprintjs, heic2any, next-themes, clsx, tailwind-merge, lucide-react, class-variance-authority
+- Installed dev deps: vitest + @vitest/ui + @vitejs/plugin-react + jsdom, @testing-library/{react,jest-dom,user-event}, @playwright/test, prettier + prettier-plugin-tailwindcss, @types/web-push, supabase CLI 2.101
+- Configs: .prettierrc.json + .prettierignore, vitest.config.ts (80% coverage threshold), vitest.setup.ts (jest-dom matchers), playwright.config.ts (4 projects: chromium/webkit/mobile-chrome/mobile-safari, webServer auto-spawn)
+- Supabase init + 5 migrations written and timestamped in `supabase/migrations/`:
+  * `20260527000001_profiles.sql` — profiles + auto-create trigger + RLS
+  * `20260527000002_trends.sql` — input_schema JSONB + version-bump trigger + eval gate constraint + SEO columns
+  * `20260527000003_generations.sql` — idempotency unique, cost tracking, tier-aware purge_at, quota consume/refund triggers, RLS own + public-gallery
+  * `20260527000004_ancillary.sql` — referrals + farming-guarded reward trigger, trend_eval_inputs/runs, trend_suggestions, admin_audit_log, webhook_events, anonymous_attempts
+  * `20260527000005_pg_cron.sql` — weekly free reset (Sun 00:00 UTC), daily purges
+- Lib code: `lib/supabase/{client,server,middleware,database.types}.ts`, `lib/utils/cn.ts`
+- `middleware.ts` — Supabase session refresh + `/admin` gate + `/me` + `/result` authed-area gate; excludes `/api/stripe/webhook` (raw body)
+- `.env.local.example` with 20+ keys (NEXT_PUBLIC_SITE_URL, Supabase trio, Gemini, Stripe trio, Resend pair, VAPID trio, Turnstile pair, PostHog pair, Sentry quartet, Upstash pair, ANONYMOUS_DAILY_BUDGET_USD)
+- Replaced scaffold's boilerplate `app/page.tsx` with minimal "Trend Image Generator — Coming soon" placeholder
+- Updated `app/layout.tsx` metadata with project title + metadataBase from `NEXT_PUBLIC_SITE_URL`
+- Updated `.gitignore` (Supabase ignores, Sentry, env templates allow-listed, .claude/draft/, IDE folders)
+- CLAUDE.md updated for Next 16.2 (not 15), added 5 new gotchas (folder-name workaround, `pnpm supabase` invocation, virtual-store path sensitivity, Stripe webhook middleware exclusion, Tailwind v4 syntax)
+- `pnpm typecheck` passes clean
+- Commit `ff8f84a` — "feat: phase 1 foundation scaffold" (30 files, +6749 / -1382)
+
+**Open:**
+- Supabase migrations written but not applied — needs `pnpm supabase start` (requires Docker Desktop) OR remote Supabase project linked
+- Sentry config files + next.config wrap — needs `SENTRY_DSN` + `SENTRY_AUTH_TOKEN` (user-side account creation)
+- PostHog provider bootstrap — needs project key (user-side)
+- Playwright browser binaries not yet downloaded (`pnpm exec playwright install`)
+- CI workflow (.github/workflows/ci.yml) not yet written
+- shadcn/ui init deferred until first component built
+- agent-browser not yet installed (nightly cron supplement)
+
+**Next:**
+- Either: (a) install Docker Desktop + `pnpm supabase start` to verify migrations apply cleanly locally, OR (b) create Supabase project at supabase.com, link via `supabase link --project-ref ...`, push migrations
+- Run `pnpm exec playwright install`
+- Run `pnpm dlx @sentry/wizard@latest -i nextjs` once Sentry DSN/auth-token available
+- Move to Phase 1.3 (Auth): Google OAuth provider in Supabase dashboard + magic-link email + `(auth)` route group + login UI
+
+**Phase:** 1 — Foundation (1.1 ✅, 1.2 schema written ✅ apply ⏳, 1.6 SDKs installed ✅ init ⏳, 1.7 installed+configured ✅ binaries ⏳)
+
+**Blockers:** Docker Desktop OR remote Supabase project; Sentry account; PostHog account (all user-side)
+
+---
+
 ## 2026-05-27 — Plan audit + reversals synced across all docs
 
 **Done:**
