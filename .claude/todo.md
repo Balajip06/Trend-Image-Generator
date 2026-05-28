@@ -214,7 +214,7 @@ External prerequisites (run in parallel where possible):
 - [x] PostHog provider component + bind to `lib/analytics/client.ts` singleton on mount
 - [x] Client `track()` call sites: UPLOAD_STARTED, GENERATE_CLICKED, GENERATE_COMPLETED, GENERATE_FAILED, PUSH_PERMISSION_REQUESTED/GRANTED/DENIED, DOWNLOAD_CLICKED (9 of 15 events)
 - [x] Server-side `track()` via `lib/analytics/server.ts` (posthog-node lazy singleton, flushAt:1, awaitable flushServer): SIGNUP_COMPLETED (auth callback, new-user heuristic), ACCOUNT_DELETED (settings server action), CHECKOUT_STARTED (stripe checkout route), CHECKOUT_COMPLETED (stripe webhook)
-- [ ] REFERRAL_REDEEMED — needs DB webhook on `referrals` UPDATE (status pending→rewarded) → POST `/api/analytics/referral` → `trackServer`
+- [x] REFERRAL_REDEEMED — `/api/analytics/referral` route receives Supabase DB webhook on `referrals` UPDATE, filters pending→rewarded, SHA-256-hashes referrer id, fires `trackServer` with bonus + total_bonus_earned. README documents the webhook spec.
 - [x] SHARE_CLICKED — `ShareButtons` on `ResultView`: native Web Share with image-Blob attachment, X/Twitter intent, WhatsApp wa.me, Copy link; fires per-channel
 - [x] TREND_VIEW — posthog-js `$pageview` auto-capture in `posthog-provider.tsx`
 - [ ] Data export server action on settings — JSON zip of (profile + generations rows + presigned URLs)
