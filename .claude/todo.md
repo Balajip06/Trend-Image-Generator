@@ -205,9 +205,9 @@ External prerequisites (run in parallel where possible):
 - [x] `app/api/download/[id]/route.ts` — Node runtime authed download: ownership check, status gate, Pro vs Free determines watermark via `applyWatermark`, content-disposition attachment streaming
 
 **Phase 4 implementation (blocked on Supabase running + PostHog key + Turnstile key):**
-- [ ] Referral signup wiring:
-  - [ ] Landing page sets `tig_ref` cookie when `?ref=<code>` present
-  - [ ] Signup server action reads cookie, populates `profiles.referred_by`, creates `referrals` row
+- [x] Referral signup wiring:
+  - [x] `proxy.ts` reads `?ref=<12-hex>` on every request, sets `tig_ref` cookie (30d, httpOnly, SameSite=Lax, first-touch wins)
+  - [x] `app/auth/callback/route.ts` consumes cookie on new-user signup, looks up referrer by `referral_code`, guards self-referral, populates `profiles.referred_by`, inserts pending `referrals` row, deletes cookie after consume
   - [x] Reward credited via trigger after referee's first completed gen (migration 0004)
   - [x] Max bonus cap per referrer = 50 (DB constraint + trigger)
   - [ ] Turnstile on signup — needs `TURNSTILE_SITE_KEY`
