@@ -148,5 +148,5 @@ export async function toggleActive(id: string, nextValue: boolean): Promise<void
   }
   revalidatePath('/admin/trends')
   revalidatePath(`/admin/trends/${id}/edit`)
-  redirect(`/admin/trends/${id}/edit?activated=${nextValue ? '1' : '0'}`)
+  redirect(`/admin/trends/${id}/edit?${nextValue ? 'activated' : 'deactivated'}=1`)
 }

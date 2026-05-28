@@ -67,14 +67,11 @@ export default async function EditTrendPage({ params, searchParams }: EditTrendP
     <section className="flex flex-col gap-6">
       <FlashToasts
         flashes={[
-          { key: 'error', level: 'error', message: (v) => v },
+          { key: 'error', level: 'error' },
           { key: 'saved', level: 'success', message: 'Saved.' },
           { key: 'created', level: 'success', message: 'Draft created.' },
-          {
-            key: 'activated',
-            level: 'info',
-            message: (v) => (v === '1' ? 'Activated.' : 'Deactivated.'),
-          },
+          { key: 'activated', level: 'info', message: 'Activated.' },
+          { key: 'deactivated', level: 'info', message: 'Deactivated.' },
         ]}
       />
 

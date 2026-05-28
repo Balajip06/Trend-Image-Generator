@@ -121,20 +121,12 @@ export default async function EvalPage({ params, searchParams }: EvalPageProps) 
     <section className="flex flex-col gap-6">
       <FlashToasts
         flashes={[
-          { key: 'error', level: 'error', message: (v) => v },
+          { key: 'error', level: 'error' },
           { key: 'added', level: 'success', message: 'Reference photo added.' },
           { key: 'removed', level: 'info', message: 'Reference removed.' },
           { key: 'ran', level: 'success', message: 'Test run dispatched.' },
-          {
-            key: 'marked',
-            level: 'success',
-            message: (v) =>
-              v === 'passed'
-                ? 'Trend eval marked passed. Activate from Edit page.'
-                : v === 'failed'
-                  ? 'Trend eval marked failed.'
-                  : 'Trend eval updated.',
-          },
+          { key: 'marked-passed', level: 'success', message: 'Trend eval marked passed. Activate from Edit page.' },
+          { key: 'marked-failed', level: 'success', message: 'Trend eval marked failed.' },
         ]}
       />
 

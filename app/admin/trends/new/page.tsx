@@ -13,7 +13,7 @@ export default async function NewTrendPage({ searchParams }: NewTrendPageProps) 
 
   return (
     <section className="flex flex-col gap-6">
-      <FlashToasts flashes={[{ key: 'error', level: 'error', message: (v) => v }]} />
+      <FlashToasts flashes={[{ key: 'error', level: 'error' }]} />
 
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>

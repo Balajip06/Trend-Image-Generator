@@ -68,7 +68,7 @@ export default async function AdminSuggestionsPage({ searchParams }: AdminSugges
     <section className="flex flex-col gap-6">
       <FlashToasts
         flashes={[
-          { key: 'error', level: 'error', message: (v) => v },
+          { key: 'error', level: 'error' },
           { key: 'rejected', level: 'info', message: 'Suggestion rejected.' },
         ]}
       />

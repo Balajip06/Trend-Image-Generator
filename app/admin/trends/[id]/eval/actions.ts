@@ -156,5 +156,5 @@ export async function markTrendEval(
   revalidatePath(`/admin/trends/${trendId}/eval`)
   revalidatePath('/admin/trends')
   revalidatePath(`/admin/trends/${trendId}/edit`)
-  redirect(`/admin/trends/${trendId}/eval?marked=${status}`)
+  redirect(`/admin/trends/${trendId}/eval?marked-${status}=1`)
 }

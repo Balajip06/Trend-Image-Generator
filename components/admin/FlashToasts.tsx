@@ -7,7 +7,15 @@ import { toast } from 'sonner'
 interface FlashMessage {
   key: string
   level: 'success' | 'info' | 'error'
-  message: string | ((value: string) => string)
+  /**
+   * Static text. If omitted, the decoded URL-param value is used as the toast
+   * text (handy for echoing server-action error messages directly).
+   *
+   * Functions are intentionally NOT supported because FlashToasts is rendered
+   * by Server Components and React cannot serialize closures across the
+   * server→client boundary.
+   */
+  message?: string
 }
 
 interface FlashToastsProps {
@@ -37,7 +45,7 @@ export function FlashToasts({ flashes }: FlashToastsProps) {
       firedRef.current.add(fingerprint)
 
       const decoded = decodeURIComponent(raw)
-      const text = typeof f.message === 'function' ? f.message(decoded) : f.message
+      const text = f.message ?? decoded
       if (f.level === 'success') toast.success(text)
       else if (f.level === 'error') toast.error(text)
       else toast(text)

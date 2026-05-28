@@ -12,6 +12,7 @@ import { test, expect } from '@playwright/test'
 const OUTPUT_DIR = process.env.VISUAL_OUTPUT_DIR ?? 'baseline'
 
 const ROUTES: Array<{ name: string; path: string; waitFor?: string }> = [
+  // Consumer flow
   { name: 'home', path: '/' },
   { name: 'trend-ghibli', path: '/trend/ghibli-portrait' },
   { name: 'trend-pixar', path: '/trend/pixar-3d-character' },
@@ -22,6 +23,13 @@ const ROUTES: Array<{ name: string; path: string; waitFor?: string }> = [
   { name: 'result-processing', path: '/result/mock-processing' },
   { name: 'result-retryable', path: '/result/mock-retryable' },
   { name: 'result-failed', path: '/result/mock-failed' },
+
+  // Admin surface — proxy.ts bypasses auth in MOCK_TRENDS mode. Edit + eval
+  // pages omitted (require a real :id param — add later via beforeAll fetch).
+  { name: 'admin-home', path: '/admin' },
+  { name: 'admin-trends-list', path: '/admin/trends' },
+  { name: 'admin-trend-new', path: '/admin/trends/new' },
+  { name: 'admin-suggestions', path: '/admin/suggestions' },
 ]
 
 test.describe('visual baseline', () => {
