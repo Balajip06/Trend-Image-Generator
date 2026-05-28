@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation'
 import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
-import { createClient } from '@/lib/supabase/server'
+import { CREDIT_PACKS } from '@/lib/payments/packs'
 import { buildReferralUrl } from '@/lib/referrals/links'
+import { createClient } from '@/lib/supabase/server'
+import { CreditPacksClient } from './CreditPacksClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +33,12 @@ async function softDeleteAccount(): Promise<void> {
   redirect('/')
 }
 
-export default async function SettingsPage() {
+interface SettingsPageProps {
+  searchParams: Promise<{ purchase?: string; pack?: string }>
+}
+
+export default async function SettingsPage({ searchParams }: SettingsPageProps) {
+  const { purchase, pack } = await searchParams
   const supabase = await createClient()
   const {
     data: { user },
@@ -48,11 +55,30 @@ export default async function SettingsPage() {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
   const referralUrl = profile ? buildReferralUrl(siteUrl, profile.referral_code) : null
 
+  const packs = CREDIT_PACKS.map((p) => ({
+    id: p.id,
+    label: p.label,
+    credits: p.credits,
+    priceCents: p.priceCents,
+    perCreditCents: p.perCreditCents,
+  }))
+
   return (
     <section className="flex max-w-2xl flex-col gap-10">
       <header>
         <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Settings</h1>
       </header>
+
+      {purchase === 'success' && (
+        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+          Purchase complete{pack ? ` — ${pack} pack credited` : ''}. Credits should appear in a moment.
+        </p>
+      )}
+      {purchase === 'cancelled' && (
+        <p className="rounded-md bg-zinc-100 px-3 py-2 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+          Checkout cancelled — no charge made.
+        </p>
+      )}
 
       {profile && (
         <>
@@ -66,6 +92,14 @@ export default async function SettingsPage() {
               <dt className="text-zinc-500">Bonus earned</dt>
               <dd className="text-zinc-900 dark:text-zinc-50">{profile.bonus_credits_earned} / 50</dd>
             </dl>
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Buy credits</h2>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              Credits never expire. Pro perks while you have credits: no watermark, generations saved forever, premium support.
+            </p>
+            <CreditPacksClient packs={packs} />
           </div>
 
           <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
