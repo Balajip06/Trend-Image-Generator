@@ -238,7 +238,7 @@ External prerequisites (run in parallel where possible):
 **Phase 5 implementation (blocked on Stripe account):**
 - [ ] Create 3 Stripe products + recurring=false prices in test mode, paste IDs into `.env.local`
 - [ ] Configure Stripe webhook → `/api/stripe/webhook` w/ signing secret in `STRIPE_WEBHOOK_SECRET`
-- [ ] Settings/checkout UI surface (button on `/me/settings` → POST `/api/stripe/checkout` → window.location = checkout_url)
+- [x] Settings/checkout UI — `CreditPacksClient` on `/me/settings`: 3 pack cards, POST `/api/stripe/checkout`, window-redirect to Stripe; `?purchase=success|cancelled` banners on return
 - [ ] Support refund flow — manual credit grant admin route (depends on Phase 2 admin CRUD)
 - [ ] Daily margin dashboard — query `SUM(generations.cost_usd)` vs `SUM(payments)` (post-launch)
 - [ ] Gemini billing alerts (2 tiers — set in Google Cloud Console)
