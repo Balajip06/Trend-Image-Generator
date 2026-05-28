@@ -211,7 +211,7 @@ External prerequisites (run in parallel where possible):
   - [x] `app/auth/callback/route.ts` consumes cookie on new-user signup, looks up referrer by `referral_code`, guards self-referral, populates `profiles.referred_by`, inserts pending `referrals` row, deletes cookie after consume
   - [x] Reward credited via trigger after referee's first completed gen (migration 0004)
   - [x] Max bonus cap per referrer = 50 (DB constraint + trigger)
-  - [ ] Turnstile on signup — needs `TURNSTILE_SITE_KEY`
+  - [x] Turnstile on signup — `<TurnstileWidget>` on `/login` (both magic-link + Google forms), `verifyTurnstile` server-side in both `signInWithEmail` + `signInWithGoogle` actions; shared `lib/turnstile/verify.ts` also used by `/api/generate-anonymous`. No-op when `TURNSTILE_SECRET_KEY` absent (dev/preview).
 - [x] PostHog provider component + bind to `lib/analytics/client.ts` singleton on mount
 - [x] Client `track()` call sites: UPLOAD_STARTED, GENERATE_CLICKED, GENERATE_COMPLETED, GENERATE_FAILED, PUSH_PERMISSION_REQUESTED/GRANTED/DENIED, DOWNLOAD_CLICKED (9 of 15 events)
 - [x] Server-side `track()` via `lib/analytics/server.ts` (posthog-node lazy singleton, flushAt:1, awaitable flushServer): SIGNUP_COMPLETED (auth callback, new-user heuristic), ACCOUNT_DELETED (settings server action), CHECKOUT_STARTED (stripe checkout route), CHECKOUT_COMPLETED (stripe webhook)
