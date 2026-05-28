@@ -16,28 +16,33 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
   const errorMessage = error ? (ERROR_COPY[error] ?? 'Sign in failed. Try again.') : null
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-2 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-          Sign in
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-col gap-2">
+        <h1 className="text-3xl font-extrabold tracking-tight">
+          Welcome <span className="text-gradient-hero">in</span>
         </h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          to continue to Trend Image Generator
+        <p className="text-sm text-muted-foreground">
+          Save your creations, unlock the gallery, and refer friends for free credits.
         </p>
       </header>
 
       {sent && (
-        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-          Check your inbox for the magic link.
-        </p>
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
+          <p className="font-medium">Check your inbox.</p>
+          <p className="opacity-80">We sent a magic link — tap it to finish signing in.</p>
+        </div>
       )}
       {errorMessage && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {errorMessage}
-        </p>
+        </div>
       )}
 
       <LoginForms next={next} />
+
+      <p className="text-center text-xs text-muted-foreground">
+        By continuing you agree to our terms + privacy policy.
+      </p>
     </div>
   )
 }

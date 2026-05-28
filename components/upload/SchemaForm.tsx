@@ -1,14 +1,28 @@
 'use client'
 
-import { useCallback, useState, type ChangeEvent } from 'react'
+import { ImagePlus, Upload, X } from 'lucide-react'
+import { useCallback, useEffect, useState, type ChangeEvent } from 'react'
+import { toast } from 'sonner'
+import { GradientButton } from '@/components/brand/GradientButton'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { TrendField, TrendInput } from '@/lib/trends/input-schema'
 import type { TrendInputValues } from '@/lib/trends/interpolate'
 import { cn } from '@/lib/utils/cn'
 
 interface SchemaFormProps {
   schema: TrendInput
-  /** Called with collected values + raw File list for image fields (uploader handles HEIC + resize + storage). */
-  onSubmit: (payload: { values: TrendInputValues; files: Record<string, File[]> }) => void | Promise<void>
+  onSubmit: (payload: {
+    values: TrendInputValues
+    files: Record<string, File[]>
+  }) => void | Promise<void>
   submitting?: boolean
   ctaLabel?: string
   className?: string
@@ -32,7 +46,11 @@ export function SchemaForm({
   const [state, setState] = useState<LocalState>(emptyState)
 
   const setText = useCallback((name: string, value: string) => {
-    setState((s) => ({ ...s, values: { ...s.values, [name]: value }, fieldErrors: { ...s.fieldErrors, [name]: undefined } }))
+    setState((s) => ({
+      ...s,
+      values: { ...s.values, [name]: value },
+      fieldErrors: { ...s.fieldErrors, [name]: undefined },
+    }))
   }, [])
 
   const setFiles = useCallback((name: string, files: File[]) => {
@@ -49,7 +67,8 @@ export function SchemaForm({
       if (field.type === 'image') {
         const files = state.files[field.name] ?? []
         if (field.required && files.length < field.min_count) {
-          fieldErrors[field.name] = `Upload at least ${field.min_count} photo${field.min_count === 1 ? '' : 's'}`
+          fieldErrors[field.name] =
+            `Upload at least ${field.min_count} photo${field.min_count === 1 ? '' : 's'}`
         }
         if (files.length > field.max_count) {
           fieldErrors[field.name] = `Up to ${field.max_count} allowed`
@@ -62,7 +81,12 @@ export function SchemaForm({
       }
     }
     setState((s) => ({ ...s, fieldErrors }))
-    return Object.keys(fieldErrors).length === 0
+    const ok = Object.keys(fieldErrors).length === 0
+    if (!ok) {
+      const first = Object.values(fieldErrors)[0]
+      if (first) toast.error(first)
+    }
+    return ok
   }, [schema, state.files, state.values])
 
   const handleSubmit = useCallback(
@@ -71,11 +95,11 @@ export function SchemaForm({
       if (!validate()) return
       await onSubmit({ values: state.values, files: state.files })
     },
-    [onSubmit, state.files, state.values, validate]
+    [onSubmit, state.files, state.values, validate],
   )
 
   return (
-    <form onSubmit={handleSubmit} className={cn('flex flex-col gap-5', className)}>
+    <form onSubmit={handleSubmit} className={cn('flex flex-col gap-6', className)}>
       {schema.fields.map((field) => (
         <FieldRenderer
           key={field.name}
@@ -87,13 +111,16 @@ export function SchemaForm({
           onFiles={setFiles}
         />
       ))}
-      <button
-        type="submit"
-        disabled={submitting}
-        className="h-11 rounded-md bg-zinc-900 px-5 text-sm font-medium text-zinc-50 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-      >
-        {submitting ? 'Generating…' : ctaLabel}
-      </button>
+      <GradientButton type="submit" disabled={submitting} size="lg" className="w-full">
+        {submitting ? (
+          <span className="inline-flex items-center gap-2">
+            <span className="size-2 animate-pulse rounded-full bg-white" />
+            Generating…
+          </span>
+        ) : (
+          ctaLabel
+        )}
+      </GradientButton>
     </form>
   )
 }
@@ -108,82 +135,189 @@ interface FieldRendererProps {
 }
 
 function FieldRenderer({ field, values, files, error, onText, onFiles }: FieldRendererProps) {
-  const baseLabelClasses = 'text-sm font-medium text-zinc-900 dark:text-zinc-100'
-  const inputClasses =
-    'h-11 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50'
-
   if (field.type === 'image') {
-    const selected = files[field.name] ?? []
     return (
-      <label className="flex flex-col gap-1.5">
-        <span className={baseLabelClasses}>
-          {field.label}
-          {field.required && <span className="text-red-500"> *</span>}
-        </span>
-        {field.hint && <span className="text-xs text-zinc-500">{field.hint}</span>}
-        <input
-          type="file"
-          accept="image/*,.heic,.heif"
-          multiple={field.max_count > 1}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => {
-            const list = Array.from(e.target.files ?? []).slice(0, field.max_count)
-            onFiles(field.name, list)
-          }}
-          className="text-sm text-zinc-600 dark:text-zinc-300"
-        />
-        {selected.length > 0 && (
-          <span className="text-xs text-zinc-500">
-            {selected.length} of max {field.max_count} selected
-          </span>
-        )}
-        {error && <span className="text-xs text-red-500">{error}</span>}
-      </label>
+      <ImageField
+        field={field}
+        files={files[field.name] ?? []}
+        error={error}
+        onFiles={(list) => onFiles(field.name, list)}
+      />
     )
   }
-
   if (field.type === 'text') {
     return (
-      <label className="flex flex-col gap-1.5">
-        <span className={baseLabelClasses}>
-          {field.label}
-          {field.required && <span className="text-red-500"> *</span>}
-        </span>
-        {field.hint && <span className="text-xs text-zinc-500">{field.hint}</span>}
-        <input
-          type="text"
+      <div className="flex flex-col gap-2">
+        <Label htmlFor={field.name} className="flex items-baseline justify-between">
+          <span>
+            {field.label}
+            {field.required && <span className="text-[var(--brand-grad-1)]"> *</span>}
+          </span>
+          {field.hint && <span className="text-xs text-muted-foreground">{field.hint}</span>}
+        </Label>
+        <Input
+          id={field.name}
           maxLength={field.max_length}
           value={typeof values[field.name] === 'string' ? (values[field.name] as string) : ''}
-          onChange={(e) => onText(field.name, e.target.value)}
-          className={inputClasses}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => onText(field.name, e.target.value)}
+          className="h-12 rounded-xl"
         />
-        {error && <span className="text-xs text-red-500">{error}</span>}
-      </label>
+        {error && <span className="text-xs text-destructive">{error}</span>}
+      </div>
     )
   }
-
   // select
+  const current =
+    typeof values[field.name] === 'string' ? (values[field.name] as string) : (field.default ?? '')
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className={baseLabelClasses}>
-        {field.label}
-        {field.required && <span className="text-red-500"> *</span>}
-      </span>
-      {field.hint && <span className="text-xs text-zinc-500">{field.hint}</span>}
-      <select
-        value={typeof values[field.name] === 'string' ? (values[field.name] as string) : (field.default ?? '')}
-        onChange={(e) => onText(field.name, e.target.value)}
-        className={inputClasses}
-      >
-        <option value="" disabled>
-          Pick one…
-        </option>
-        {field.options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      {error && <span className="text-xs text-red-500">{error}</span>}
-    </label>
+    <div className="flex flex-col gap-2">
+      <Label className="flex items-baseline justify-between">
+        <span>
+          {field.label}
+          {field.required && <span className="text-[var(--brand-grad-1)]"> *</span>}
+        </span>
+        {field.hint && <span className="text-xs text-muted-foreground">{field.hint}</span>}
+      </Label>
+      <Select value={current} onValueChange={(v) => onText(field.name, v)}>
+        <SelectTrigger className="h-12 rounded-xl">
+          <SelectValue placeholder="Pick one…" />
+        </SelectTrigger>
+        <SelectContent>
+          {field.options.map((opt) => (
+            <SelectItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {error && <span className="text-xs text-destructive">{error}</span>}
+    </div>
+  )
+}
+
+interface ImageFieldProps {
+  field: Extract<TrendField, { type: 'image' }>
+  files: File[]
+  error?: string
+  onFiles: (files: File[]) => void
+}
+
+function ImageField({ field, files, error, onFiles }: ImageFieldProps) {
+  const [dragOver, setDragOver] = useState(false)
+  const [previews, setPreviews] = useState<string[]>([])
+
+  useEffect(() => {
+    const urls = files.map((f) => URL.createObjectURL(f))
+    setPreviews(urls)
+    return () => {
+      urls.forEach((u) => URL.revokeObjectURL(u))
+    }
+  }, [files])
+
+  const handleFileList = useCallback(
+    (incoming: FileList | File[]) => {
+      const arr = Array.from(incoming).slice(0, field.max_count)
+      onFiles(arr)
+    },
+    [field.max_count, onFiles],
+  )
+
+  const removeAt = useCallback(
+    (idx: number) => {
+      const next = files.filter((_, i) => i !== idx)
+      onFiles(next)
+    },
+    [files, onFiles],
+  )
+
+  const inputId = `file-${field.name}`
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={inputId} className="flex items-baseline justify-between">
+        <span>
+          {field.label}
+          {field.required && <span className="text-[var(--brand-grad-1)]"> *</span>}
+        </span>
+        {field.hint && <span className="text-xs text-muted-foreground">{field.hint}</span>}
+      </Label>
+
+      {previews.length > 0 ? (
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+          {previews.map((src, idx) => (
+            <div
+              key={src}
+              className="group relative aspect-square overflow-hidden rounded-2xl border border-border bg-muted"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt={`Preview ${idx + 1}`} className="h-full w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => removeAt(idx)}
+                aria-label="Remove photo"
+                className="absolute right-1.5 top-1.5 grid size-7 place-items-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ))}
+          {previews.length < field.max_count && (
+            <label
+              htmlFor={inputId}
+              className="grid aspect-square cursor-pointer place-items-center rounded-2xl border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-[var(--brand-grad-1)] hover:text-foreground"
+            >
+              <div className="flex flex-col items-center gap-1 text-xs font-medium">
+                <ImagePlus className="size-5" />
+                Add more
+              </div>
+            </label>
+          )}
+        </div>
+      ) : (
+        <label
+          htmlFor={inputId}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragOver(true)
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragOver(false)
+            if (e.dataTransfer.files?.length) handleFileList(e.dataTransfer.files)
+          }}
+          className={cn(
+            'flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors',
+            dragOver
+              ? 'border-[var(--brand-grad-1)] bg-[var(--brand-grad-1)]/5'
+              : 'border-border bg-muted/40 hover:border-foreground/30',
+          )}
+        >
+          <div className="grid size-12 place-items-center rounded-full bg-gradient-hero text-white shadow-glow-pink">
+            <Upload className="size-5" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-medium">Drop a photo, or tap to browse</span>
+            <span className="text-xs text-muted-foreground">
+              JPG, PNG, HEIC up to ~20MB
+              {field.max_count > 1 ? ` • up to ${field.max_count} photos` : ''}
+            </span>
+          </div>
+        </label>
+      )}
+
+      <input
+        id={inputId}
+        type="file"
+        accept="image/*,.heic,.heif"
+        multiple={field.max_count > 1}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+          if (e.target.files) handleFileList(e.target.files)
+        }}
+        className="sr-only"
+      />
+
+      {error && <span className="text-xs text-destructive">{error}</span>}
+    </div>
   )
 }

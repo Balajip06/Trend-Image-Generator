@@ -1,6 +1,11 @@
 'use client'
 
+import { Sparkles } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'sonner'
+import { GradientButton } from '@/components/brand/GradientButton'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils/cn'
 import type { CreditPack } from '@/lib/payments/packs'
 
 interface PackView {
@@ -17,11 +22,9 @@ interface CreditPacksClientProps {
 
 export function CreditPacksClient({ packs }: CreditPacksClientProps) {
   const [pendingId, setPendingId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
 
   const onBuy = async (packId: string) => {
     setPendingId(packId)
-    setError(null)
     try {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
@@ -34,45 +37,52 @@ export function CreditPacksClient({ packs }: CreditPacksClientProps) {
       }
       window.location.href = json.checkout_url
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Checkout failed')
+      toast.error(err instanceof Error ? err.message : 'Checkout failed')
       setPendingId(null)
     }
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <ul className="grid gap-3 sm:grid-cols-3">
-        {packs.map((pack) => {
-          const dollars = (pack.priceCents / 100).toFixed(2)
-          const perCredit = (pack.perCreditCents / 100).toFixed(3)
-          const pending = pendingId === pack.id
-          return (
-            <li
-              key={pack.id}
-              className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
+    <ul className="grid gap-3 sm:grid-cols-3">
+      {packs.map((pack) => {
+        const dollars = (pack.priceCents / 100).toFixed(2)
+        const perCredit = (pack.perCreditCents / 100).toFixed(3)
+        const pending = pendingId === pack.id
+        const popular = pack.id === 'medium'
+        return (
+          <li
+            key={pack.id}
+            className={cn(
+              'relative flex flex-col gap-4 rounded-2xl border bg-card p-5 transition-shadow',
+              popular
+                ? 'border-[var(--brand-grad-1)]/40 shadow-glow-pink'
+                : 'border-border/60 hover:shadow-soft',
+            )}
+          >
+            {popular && (
+              <Badge className="absolute -top-2 left-5 rounded-full bg-gradient-hero px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                <Sparkles className="size-3" /> Most popular
+              </Badge>
+            )}
+            <div className="flex flex-col gap-1">
+              <h3 className="text-base font-bold">{pack.label}</h3>
+              <p className="text-xs text-muted-foreground">${perCredit} / credit</p>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-extrabold">${dollars}</span>
+              <span className="text-xs text-muted-foreground">USD</span>
+            </div>
+            <GradientButton
+              size="sm"
+              onClick={() => onBuy(pack.id)}
+              disabled={pendingId !== null}
+              className={cn('w-full', !popular && 'bg-foreground bg-none text-background shadow-none')}
             >
-              <div>
-                <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                  {pack.label}
-                </h3>
-                <p className="mt-0.5 text-xs text-zinc-500">${perCredit} / credit</p>
-              </div>
-              <div className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-                ${dollars}
-              </div>
-              <button
-                type="button"
-                onClick={() => onBuy(pack.id)}
-                disabled={pendingId !== null}
-                className="h-9 rounded-md bg-zinc-900 px-3 text-xs font-medium text-zinc-50 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-              >
-                {pending ? 'Opening…' : `Buy ${pack.credits} credits`}
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-      {error && <p className="text-xs text-red-600">{error}</p>}
-    </div>
+              {pending ? 'Opening…' : `Buy ${pack.credits} credits`}
+            </GradientButton>
+          </li>
+        )
+      })}
+    </ul>
   )
 }

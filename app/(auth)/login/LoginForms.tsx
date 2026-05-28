@@ -1,7 +1,12 @@
 'use client'
 
+import { Mail } from 'lucide-react'
 import { useState } from 'react'
 import { TurnstileWidget } from '@/components/auth/TurnstileWidget'
+import { GradientButton } from '@/components/brand/GradientButton'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import { signInWithEmail, signInWithGoogle } from './actions'
 
 interface LoginFormsProps {
@@ -14,55 +19,79 @@ export function LoginForms({ next }: LoginFormsProps) {
   const ready = turnstileGated ? token.length > 0 : true
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-5">
       <form action={signInWithGoogle}>
         <input type="hidden" name="next" value={next} />
         <input type="hidden" name="turnstile_token" value={token} />
         <button
           type="submit"
           disabled={!ready}
-          className="flex h-11 w-full items-center justify-center rounded-md border border-zinc-200 bg-white text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50 dark:hover:bg-zinc-800"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-full border border-border bg-card text-sm font-semibold transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
         >
+          <GoogleGlyph />
           Continue with Google
         </button>
       </form>
 
       <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-zinc-200 dark:border-zinc-800" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-zinc-50 px-2 text-zinc-500 dark:bg-black">or</span>
-        </div>
+        <Separator />
+        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-card px-3 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+          or
+        </span>
       </div>
 
-      <form action={signInWithEmail} className="space-y-3">
+      <form action={signInWithEmail} className="flex flex-col gap-3">
         <input type="hidden" name="next" value={next} />
         <input type="hidden" name="turnstile_token" value={token} />
-        <input
-          type="email"
-          name="email"
-          required
-          placeholder="you@example.com"
-          className="h-11 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50"
-        />
-        <button
-          type="submit"
-          disabled={!ready}
-          className="h-11 w-full rounded-md bg-zinc-900 text-sm font-medium text-zinc-50 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-        >
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            name="email"
+            required
+            placeholder="you@example.com"
+            className="h-12 rounded-xl"
+            autoComplete="email"
+          />
+        </div>
+        <GradientButton type="submit" size="lg" disabled={!ready} className="w-full">
+          <Mail className="size-4" />
           Send magic link
-        </button>
+        </GradientButton>
       </form>
 
       {turnstileGated && (
         <div className="flex flex-col items-center gap-2">
           <TurnstileWidget onToken={setToken} />
           {!token && (
-            <p className="text-xs text-zinc-500">Waiting for bot-check…</p>
+            <p className="text-xs text-muted-foreground">Waiting for bot-check…</p>
           )}
         </div>
       )}
     </div>
+  )
+}
+
+function GoogleGlyph() {
+  return (
+    <svg aria-hidden width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.49h4.84c-.21 1.13-.84 2.08-1.79 2.72v2.26h2.9c1.7-1.57 2.69-3.88 2.69-6.63z"
+        fill="#4285F4"
+      />
+      <path
+        d="M9 18c2.43 0 4.47-.81 5.96-2.18l-2.9-2.26c-.81.54-1.83.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A8.997 8.997 0 0 0 9 18z"
+        fill="#34A853"
+      />
+      <path
+        d="M3.95 10.7A5.41 5.41 0 0 1 3.66 9c0-.59.1-1.17.29-1.7V4.97H.96A8.997 8.997 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.33z"
+        fill="#FBBC05"
+      />
+      <path
+        d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A8.997 8.997 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z"
+        fill="#EA4335"
+      />
+    </svg>
   )
 }

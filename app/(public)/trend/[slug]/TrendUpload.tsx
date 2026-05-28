@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useCallback, useState } from 'react'
+import { toast } from 'sonner'
 import { SchemaForm } from '@/components/upload/SchemaForm'
 import { analytics, EVENTS } from '@/lib/analytics/client'
 import { generateIdempotencyKey } from '@/lib/idempotency'
@@ -20,12 +21,10 @@ const SIGNED_URL_TTL_SECONDS = 3600
 export function TrendUpload({ trendSlug, schema, model }: TrendUploadProps) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = useCallback(
     async (payload: { values: Record<string, string | string[]>; files: Record<string, File[]> }) => {
       setSubmitting(true)
-      setError(null)
 
       const fileCount = Object.values(payload.files).reduce((n, fs) => n + fs.length, 0)
       analytics.track(EVENTS.UPLOAD_STARTED, { trend_slug: trendSlug, file_count: fileCount })
@@ -91,17 +90,12 @@ export function TrendUpload({ trendSlug, schema, model }: TrendUploadProps) {
           reason: 'invalid',
           attempts: 0,
         })
-        setError(message)
+        toast.error(message)
         setSubmitting(false)
       }
     },
     [model, router, trendSlug]
   )
 
-  return (
-    <div className="flex flex-col gap-4">
-      <SchemaForm schema={schema} onSubmit={handleSubmit} submitting={submitting} ctaLabel="Generate" />
-      {error && <p className="text-sm text-red-600">{error}</p>}
-    </div>
-  )
+  return <SchemaForm schema={schema} onSubmit={handleSubmit} submitting={submitting} ctaLabel="Generate" />
 }

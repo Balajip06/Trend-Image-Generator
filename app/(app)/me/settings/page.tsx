@@ -1,12 +1,19 @@
+import { Gift, Sparkles, Trash2 } from 'lucide-react'
 import { redirect } from 'next/navigation'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
 import { MOCK_PROFILE, MOCK_TRENDS_ENABLED } from '@/lib/dev/mock-data'
 import { CREDIT_PACKS } from '@/lib/payments/packs'
 import { buildReferralUrl } from '@/lib/referrals/links'
 import { createClient } from '@/lib/supabase/server'
 import { CreditPacksClient } from './CreditPacksClient'
+import { ReferralCopyButton } from './ReferralCopyButton'
 
 export const dynamic = 'force-dynamic'
+
+const FREE_QUOTA_WEEKLY = 5
+const BONUS_CAP = 50
 
 interface ProfileRow {
   email: string
@@ -60,6 +67,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
 
     profile = (profileRow as unknown as ProfileRow | null) ?? null
   }
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
   const referralUrl = profile ? buildReferralUrl(siteUrl, profile.referral_code) : null
 
@@ -72,70 +80,170 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
   }))
 
   return (
-    <section className="flex max-w-2xl flex-col gap-10">
-      <header>
-        <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">Settings</h1>
+    <section className="flex flex-col gap-10">
+      <header className="flex flex-col gap-2">
+        <h1 className="text-4xl font-extrabold tracking-tight">
+          <span className="text-gradient-hero">Settings</span>
+        </h1>
+        {profile && <p className="text-sm text-muted-foreground">Signed in as {profile.email}</p>}
       </header>
 
       {purchase === 'success' && (
-        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
           Purchase complete{pack ? ` — ${pack} pack credited` : ''}. Credits should appear in a moment.
-        </p>
+        </div>
       )}
       {purchase === 'cancelled' && (
-        <p className="rounded-md bg-zinc-100 px-3 py-2 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+        <div className="rounded-2xl border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
           Checkout cancelled — no charge made.
-        </p>
+        </div>
       )}
 
       {profile && (
         <>
-          <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Quota</h2>
-            <dl className="grid grid-cols-2 gap-3 text-sm">
-              <dt className="text-zinc-500">Free this week</dt>
-              <dd className="text-zinc-900 dark:text-zinc-50">{profile.free_used_this_week} / 5</dd>
-              <dt className="text-zinc-500">Credits</dt>
-              <dd className="text-zinc-900 dark:text-zinc-50">{profile.credits_balance}</dd>
-              <dt className="text-zinc-500">Bonus earned</dt>
-              <dd className="text-zinc-900 dark:text-zinc-50">{profile.bonus_credits_earned} / 50</dd>
-            </dl>
+          {/* Quota dashboard */}
+          <div className="rounded-3xl border border-border/60 bg-card p-6 sm:p-8">
+            <h2 className="text-2xl font-extrabold tracking-tight">Your quota</h2>
+            <div className="mt-6 grid gap-6 sm:grid-cols-3">
+              <QuotaMeter
+                label="Free this week"
+                used={profile.free_used_this_week}
+                cap={FREE_QUOTA_WEEKLY}
+                accent="pink"
+              />
+              <QuotaMeter
+                label="Credits"
+                used={profile.credits_balance}
+                cap={Math.max(profile.credits_balance, 100)}
+                accent="cyan"
+                showAsBalance
+              />
+              <QuotaMeter
+                label="Bonus earned"
+                used={profile.bonus_credits_earned}
+                cap={BONUS_CAP}
+                accent="gold"
+              />
+            </div>
           </div>
 
-          <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Buy credits</h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Credits never expire. Pro perks while you have credits: no watermark, generations saved forever, premium support.
+          {/* Buy credits */}
+          <div className="rounded-3xl border border-border/60 bg-card p-6 sm:p-8">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-2xl font-extrabold tracking-tight">Buy credits</h2>
+              <Badge variant="outline" className="rounded-full text-xs">
+                <Sparkles className="size-3" /> No watermark on Pro
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Credits never expire. While you have credits: no watermark, generations saved forever, premium support.
             </p>
-            <CreditPacksClient packs={packs} />
+            <div className="mt-6">
+              <CreditPacksClient packs={packs} />
+            </div>
           </div>
 
-          <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Invite friends</h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              You get +10 credits when an invitee completes their first generation. Max 50 bonus credits total.
-            </p>
-            <code className="block break-all rounded bg-zinc-100 p-3 text-xs dark:bg-zinc-800">
-              {referralUrl}
-            </code>
-          </div>
+          {/* Referral */}
+          {referralUrl && (
+            <div className="rounded-3xl border border-border/60 bg-gradient-spotlight/20 p-6 sm:p-8">
+              <div className="flex items-center gap-2">
+                <Gift className="size-5 text-[var(--brand-grad-1)]" />
+                <h2 className="text-2xl font-extrabold tracking-tight">Invite friends</h2>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                +10 credits per friend that finishes their first generation. Max {BONUS_CAP} bonus credits.
+              </p>
+              <div className="mt-5 flex items-center gap-2 rounded-2xl border border-border bg-card p-2">
+                <code className="flex-1 truncate px-3 py-2 font-mono text-xs">{referralUrl}</code>
+                <ReferralCopyButton url={referralUrl} />
+              </div>
+            </div>
+          )}
         </>
       )}
 
-      <div className="flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 p-6 dark:border-red-950 dark:bg-red-950/40">
-        <h2 className="text-lg font-semibold text-red-900 dark:text-red-200">Danger zone</h2>
-        <p className="text-sm text-red-800 dark:text-red-300">
-          Soft-deletes your account. Your profile is marked deleted immediately and purged after 30 days (GDPR).
+      {/* Danger zone */}
+      <div className="rounded-3xl border border-destructive/30 bg-destructive/5 p-6 sm:p-8">
+        <div className="flex items-center gap-2">
+          <Trash2 className="size-5 text-destructive" />
+          <h2 className="text-xl font-extrabold tracking-tight text-destructive">Danger zone</h2>
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Soft-deletes your account. Profile marked deleted immediately and purged after 30 days (GDPR).
         </p>
-        <form action={softDeleteAccount}>
-          <button
+        <form action={softDeleteAccount} className="mt-4">
+          <Button
             type="submit"
-            className="h-10 rounded-md bg-red-600 px-4 text-sm font-medium text-white hover:bg-red-700"
+            variant="destructive"
+            size="lg"
+            className="rounded-full"
           >
             Delete my account
-          </button>
+          </Button>
         </form>
       </div>
     </section>
   )
+}
+
+interface QuotaMeterProps {
+  label: string
+  used: number
+  cap: number
+  accent: 'pink' | 'cyan' | 'gold'
+  /** When true, the big number shows `used` as a raw balance not "used / cap". */
+  showAsBalance?: boolean
+}
+
+function QuotaMeter({ label, used, cap, accent, showAsBalance }: QuotaMeterProps) {
+  const RADIUS = 42
+  const CIRC = 2 * Math.PI * RADIUS
+  const pct = cap > 0 ? Math.min(1, used / cap) : 0
+  const dash = CIRC * pct
+  const stroke = ACCENT_STROKE[accent]
+  return (
+    <div className="flex items-center gap-4">
+      <div className="relative grid size-24 shrink-0 place-items-center">
+        <svg width="96" height="96" viewBox="0 0 100 100" className="-rotate-90">
+          <circle
+            cx="50"
+            cy="50"
+            r={RADIUS}
+            fill="none"
+            className="stroke-border"
+            strokeWidth="10"
+          />
+          <circle
+            cx="50"
+            cy="50"
+            r={RADIUS}
+            fill="none"
+            stroke={stroke}
+            strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={CIRC}
+            strokeDashoffset={CIRC - dash}
+          />
+        </svg>
+        <div className="absolute flex flex-col items-center text-center">
+          <span className="text-xl font-extrabold leading-none">{used}</span>
+          {!showAsBalance && <span className="text-[10px] uppercase tracking-wider text-muted-foreground">of {cap}</span>}
+        </div>
+      </div>
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-semibold">{label}</p>
+        {showAsBalance ? (
+          <p className="text-xs text-muted-foreground">credits in wallet</p>
+        ) : (
+          <p className="text-xs text-muted-foreground">{cap - used} remaining</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const ACCENT_STROKE: Record<'pink' | 'cyan' | 'gold', string> = {
+  pink: '#ff2e63',
+  cyan: '#00d4ff',
+  gold: '#ffd93d',
 }
