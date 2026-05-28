@@ -1,4 +1,4 @@
-import { Gift, Sparkles, Trash2 } from 'lucide-react'
+import { FileDown, Gift, Sparkles, Trash2 } from 'lucide-react'
 import { redirect } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import { CREDIT_PACKS } from '@/lib/payments/packs'
 import { buildReferralUrl } from '@/lib/referrals/links'
 import { createClient } from '@/lib/supabase/server'
 import { CreditPacksClient } from './CreditPacksClient'
+import { DataExportButton } from './DataExportButton'
 import { ReferralCopyButton } from './ReferralCopyButton'
 
 export const dynamic = 'force-dynamic'
@@ -161,6 +162,20 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
           )}
         </>
       )}
+
+      {/* Your data — GDPR Article 15 right-of-access */}
+      <div className="rounded-3xl border border-border/60 bg-card p-6 sm:p-8">
+        <div className="flex items-center gap-2">
+          <FileDown className="size-5 text-[var(--brand-grad-2)]" />
+          <h2 className="text-2xl font-extrabold tracking-tight">Your data</h2>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Download everything we store about you — profile + generation history + signed URLs valid for 1 hour (GDPR Article 15).
+        </p>
+        <div className="mt-5">
+          <DataExportButton />
+        </div>
+      </div>
 
       {/* Danger zone */}
       <div className="rounded-3xl border border-destructive/30 bg-destructive/5 p-6 sm:p-8">

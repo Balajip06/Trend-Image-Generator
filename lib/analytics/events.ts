@@ -25,6 +25,7 @@ export const EVENTS = {
   CHECKOUT_COMPLETED: 'checkout_completed',
   SIGNUP_COMPLETED: 'signup_completed',
   ACCOUNT_DELETED: 'account_deleted',
+  DATA_EXPORTED: 'data_exported',
 } as const
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS]
@@ -81,6 +82,7 @@ export interface PayloadByEvent {
   [EVENTS.CHECKOUT_COMPLETED]: BasePayload & { credit_pack: '50' | '200' | '600'; price_usd: number }
   [EVENTS.SIGNUP_COMPLETED]: BasePayload & { method: 'google' | 'magic_link'; referred: boolean }
   [EVENTS.ACCOUNT_DELETED]: BasePayload
+  [EVENTS.DATA_EXPORTED]: BasePayload & { generation_count: number }
 }
 
 /**
