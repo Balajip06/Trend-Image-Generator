@@ -2,6 +2,32 @@
 
 Append at end of each session. Newest on top.
 
+## 2026-05-28 — Phase 3 impl: push notifications + email fallback wired end-to-end
+
+**Done:**
+- `app/api/push/subscribe/route.ts` — authed POST. Zod validates standard `PushSubscriptionJSON` shape; accepts `null` to clear. Writes `profiles.push_subscription` (cast-to-`never` until supabase:types lands).
+- `app/api/push/dispatch/route.ts` — service-role-bearer authed POST `{ generation_id: uuid }`. Loads gen + profile + trend; tries Web Push first via `sendPush` with deep-link `/result/<id>` + tag `gen-<id>`; on push 404/410 clears stale `profiles.push_subscription` and falls through to email; if no subscription or push terminally fails, sends Resend via `buildResultReadyEmail`. Returns `{ delivered: 'push' | 'email' | 'none' }`.
+- `lib/push/client.ts` — `isPushSupported`, `isIosSafariNeedsInstall`, `getPermissionState`, `registerServiceWorker`, `ensurePushSubscription` (asks permission only on `default`, subscribes via PushManager with VAPID public key from `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, POSTs to `/api/push/subscribe`). Discriminated `EnsureResult`: `unsupported | denied | needs_pwa_install | no_vapid_key | subscribe_failed | post_failed`. Type fix: cast `Uint8Array<ArrayBufferLike>` → `BufferSource` at `subscribe()` call site.
+- `components/push/PushBootstrapper.tsx` — `'use client'`, mounted once in `app/(app)/layout.tsx`. Calls `registerServiceWorker` on mount only — registration ready for later opt-in.
+- `app/(app)/result/[id]/ResultView.tsx` — new effect on `row.status`: first transition to `completed` triggers `ensurePushSubscription` exactly once per mount (`useRef` guard). iOS-Safari-needs-install surfaces grey "Add to Home Screen" hint; denial silent no-op.
+- `supabase/functions/generate-image/index.ts` — new `dispatchNotification(generationId)` after marking `completed`. Reads `SITE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from Deno.env, POSTs to `${SITE_URL}/api/push/dispatch` with bearer auth, 8s timeout, failure swallowed (best-effort — Realtime/poll path still works).
+- `supabase/functions/generate-image/README.md` — documents new `SITE_URL` secret.
+
+**Verification:**
+- `pnpm typecheck` clean
+- `pnpm test` 78/78 across 12 suites (unchanged)
+- `pnpm build` clean — **19 routes** (added `/api/push/subscribe` + `/api/push/dispatch`)
+
+**Commits:**
+- `89310af` feat: phase 3 impl - push notifications + email fallback wired end-to-end
+
+**Phase 3 remaining (user-side only):**
+- Deploy Edge Function + set `GEMINI_API_KEY` + `SITE_URL` secrets
+- Configure Database Webhook in Supabase Dashboard
+- Run 12-test verification runbook in README.md
+
+---
+
 Format:
 ```
 ## YYYY-MM-DD — short title

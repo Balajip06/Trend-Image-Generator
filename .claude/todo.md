@@ -178,14 +178,15 @@ External prerequisites (run in parallel where possible):
   - [x] ResultView client component: Realtime postgres_changes subscribe filtered `id=eq.<id>`, exits subscription when terminal
   - [x] Retry button reuses original Idempotency-Key (duplicate-key replay path, no quota rededuct)
   - [x] Pills for pending / processing / completed / failed_retryable (shows attempts) / failed; download button on completed
-- [ ] Web Push wiring:
+- [x] Web Push wiring:
   - [x] VAPID env template in `.env.local.example`
   - [x] Service worker file `/sw.js` exists
-  - [ ] Service worker registration in client layout effect
-  - [ ] Permission asked AFTER first successful generation completes
-  - [ ] iOS Safari detect → "Add to Home Screen" hint
-  - [ ] Push send from Edge Function on completion via `lib/push/send.ts`
-- [ ] Email fallback via `buildResultReadyEmail` when push subscription null or expired
+  - [x] `PushBootstrapper` registers SW in `app/(app)/layout.tsx` (silent, no prompt)
+  - [x] Permission asked AFTER first successful generation completes — `ResultView` useEffect with `useRef` guard
+  - [x] iOS Safari detect → "Add to Home Screen" hint surfaced under result
+  - [x] Push send from Edge Function on completion → `dispatchNotification` → `/api/push/dispatch` → `lib/push/send.ts`
+  - [x] `/api/push/subscribe` persists subscription in `profiles.push_subscription`; auto-clears on 404/410
+- [x] Email fallback via `buildResultReadyEmail` when push subscription null OR push send 404/410-expired (in `/api/push/dispatch`)
 - [ ] User-side: deploy Edge Function (`pnpm supabase functions deploy generate-image --no-verify-jwt`) + set `GEMINI_API_KEY` secret + configure Database Webhook
 - [ ] Verification: idempotency replay (1 row, 1 call), retry path, refund on fail, push fires <1s, email fallback <30s
 
