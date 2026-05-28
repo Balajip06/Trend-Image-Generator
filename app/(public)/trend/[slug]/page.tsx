@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { buildFAQJsonLd, buildHowToJsonLd } from '@/lib/seo/json-ld'
 import { getActiveTrendBySlug } from '@/lib/trends/repository'
+import { TrendUpload } from './TrendUpload'
 
 export const revalidate = 3600 // ISR — refresh hourly
 
@@ -92,10 +93,7 @@ export default async function TrendPage({ params }: TrendPageProps) {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Try it</h2>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          {/* TODO Phase 3: render SchemaForm wired to /api/generate */}
-          Upload + generate flow wires here in Phase 3.
-        </p>
+        <TrendUpload trendSlug={trend.slug} schema={trend.input_schema} />
       </section>
 
       {trend.faq.length > 0 && (
