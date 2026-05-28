@@ -84,8 +84,9 @@ External prerequisites (run in parallel where possible):
 - [x] PostHog SDK installed (posthog-js + posthog-node)
 - [x] Sentry SDK installed (@sentry/nextjs v10)
 - [x] PostHog provider component wired in `app/layout.tsx`; pageview tracking via usePathname + useSearchParams; env-driven no-op when key absent
-- [x] Sentry config files (sentry.client/server/edge.config.ts) + `instrumentation.ts` registering per-runtime + `next.config.ts` wrapped with `withSentryConfig` (gated on DSN + auth token + prod) — env-driven no-op when DSN absent
-- [ ] PostHog `identify` calls on signup/login + custom events: `trend_view`, `upload_started`, `generate_clicked`, `generate_completed`, `share_clicked`, `referral_redeemed` — wired during Phase 2-4 as features land
+- [x] Sentry config modernized: `instrumentation-client.ts` (replaces sentry.client.config.ts) + `sentry.server.config.ts` + `sentry.edge.config.ts` + `instrumentation.ts` per-runtime register + `onRequestError` re-export + `next.config.ts` `withSentryConfig` (gated on DSN + auth token + prod)
+- [x] `app/global-error.tsx` — catches root-layout-escaping render errors and Sentry.captureException
+- [x] PostHog `identify` + 15-event catalog wired across client + server (see Phase 4 entries)
 - [ ] Sentry source-map upload tested in production deploy — needs SENTRY_AUTH_TOKEN
 
 ### 1.7 Test Stack
