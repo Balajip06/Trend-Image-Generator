@@ -189,6 +189,31 @@ async function process(supabase: ReturnType<typeof createClient>, gen: Generatio
       completed_at: new Date().toISOString(),
     })
     .eq('id', gen.id)
+
+  // 7. Fire-and-forget push + email dispatch via Next.js API. Best-effort —
+  //    failure here does not roll back the completed generation; user can
+  //    still poll via Realtime or open /me/creations.
+  await dispatchNotification(gen.id)
+}
+
+async function dispatchNotification(generationId: string): Promise<void> {
+  const siteUrl = Deno.env.get('SITE_URL')
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  if (!siteUrl || !serviceKey) return
+
+  try {
+    await fetch(`${siteUrl.replace(/\/$/, '')}/api/push/dispatch`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({ generation_id: generationId }),
+      signal: AbortSignal.timeout(8_000),
+    })
+  } catch {
+    // Swallow — push delivery is best-effort.
+  }
 }
 
 async function terminalFail(

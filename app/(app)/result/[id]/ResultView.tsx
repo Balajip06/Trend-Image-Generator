@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { ensurePushSubscription, getPermissionState, isIosSafariNeedsInstall } from '@/lib/push/client'
 import { createClient } from '@/lib/supabase/client'
 
 type Status = 'pending' | 'processing' | 'completed' | 'failed' | 'failed_retryable'
@@ -30,6 +31,28 @@ export function ResultView({ initial, trend }: ResultViewProps) {
   const [row, setRow] = useState<Initial>(initial)
   const [retrying, setRetrying] = useState(false)
   const [retryError, setRetryError] = useState<string | null>(null)
+  const [pushHint, setPushHint] = useState<string | null>(null)
+  const askedRef = useRef(false)
+
+  useEffect(() => {
+    if (row.status !== 'completed') return
+    if (askedRef.current) return
+    askedRef.current = true
+
+    const state = getPermissionState()
+    if (state === 'unsupported' || state === 'denied') return
+
+    if (isIosSafariNeedsInstall()) {
+      setPushHint('Add this site to your Home Screen to get push notifications next time.')
+      return
+    }
+
+    void ensurePushSubscription().then((res) => {
+      if (!res.ok && res.reason === 'needs_pwa_install') {
+        setPushHint('Add this site to your Home Screen to enable push.')
+      }
+    })
+  }, [row.status])
 
   useEffect(() => {
     if (row.status === 'completed' || row.status === 'failed') return
@@ -134,6 +157,7 @@ export function ResultView({ initial, trend }: ResultViewProps) {
       </div>
 
       {retryError && <p className="text-sm text-red-600">{retryError}</p>}
+      {pushHint && <p className="text-xs text-zinc-500">{pushHint}</p>}
     </section>
   )
 }
