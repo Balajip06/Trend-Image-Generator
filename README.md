@@ -46,7 +46,10 @@ Open <http://localhost:3000>.
 | `pnpm test:e2e` / `pnpm test:e2e:ui` | Playwright |
 | `pnpm supabase:start` / `pnpm supabase:stop` / `pnpm supabase:reset` | Local Supabase stack |
 | `pnpm supabase:types` | Regenerate `lib/supabase/database.types.ts` from live schema |
+| `pnpm supabase:diff` | Diff local DB against migrations (catches drift) |
 | `pnpm supabase:migration:new <name>` | Create timestamped migration |
+| `pnpm test:e2e` / `pnpm test:e2e:ui` | Playwright E2E (chromium, webkit, mobile-chrome, mobile-safari) |
+| `pnpm test:e2e:visual` | Visual baseline run (`RUN_VISUAL_BASELINE=true`) |
 
 ## Folder layout
 
@@ -75,20 +78,22 @@ Open <http://localhost:3000>.
 
 See [`CLAUDE.md`](CLAUDE.md) for the full list and current phase state.
 
-## Phase 1 verification runbook
+## Verification
 
-Run after `pnpm supabase start && pnpm supabase db reset` succeeds (replaces the seed admin email with yours first).
+The full ship gate is a 14-test matrix in [`docs/RUNBOOK.md`](docs/RUNBOOK.md) (RLS quota, idempotency replay, retry + refund, schema-driven form, eval gate, push + email fallback, SSR HTML, pg_cron purges, referral farming guard, Stripe webhook dedup, GDPR cascade, PostHog funnel). Run after every external credential is in `.env.local`.
 
-1. **RLS quota block** — as a signed-in user with `free_used_this_week=5, credits_balance=0`, `INSERT INTO generations …` raises `quota exhausted`.
-2. **RLS quota success + decrement** — same insert with `credits_balance=1` succeeds; `credits_balance` decrements via trigger.
-3. **Idempotency replay** — POST `/api/generate` twice with same `Idempotency-Key` → 1 row in DB, second response has `replayed: true`.
-4. **Admin gate** — non-admin user visits `/admin` → middleware redirects to `/`.
-5. **Stripe webhook dedup** — send the same event twice → only one row in `webhook_events`; second call still 200.
-6. **Anonymous 2nd attempt** — POST `/api/generate-anonymous` twice from same fingerprint+IP → second returns 409.
-7. **Anonymous budget breach** — populate `anonymous_attempts.cost_usd` so the 24-hour sum ≥ `ANONYMOUS_DAILY_BUDGET_USD` → endpoint returns 503.
-8. **Eval gate** — `UPDATE trends SET is_active=true WHERE eval_status='untested'` is blocked by check constraint.
-9. **Soft-delete** — `UPDATE profiles SET deleted_at = now()` → user can no longer read own profile (RLS filter).
-10. **Pg_cron** — `SELECT jobname FROM cron.job;` lists 4 jobs: `reset_free_weekly`, `purge_expired_generations`, `purge_expired_anonymous`, `purge_soft_deleted_profiles`.
+Quick local sanity check (no creds needed):
+
+```bash
+pnpm typecheck && pnpm lint && pnpm test && pnpm build
+```
+
+## Documentation
+
+| File | Purpose |
+|---|---|
+| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | Step-by-step from creds-arrival to MVP ship, plus the 14-test verification matrix |
+| [`docs/CREDENTIALS.md`](docs/CREDENTIALS.md) | Every env var, where to get it, what breaks if missing |
 
 ## Database Webhooks (configure in Supabase Dashboard)
 
