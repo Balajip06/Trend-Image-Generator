@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
+import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
 import { createClient } from '@/lib/supabase/server'
 import { findPack, isPackId, requirePackPriceId } from '@/lib/payments/packs'
 
@@ -66,6 +67,12 @@ export async function POST(request: NextRequest) {
   if (!session.url) {
     return NextResponse.json({ error: 'Stripe returned no checkout url' }, { status: 502 })
   }
+
+  trackServer(user.id, EVENTS.CHECKOUT_STARTED, {
+    credit_pack: pack.id === 'small' ? '50' : pack.id === 'medium' ? '200' : '600',
+    price_usd: pack.priceCents / 100,
+  })
+  await flushServer()
 
   return NextResponse.json({ checkout_url: session.url, session_id: session.id })
 }

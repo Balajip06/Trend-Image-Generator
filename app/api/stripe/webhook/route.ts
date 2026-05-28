@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import Stripe from 'stripe'
+import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { grantCredits } from '@/lib/payments/credits'
 import { findPack, isPackId } from '@/lib/payments/packs'
@@ -120,4 +121,10 @@ async function handleCheckoutCompleted(
   if (!result.ok) {
     throw new Error(`grant_credits failed: ${result.error}`)
   }
+
+  trackServer(userId, EVENTS.CHECKOUT_COMPLETED, {
+    credit_pack: pack.id === 'small' ? '50' : pack.id === 'medium' ? '200' : '600',
+    price_usd: pack.priceCents / 100,
+  })
+  await flushServer()
 }

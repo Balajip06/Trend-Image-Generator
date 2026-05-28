@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
 import { createClient } from '@/lib/supabase/server'
 import { buildReferralUrl } from '@/lib/referrals/links'
 
@@ -22,6 +23,10 @@ async function softDeleteAccount(): Promise<void> {
   // Cast required until `pnpm supabase:types` regenerates strict Database types.
   const update = { deleted_at: new Date().toISOString() } as never
   await supabase.from('profiles').update(update).eq('id', user.id)
+
+  trackServer(user.id, EVENTS.ACCOUNT_DELETED, {})
+  await flushServer()
+
   await supabase.auth.signOut()
   redirect('/')
 }
