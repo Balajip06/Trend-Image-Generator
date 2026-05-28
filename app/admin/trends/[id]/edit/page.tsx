@@ -107,21 +107,23 @@ export default async function EditTrendPage({ params, searchParams }: EditTrendP
         initial={trend}
         submitLabel="Save changes"
         extraActions={
-          <form action={boundToggle}>
-            <Button
-              type="submit"
-              variant={trend.is_active ? 'outline' : 'default'}
-              size="lg"
-              disabled={!trend.is_active && !canActivate}
-              title={
-                !trend.is_active && !canActivate
-                  ? 'Eval must pass before activating'
-                  : undefined
-              }
-            >
-              {trend.is_active ? 'Deactivate' : canActivate ? 'Activate' : 'Activate (eval required)'}
-            </Button>
-          </form>
+          // Same submit button as the parent form, but `formAction` overrides
+          // the action target so this button posts to boundToggle instead.
+          // Avoids a nested <form> (invalid HTML / hydration error).
+          <Button
+            type="submit"
+            formAction={boundToggle}
+            variant={trend.is_active ? 'outline' : 'default'}
+            size="lg"
+            disabled={!trend.is_active && !canActivate}
+            title={
+              !trend.is_active && !canActivate
+                ? 'Eval must pass before activating'
+                : undefined
+            }
+          >
+            {trend.is_active ? 'Deactivate' : canActivate ? 'Activate' : 'Activate (eval required)'}
+          </Button>
         }
       />
     </section>
