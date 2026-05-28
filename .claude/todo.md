@@ -214,7 +214,8 @@ External prerequisites (run in parallel where possible):
 - [x] PostHog provider component + bind to `lib/analytics/client.ts` singleton on mount
 - [x] Client `track()` call sites: UPLOAD_STARTED, GENERATE_CLICKED, GENERATE_COMPLETED, GENERATE_FAILED, PUSH_PERMISSION_REQUESTED/GRANTED/DENIED, DOWNLOAD_CLICKED (9 of 15 events)
 - [ ] Server-side `track()` for SIGNUP_COMPLETED, ACCOUNT_DELETED, REFERRAL_REDEEMED, CHECKOUT_STARTED/COMPLETED — needs posthog-node identify-and-capture wrapper
-- [ ] SHARE_CLICKED, TREND_VIEW — share UI not yet built; pageview auto-capture via posthog-js handles TREND_VIEW implicitly
+- [x] SHARE_CLICKED — `ShareButtons` on `ResultView`: native Web Share with image-Blob attachment, X/Twitter intent, WhatsApp wa.me, Copy link; fires per-channel
+- [x] TREND_VIEW — posthog-js `$pageview` auto-capture in `posthog-provider.tsx`
 - [ ] Data export server action on settings — JSON zip of (profile + generations rows + presigned URLs)
 - [x] pg_cron daily/weekly jobs — already in migration 0005
 - [ ] Anomaly alert: PostHog funnel if user spikes >5 gens/hr (post-launch)
