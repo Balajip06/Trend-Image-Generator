@@ -64,7 +64,7 @@ const trends: SeedTrend[] = [
     title: 'Ghibli-style portrait',
     description: 'Turn your selfie into a soft, painterly Studio Ghibli still.',
     prompt_template:
-      'A Studio Ghibli style portrait of the subject in the photo, soft lighting, hand-painted background, gentle color palette, preserve facial features',
+      "A Studio Ghibli-style hand-painted portrait of the subject in the reference photo, rendered in the visual language of Hayao Miyazaki and Studio Ghibli circa Spirited Away and Howl's Moving Castle. Soft watercolor textures, gentle gradient backgrounds in pastel sky tones, painterly cloud detail, warm late-afternoon golden-hour lighting, subtle blush on the cheeks, expressive eyes with characteristic Ghibli highlights and catchlights, slightly simplified facial geometry while preserving the subject's exact age, ethnicity, hair color, hairstyle, and individual features. Square 1:1 composition, head and shoulders framed, centered. No text, no logos, no watermarks, no extra people in frame.",
     model: 'nano-banana-pro',
     aspect_ratio: '1:1',
     input_schema: singlePhoto,
@@ -84,7 +84,7 @@ const trends: SeedTrend[] = [
     title: 'Pixar 3D character',
     description: 'Reimagine yourself as a Pixar-style 3D animated character.',
     prompt_template:
-      'A Pixar style 3D animated character version of the subject in the photo, expressive eyes, soft shading, cinematic lighting, friendly cartoonish proportions, preserve recognizable features',
+      "A Pixar Animation Studios 3D character portrait of the subject in the reference photo, rendered in the modern Pixar production style of Soul, Turning Red, and Inside Out 2. Subsurface-scattering skin shader, soft cinematic key light at 45 degrees with warm fill from camera-right, slightly oversized expressive eyes with proper iris detail and catchlights, soft volumetric hair with strand-level detail, friendly approachable proportions with a hint of facial caricature, clean studio backdrop with a subtle radial gradient. Preserve the subject's exact ethnicity, age range, hair color and hairstyle, eyewear if present, and any distinctive features. Photoreal 3D render quality. Square 1:1 framing, head-and-shoulders composition. No text, no logos, no captions.",
     model: 'nano-banana-pro',
     aspect_ratio: '1:1',
     input_schema: singlePhoto,
@@ -103,7 +103,7 @@ const trends: SeedTrend[] = [
     title: 'Anime-style portrait',
     description: 'Bold-line anime portrait inspired by modern shōnen art.',
     prompt_template:
-      'An anime style portrait of the subject in the photo, sharp linework, vibrant cel-shaded color, dynamic hair flow, expressive eyes, modern shōnen art direction',
+      "A high-quality anime portrait of the subject in the reference photo, executed in the modern shōnen production style of MAPPA, Wit Studio, and Ufotable (think Jujutsu Kaisen, Attack on Titan, Demon Slayer). Crisp confident black ink linework, vibrant cel-shaded color blocks with two-tone shadow rendering, dramatic side lighting from camera-left, dynamic wind-blown hair with motion lines, characteristic anime eyes with multiple highlight points and detailed irises, slight idealization of jaw and cheekbones while preserving the subject's exact ethnicity, age range, hairstyle, and hair color. Portrait 3:4 framing, head and upper torso visible, with a subtle action-implied background (motion lines, soft bokeh, or atmospheric perspective). No text, no logos, no subtitles.",
     model: 'nano-banana-pro',
     aspect_ratio: '3:4',
     input_schema: singlePhoto,
@@ -121,7 +121,7 @@ const trends: SeedTrend[] = [
     title: 'Vintage Polaroid',
     description: 'Faded, sun-soaked 1970s Polaroid aesthetic with a white border.',
     prompt_template:
-      'A vintage 1970s Polaroid photograph of the subject in the photo, slightly faded colors, soft film grain, warm sun-soaked tones, classic white Polaroid border, slight light leak in one corner',
+      "A genuine-looking 1970s Polaroid SX-70 photograph of the subject in the reference photo. Square format with the classic Polaroid white border (thicker bottom edge for the iconic developer tab). Slightly faded, low-saturation colors with the warm pink-and-yellow color cast typical of expired Polaroid film. Soft inherent film grain. Mild orange-red light leak bleeding from the top-right corner. Slightly out-of-focus shallow depth-of-field as if shot at f/4.5 on the integrated SX-70 lens. Subject framed candidly, naturally lit by window light or warm tungsten room lighting. Preserve the subject's exact facial features, age, ethnicity, hairstyle, and clothing color palette. The image must look like it was actually shot in 1976, not a digital filter applied today. No modern artifacts, no text overlay, no watermarks.",
     model: 'nano-banana',
     aspect_ratio: '1:1',
     input_schema: singlePhoto,
@@ -139,7 +139,7 @@ const trends: SeedTrend[] = [
     title: 'Greek marble statue',
     description: 'You, sculpted in classical Greek marble. Dramatic lighting included.',
     prompt_template:
-      'A classical Greek marble statue version of the subject in the photo, pure white marble texture, dramatic side lighting, dark museum background, slight aged patina, preserve facial features',
+      "A photoreal classical Greek marble statue of the subject in the reference photo, sculpted in the Hellenistic tradition (think Pergamon Altar, Venus de Milo, the Apollo Belvedere). Pure Carrara white marble with subtle natural veining, visible chisel marks on any draped fabric, faint amber-toned patina in deep recesses suggesting age, micro-cracks suggesting two millennia of museum display. Dramatic single-source side-lighting from the upper-left at 45 degrees, creating deep shadow falloff that emphasizes three-dimensional form. Dark velvet-black gallery background. Portrait 3:4 framing, head and upper torso visible, classical contrapposto if shown below the shoulders. Preserve the subject's exact bone structure, facial proportions, hairstyle (rendered as carved hair in the classical period style), and any distinctive features. Photographic quality, as if shot on a Hasselblad medium format with a single softbox inside the British Museum. No text, no plinth label, no other people in frame.",
     model: 'nano-banana-pro',
     aspect_ratio: '3:4',
     input_schema: singlePhoto,
