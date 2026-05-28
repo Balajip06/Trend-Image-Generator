@@ -1,4 +1,10 @@
 import { notFound, redirect } from 'next/navigation'
+import {
+  findMockGeneration,
+  findMockTrendById,
+  MOCK_TRENDS_ENABLED,
+  MOCK_USER,
+} from '@/lib/dev/mock-data'
 import { createClient } from '@/lib/supabase/server'
 import { ResultView } from './ResultView'
 
@@ -29,6 +35,29 @@ interface ResultPageProps {
 
 export default async function ResultPage({ params }: ResultPageProps) {
   const { id } = await params
+
+  if (MOCK_TRENDS_ENABLED && id.startsWith('mock-')) {
+    const mockGen = findMockGeneration(id)
+    if (!mockGen) notFound()
+    const mockTrend = findMockTrendById(mockGen.trend_id)
+    const initial: InitialRow = {
+      id: mockGen.id,
+      user_id: MOCK_USER.id,
+      trend_id: mockGen.trend_id,
+      status: mockGen.status,
+      output_image_url: mockGen.output_image_url,
+      error_message: mockGen.error_message,
+      attempts: mockGen.attempts,
+      idempotency_key: mockGen.idempotency_key,
+      created_at: mockGen.created_at,
+      cost_usd: mockGen.cost_usd,
+      completed_at: mockGen.completed_at,
+    }
+    const trend: TrendBrief = mockTrend
+      ? { slug: mockTrend.slug, title: mockTrend.title }
+      : { slug: 'unknown', title: 'Trend' }
+    return <ResultView initial={initial} trend={trend} />
+  }
 
   const supabase = await createClient()
   const {

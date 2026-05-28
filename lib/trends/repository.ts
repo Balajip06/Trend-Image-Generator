@@ -4,6 +4,7 @@
  * "active" definition lives in one place.
  */
 
+import { MOCK_TRENDS, MOCK_TRENDS_ENABLED } from '@/lib/dev/mock-data'
 import { createClient } from '@/lib/supabase/server'
 import { DEFAULT_TREND_INPUT, TrendInputSchema, type TrendInput } from './input-schema'
 
@@ -59,6 +60,8 @@ function coerce(row: Record<string, unknown>): PublicTrend {
 }
 
 export async function listActiveTrends(): Promise<PublicTrend[]> {
+  if (MOCK_TRENDS_ENABLED) return MOCK_TRENDS
+
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('trends')
@@ -70,6 +73,8 @@ export async function listActiveTrends(): Promise<PublicTrend[]> {
 }
 
 export async function getActiveTrendBySlug(slug: string): Promise<PublicTrend | null> {
+  if (MOCK_TRENDS_ENABLED) return MOCK_TRENDS.find((t) => t.slug === slug) ?? null
+
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('trends')

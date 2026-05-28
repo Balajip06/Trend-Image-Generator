@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
+import { MOCK_PROFILE, MOCK_TRENDS_ENABLED } from '@/lib/dev/mock-data'
 import { CREDIT_PACKS } from '@/lib/payments/packs'
 import { buildReferralUrl } from '@/lib/referrals/links'
 import { createClient } from '@/lib/supabase/server'
@@ -39,19 +40,26 @@ interface SettingsPageProps {
 
 export default async function SettingsPage({ searchParams }: SettingsPageProps) {
   const { purchase, pack } = await searchParams
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login?next=/me/settings')
 
-  const { data: profileRow } = await supabase
-    .from('profiles')
-    .select('email, credits_balance, free_used_this_week, referral_code, bonus_credits_earned')
-    .eq('id', user.id)
-    .maybeSingle()
+  let profile: ProfileRow | null
 
-  const profile = (profileRow as unknown as ProfileRow | null) ?? null
+  if (MOCK_TRENDS_ENABLED) {
+    profile = MOCK_PROFILE
+  } else {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) redirect('/login?next=/me/settings')
+
+    const { data: profileRow } = await supabase
+      .from('profiles')
+      .select('email, credits_balance, free_used_this_week, referral_code, bonus_credits_earned')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    profile = (profileRow as unknown as ProfileRow | null) ?? null
+  }
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
   const referralUrl = profile ? buildReferralUrl(siteUrl, profile.referral_code) : null
 

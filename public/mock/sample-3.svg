@@ -1,0 +1,12 @@
+<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a0a0f"/>
+      <stop offset="100%" stop-color="#ff2e63"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#g3)"/>
+  <path d="M 200 500 L 824 200 L 824 800 Z" fill="#ffd93d" fill-opacity="0.4"/>
+  <text x="512" y="620" font-family="system-ui, sans-serif" font-size="84" font-weight="800" text-anchor="middle" fill="white">Anime</text>
+  <text x="512" y="710" font-family="system-ui, sans-serif" font-size="48" font-weight="500" text-anchor="middle" fill="white" fill-opacity="0.85">Fighter</text>
+</svg>

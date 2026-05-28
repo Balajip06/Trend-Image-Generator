@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { MOCK_GENERATIONS, MOCK_TRENDS_ENABLED } from '@/lib/dev/mock-data'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -14,19 +15,32 @@ interface CreationRow {
 }
 
 export default async function CreationsPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login?next=/me/creations')
+  let creations: CreationRow[]
 
-  const { data: rows } = await supabase
-    .from('generations')
-    .select('id, trend_id, status, output_image_url, created_at, purge_at')
-    .order('created_at', { ascending: false })
-    .limit(60)
+  if (MOCK_TRENDS_ENABLED) {
+    creations = MOCK_GENERATIONS.map((g) => ({
+      id: g.id,
+      trend_id: g.trend_id,
+      status: g.status,
+      output_image_url: g.output_image_url,
+      created_at: g.created_at,
+      purge_at: g.purge_at,
+    }))
+  } else {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) redirect('/login?next=/me/creations')
 
-  const creations = ((rows as unknown as CreationRow[]) ?? []).filter(Boolean)
+    const { data: rows } = await supabase
+      .from('generations')
+      .select('id, trend_id, status, output_image_url, created_at, purge_at')
+      .order('created_at', { ascending: false })
+      .limit(60)
+
+    creations = ((rows as unknown as CreationRow[]) ?? []).filter(Boolean)
+  }
 
   return (
     <section className="flex flex-col gap-6">

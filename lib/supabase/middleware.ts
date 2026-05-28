@@ -3,6 +3,13 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from './database.types'
 
 export async function updateSession(request: NextRequest) {
+  // Dev-only escape hatch: MOCK_TRENDS=true short-circuits auth so Playwright
+  // baselines can render authed pages without a real Supabase session.
+  // Never set MOCK_TRENDS in production.
+  if (process.env.MOCK_TRENDS === 'true') {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient<Database>(
