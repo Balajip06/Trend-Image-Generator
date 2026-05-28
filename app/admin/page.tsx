@@ -1,4 +1,4 @@
-import { ArrowRight, Inbox, Sparkles } from 'lucide-react'
+import { Archive, ArrowRight, Inbox, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -59,7 +59,7 @@ export default async function AdminHome() {
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <AdminTile
           href="/admin/trends"
           icon={<Sparkles className="size-5" />}
@@ -74,6 +74,13 @@ export default async function AdminHome() {
           description="Auto-detected and community-submitted candidates."
           accent="from-[var(--brand-violet)] to-[var(--brand-cyan)]"
           badge={counts.pendingSuggestions > 0 ? `${counts.pendingSuggestions} pending` : undefined}
+        />
+        <AdminTile
+          href="/admin/audit"
+          icon={<Archive className="size-5" />}
+          title="Audit log"
+          description="Compliance trail of admin actions + system credit grants."
+          accent="from-[var(--brand-grad-2)] to-[var(--brand-grad-3)]"
         />
       </div>
     </section>

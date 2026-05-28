@@ -1,5 +1,4 @@
 import { Check, ExternalLink, Inbox, X } from 'lucide-react'
-import { redirect } from 'next/navigation'
 import { FlashToasts } from '@/components/admin/FlashToasts'
 import { SourceBadge } from '@/components/admin/StatusBadges'
 import { Button } from '@/components/ui/button'
@@ -40,12 +39,8 @@ interface AdminSuggestionsPageProps {
 export default async function AdminSuggestionsPage({ searchParams }: AdminSuggestionsPageProps) {
   await searchParams // consumed by FlashToasts
 
+  // Auth + admin-role gating happens in proxy.ts (/admin/* route matcher).
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login?next=/admin/suggestions')
-
   const { data: rows } = await supabase
     .from('trend_suggestions')
     .select('id, source, payload, status, created_at')
