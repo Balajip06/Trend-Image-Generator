@@ -50,6 +50,9 @@ next-env.d.ts
 /supabase/.temp
 /supabase/.env
 
+# Graphify tooling cache (local-only knowledge graph)
+graphify-out/
+
 # Sentry
 .sentryclirc
 .sentry-build-plugin

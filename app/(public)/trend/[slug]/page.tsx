@@ -4,6 +4,17 @@ import { buildFAQJsonLd, buildHowToJsonLd } from '@/lib/seo/json-ld'
 import { getActiveTrendBySlug } from '@/lib/trends/repository'
 import { TrendUpload } from './TrendUpload'
 
+// JSON.stringify alone does not escape '<', so untrusted strings containing
+// '</script>' could break out of the JSON-LD script tag. Replace tag bytes
+// with their unicode escape so the browser still parses the JSON but never
+// sees a closing-tag sequence.
+function safeJsonLd(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+}
+
 export const revalidate = 3600 // ISR — refresh hourly
 
 interface TrendPageProps {
@@ -61,13 +72,13 @@ export default async function TrendPage({ params }: TrendPageProps) {
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(howTo) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(howTo) }}
       />
       {trend.faq.length > 0 && (
         <script
           type="application/ld+json"
           // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(buildFAQJsonLd(trend.faq)) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(buildFAQJsonLd(trend.faq)) }}
         />
       )}
 
