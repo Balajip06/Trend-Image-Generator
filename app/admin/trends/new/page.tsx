@@ -37,7 +37,7 @@ export default async function NewTrendPage({ searchParams }: NewTrendPageProps) 
 
       <p className="text-xs text-zinc-500">
         New trends start as drafts. After saving, run the eval suite and mark{' '}
-        <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">eval_status='passed'</code>
+        <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">eval_status=&apos;passed&apos;</code>
         {' '}before activating.
       </p>
     </section>

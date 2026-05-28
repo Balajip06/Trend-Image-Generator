@@ -1,4 +1,4 @@
-import type { SourceFetcher, SourceFetchOptions, TrendCandidate } from './types'
+import type { SourceFetcher, TrendCandidate } from './types'
 
 /**
  * TikTok poller stub. Production implementation will use either the official
@@ -10,7 +10,7 @@ import type { SourceFetcher, SourceFetchOptions, TrendCandidate } from './types'
  */
 export const tiktokSource: SourceFetcher = {
   id: 'tiktok',
-  async fetchTrending(_options?: SourceFetchOptions): Promise<TrendCandidate[]> {
+  async fetchTrending(): Promise<TrendCandidate[]> {
     const key = process.env.TIKTOK_CREATIVE_CENTER_KEY
     if (!key) return []
     // TODO Phase 6 impl: GET https://business-api.tiktok.com/open_api/v1.3/cc/trend/hashtag/...

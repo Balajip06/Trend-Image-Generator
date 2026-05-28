@@ -1,4 +1,4 @@
-import type { SourceFetcher, SourceFetchOptions, TrendCandidate } from './types'
+import type { SourceFetcher, TrendCandidate } from './types'
 
 /**
  * Instagram poller stub. No public trending API; production will likely
@@ -8,7 +8,7 @@ import type { SourceFetcher, SourceFetchOptions, TrendCandidate } from './types'
  */
 export const instagramSource: SourceFetcher = {
   id: 'instagram',
-  async fetchTrending(_options?: SourceFetchOptions): Promise<TrendCandidate[]> {
+  async fetchTrending(): Promise<TrendCandidate[]> {
     const cookie = process.env.INSTAGRAM_SESSION_COOKIE
     if (!cookie) return []
     // TODO Phase 6 impl: scrape explore page; rate-limit + rotating proxy required.

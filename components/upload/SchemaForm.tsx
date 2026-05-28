@@ -208,6 +208,10 @@ function ImageField({ field, files, error, onFiles }: ImageFieldProps) {
 
   useEffect(() => {
     const urls = files.map((f) => URL.createObjectURL(f))
+    // Sync state with externally-created blob URLs; revoke on unmount to free
+    // memory. The setState must happen in the effect because the URLs are
+    // created here and consumed by the JSX below.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPreviews(urls)
     return () => {
       urls.forEach((u) => URL.revokeObjectURL(u))

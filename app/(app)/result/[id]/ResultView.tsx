@@ -99,6 +99,9 @@ export function ResultView({ initial, trend }: ResultViewProps) {
     if (state === 'unsupported' || state === 'denied') return
 
     if (isIosSafariNeedsInstall()) {
+      // One-shot hint flag — synchronous setState here is intentional and
+      // guarded by `askedRef`, so it runs at most once per mount.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPushHint('Add this site to your Home Screen to get push notifications next time.')
       return
     }

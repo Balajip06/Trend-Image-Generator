@@ -35,6 +35,9 @@ export function CreditPacksClient({ packs }: CreditPacksClientProps) {
       if (!res.ok || !json.checkout_url) {
         throw new Error(json.error ?? `Checkout failed (${res.status})`)
       }
+      // Hard nav to Stripe Checkout — intentional. router.push cannot leave the
+      // origin and Stripe Checkout requires a full document navigation.
+      // eslint-disable-next-line react-hooks/immutability
       window.location.href = json.checkout_url
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Checkout failed')
