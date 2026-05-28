@@ -32,7 +32,7 @@ export function GradientButton({
       data-slot="gradient-button"
       className={cn(
         'group relative inline-flex shrink-0 items-center justify-center gap-2 overflow-hidden rounded-full font-semibold text-white outline-none transition-transform',
-        'bg-gradient-hero shadow-glow-pink',
+        'brand-grad brand-glow',
         'hover:scale-[1.02] active:scale-[0.98]',
         'focus-visible:ring-[3px] focus-visible:ring-ring/60',
         'disabled:pointer-events-none disabled:opacity-50',

@@ -151,6 +151,12 @@
   .bg-gradient-hero {
     background-image: linear-gradient(135deg, var(--brand-grad-1) 0%, var(--brand-grad-2) 50%, var(--brand-grad-3) 100%);
   }
+  .brand-grad {
+    background-image: linear-gradient(135deg, var(--brand-grad-1) 0%, var(--brand-grad-2) 50%, var(--brand-grad-3) 100%);
+  }
+  .brand-glow {
+    box-shadow: var(--shadow-glow-pink);
+  }
   .bg-gradient-cool {
     background-image: linear-gradient(135deg, var(--brand-violet) 0%, var(--brand-cyan) 100%);
   }

@@ -9,7 +9,7 @@
  */
 import { test, expect } from '@playwright/test'
 
-const OUTPUT_DIR = 'baseline'
+const OUTPUT_DIR = process.env.VISUAL_OUTPUT_DIR ?? 'baseline'
 
 const ROUTES: Array<{ name: string; path: string; waitFor?: string }> = [
   { name: 'home', path: '/' },

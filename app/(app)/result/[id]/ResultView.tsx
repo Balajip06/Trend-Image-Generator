@@ -328,8 +328,10 @@ function ShareBurst({ trendSlug, trendTitle, outputImageUrl }: ShareBurstProps) 
   const [copied, setCopied] = useState(false)
   const [sharing, setSharing] = useState(false)
 
-  const siteUrl =
-    typeof window === 'undefined' ? '' : `${window.location.origin}/trend/${trendSlug}`
+  // Use the env-pinned site URL so SSR and CSR agree (window.location.origin
+  // is undefined on the server, which causes a hydration mismatch).
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const siteUrl = `${origin}/trend/${trendSlug}`
   const text = `I tried the ${trendTitle} trend — check it out`
 
   const fireTrack = (channel: ShareChannel) => {
