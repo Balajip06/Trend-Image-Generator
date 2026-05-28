@@ -7,7 +7,6 @@
     </linearGradient>
   </defs>
   <rect width="1024" height="1024" fill="url(#g2)"/>
-  <circle cx="380" cy="440" r="160" fill="white" fill-opacity="0.2"/>
-  <circle cx="644" cy="440" r="160" fill="white" fill-opacity="0.2"/>
-  <text x="512" y="700" font-family="system-ui, sans-serif" font-size="72" font-weight="800" text-anchor="middle" fill="white">Pixar Couple</text>
+  <circle cx="380" cy="500" r="170" fill="white" fill-opacity="0.2"/>
+  <circle cx="644" cy="500" r="170" fill="white" fill-opacity="0.2"/>
 </svg>

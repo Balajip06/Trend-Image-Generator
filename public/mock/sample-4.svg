@@ -6,10 +6,8 @@
     </linearGradient>
   </defs>
   <rect width="1024" height="1024" fill="url(#g4)"/>
-  <rect x="120" y="120" width="370" height="370" fill="white" fill-opacity="0.18" rx="20"/>
-  <rect x="534" y="120" width="370" height="370" fill="white" fill-opacity="0.18" rx="20"/>
-  <rect x="120" y="534" width="370" height="370" fill="white" fill-opacity="0.18" rx="20"/>
-  <rect x="534" y="534" width="370" height="370" fill="white" fill-opacity="0.18" rx="20"/>
-  <text x="512" y="540" font-family="system-ui, sans-serif" font-size="64" font-weight="800" text-anchor="middle" fill="white">Vintage</text>
-  <text x="512" y="610" font-family="system-ui, sans-serif" font-size="42" font-weight="500" text-anchor="middle" fill="white" fill-opacity="0.85">Yearbook</text>
+  <rect x="120" y="120" width="370" height="370" fill="white" fill-opacity="0.18" rx="40"/>
+  <rect x="534" y="120" width="370" height="370" fill="white" fill-opacity="0.18" rx="40"/>
+  <rect x="120" y="534" width="370" height="370" fill="white" fill-opacity="0.18" rx="40"/>
+  <rect x="534" y="534" width="370" height="370" fill="white" fill-opacity="0.18" rx="40"/>
 </svg>

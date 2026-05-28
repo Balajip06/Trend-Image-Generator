@@ -7,7 +7,6 @@
     </linearGradient>
   </defs>
   <rect width="1024" height="1024" fill="url(#g5)"/>
-  <circle cx="512" cy="480" r="200" fill="white" fill-opacity="0.15"/>
-  <circle cx="512" cy="480" r="120" fill="white" fill-opacity="0.25"/>
-  <text x="512" y="780" font-family="system-ui, sans-serif" font-size="72" font-weight="800" text-anchor="middle" fill="white">Cyberpunk Neon</text>
+  <circle cx="512" cy="500" r="240" fill="white" fill-opacity="0.15"/>
+  <circle cx="512" cy="500" r="140" fill="white" fill-opacity="0.25"/>
 </svg>

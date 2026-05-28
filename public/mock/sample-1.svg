@@ -7,7 +7,6 @@
     </linearGradient>
   </defs>
   <rect width="1024" height="1024" fill="url(#g1)"/>
-  <circle cx="512" cy="440" r="180" fill="white" fill-opacity="0.18"/>
-  <text x="512" y="560" font-family="system-ui, sans-serif" font-size="72" font-weight="800" text-anchor="middle" fill="white">Ghibli</text>
-  <text x="512" y="640" font-family="system-ui, sans-serif" font-size="42" font-weight="500" text-anchor="middle" fill="white" fill-opacity="0.85">Portrait</text>
+  <circle cx="512" cy="500" r="220" fill="white" fill-opacity="0.18"/>
+  <circle cx="512" cy="500" r="120" fill="white" fill-opacity="0.12"/>
 </svg>

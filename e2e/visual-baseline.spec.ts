@@ -14,7 +14,7 @@ const OUTPUT_DIR = process.env.VISUAL_OUTPUT_DIR ?? 'baseline'
 const ROUTES: Array<{ name: string; path: string; waitFor?: string }> = [
   { name: 'home', path: '/' },
   { name: 'trend-ghibli', path: '/trend/ghibli-portrait' },
-  { name: 'trend-pixar', path: '/trend/pixar-couple' },
+  { name: 'trend-pixar', path: '/trend/pixar-3d-character' },
   { name: 'login', path: '/login' },
   { name: 'creations', path: '/me/creations' },
   { name: 'settings', path: '/me/settings' },
