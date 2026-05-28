@@ -1,4 +1,9 @@
+import { Plus, Sparkles } from 'lucide-react'
 import Link from 'next/link'
+import { ActiveBadge, EvalBadge } from '@/components/admin/StatusBadges'
+import { GradientButton } from '@/components/brand/GradientButton'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -26,96 +31,105 @@ export default async function AdminTrendsList() {
 
   return (
     <section className="flex flex-col gap-6">
-      <header className="flex items-baseline justify-between">
-        <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-          Trends
-        </h1>
-        <Link
-          href="/admin/trends/new"
-          className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium leading-10 text-zinc-50 hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-        >
-          New trend
-        </Link>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            Catalogue
+          </p>
+          <h1 className="text-3xl font-extrabold tracking-tight">Trends</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {trends.length} total · {trends.filter((t) => t.is_active).length} live
+          </p>
+        </div>
+        <GradientButton size="md" asChild>
+          <Link href="/admin/trends/new">
+            <Plus className="size-4" /> New trend
+          </Link>
+        </GradientButton>
       </header>
 
       {trends.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-zinc-300 p-12 text-center text-sm text-zinc-500 dark:border-zinc-700">
-          No trends yet. Create one to get started.
-        </div>
+        <EmptyState />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800">
-              <tr>
-                <th className="px-4 py-3">Order</th>
-                <th className="px-4 py-3">Title / slug</th>
-                <th className="px-4 py-3">Model</th>
-                <th className="px-4 py-3">Eval</th>
-                <th className="px-4 py-3">Active</th>
-                <th className="px-4 py-3">Updated</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {trends.map((t) => (
-                <tr
-                  key={t.id}
-                  className="border-b border-zinc-100 last:border-b-0 dark:border-zinc-800"
-                >
-                  <td className="px-4 py-3 text-zinc-500">{t.display_order}</td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-zinc-900 dark:text-zinc-50">{t.title}</div>
-                    <div className="text-xs text-zinc-500">/{t.slug} · v{t.version}</div>
-                  </td>
-                  <td className="px-4 py-3 text-xs">{t.model}</td>
-                  <td className="px-4 py-3">
-                    <EvalPill status={t.eval_status} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <ActivePill active={t.is_active} />
-                  </td>
-                  <td className="px-4 py-3 text-xs text-zinc-500">
-                    {new Date(t.updated_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/admin/trends/${t.id}/edit`}
-                      className="text-xs font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
-                    >
-                      Edit
-                    </Link>
-                  </td>
+        <Card className="gap-0 overflow-hidden py-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-muted/50 text-[11px] uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">#</th>
+                  <th className="px-4 py-3 font-semibold">Trend</th>
+                  <th className="px-4 py-3 font-semibold">Model</th>
+                  <th className="px-4 py-3 font-semibold">Eval</th>
+                  <th className="px-4 py-3 font-semibold">State</th>
+                  <th className="px-4 py-3 font-semibold">Updated</th>
+                  <th className="px-4 py-3" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {trends.map((t) => (
+                  <tr
+                    key={t.id}
+                    className="border-t border-border/60 transition-colors hover:bg-muted/30"
+                  >
+                    <td className="px-4 py-3 text-xs font-mono text-muted-foreground">
+                      {t.display_order}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/admin/trends/${t.id}/edit`}
+                        className="font-semibold text-foreground hover:underline"
+                      >
+                        {t.title}
+                      </Link>
+                      <div className="text-xs text-muted-foreground">
+                        /{t.slug} · v{t.version}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
+                      {t.model}
+                    </td>
+                    <td className="px-4 py-3">
+                      <EvalBadge status={t.eval_status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <ActiveBadge active={t.is_active} />
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {new Date(t.updated_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button asChild variant="ghost" size="sm">
+                        <Link href={`/admin/trends/${t.id}/edit`}>Edit</Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
     </section>
   )
 }
 
-function EvalPill({ status }: { status: AdminTrendRow['eval_status'] }) {
-  const tone =
-    status === 'passed'
-      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-      : status === 'failed'
-        ? 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
-        : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
+function EmptyState() {
   return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${tone}`}>
-      {status}
-    </span>
-  )
-}
-
-function ActivePill({ active }: { active: boolean }) {
-  const tone = active
-    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-    : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
-  return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${tone}`}>
-      {active ? 'live' : 'draft'}
-    </span>
+    <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-border/60 bg-card/40 p-16 text-center">
+      <div className="grid size-14 place-items-center rounded-full bg-muted text-foreground">
+        <Sparkles className="size-6" />
+      </div>
+      <div>
+        <p className="text-lg font-bold">No trends yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Create one to get started. Drafts stay inactive until eval passes.
+        </p>
+      </div>
+      <GradientButton asChild size="md">
+        <Link href="/admin/trends/new">
+          <Plus className="size-4" /> Create draft
+        </Link>
+      </GradientButton>
+    </div>
   )
 }

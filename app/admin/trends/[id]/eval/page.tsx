@@ -1,6 +1,15 @@
+import { ArrowRight, Check, ImageOff, Play, Plus, Trash2, X } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { FlashToasts } from '@/components/admin/FlashToasts'
+import { ActiveBadge, EvalBadge } from '@/components/admin/StatusBadges'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import { createClient } from '@/lib/supabase/server'
+import { cn } from '@/lib/utils/cn'
 import {
   addEvalInput,
   markTrendEval,
@@ -50,12 +59,9 @@ interface EvalPageProps {
   }>
 }
 
-const inputClasses =
-  'h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50'
-
 export default async function EvalPage({ params, searchParams }: EvalPageProps) {
   const { id } = await params
-  const flash = await searchParams
+  await searchParams // consumed by FlashToasts client-side
 
   const supabase = await createClient()
 
@@ -87,9 +93,12 @@ export default async function EvalPage({ params, searchParams }: EvalPageProps) 
     return acc
   }, {})
 
-  const rated = Object.values(latestRuns).filter((r) => r.admin_rating === 'pass' || r.admin_rating === 'fail')
+  const rated = Object.values(latestRuns).filter(
+    (r) => r.admin_rating === 'pass' || r.admin_rating === 'fail',
+  )
   const allRated = inputs.length > 0 && rated.length === inputs.length
   const anyFail = rated.some((r) => r.admin_rating === 'fail')
+  const hasResults = inputs.length > 0 && Object.keys(latestRuns).length > 0
 
   async function boundAdd(formData: FormData): Promise<void> {
     'use server'
@@ -110,234 +119,328 @@ export default async function EvalPage({ params, searchParams }: EvalPageProps) 
 
   return (
     <section className="flex flex-col gap-6">
-      <header className="flex items-baseline justify-between">
+      <FlashToasts
+        flashes={[
+          { key: 'error', level: 'error', message: (v) => v },
+          { key: 'added', level: 'success', message: 'Reference photo added.' },
+          { key: 'removed', level: 'info', message: 'Reference removed.' },
+          { key: 'ran', level: 'success', message: 'Test run dispatched.' },
+          {
+            key: 'marked',
+            level: 'success',
+            message: (v) =>
+              v === 'passed'
+                ? 'Trend eval marked passed. Activate from Edit page.'
+                : v === 'failed'
+                  ? 'Trend eval marked failed.'
+                  : 'Trend eval updated.',
+          },
+        ]}
+      />
+
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Eval — {trend.title}
-          </h1>
-          <p className="mt-1 text-xs text-zinc-500">
-            /{trend.slug} · v{trend.version} · model {trend.model} · eval{' '}
-            <code>{trend.eval_status}</code> · {trend.is_active ? 'live' : 'draft'}
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            Eval workflow
           </p>
+          <h1 className="text-3xl font-extrabold tracking-tight">{trend.title}</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <code className="rounded bg-muted px-1.5 py-0.5">/{trend.slug}</code>
+            <span>·</span>
+            <span>v{trend.version}</span>
+            <span>·</span>
+            <span className="font-mono">{trend.model}</span>
+            <EvalBadge status={trend.eval_status} />
+            <ActiveBadge active={trend.is_active} />
+          </div>
         </div>
-        <Link
-          href={`/admin/trends/${trend.id}/edit`}
-          className="text-sm text-zinc-500 underline-offset-2 hover:underline"
-        >
-          ← Edit trend
-        </Link>
+        <Button asChild variant="ghost" size="sm">
+          <Link href={`/admin/trends/${trend.id}/edit`}>← Edit trend</Link>
+        </Button>
       </header>
 
-      {flash.error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-          {decodeURIComponent(flash.error)}
-        </p>
-      )}
-      {flash.added && (
-        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-          Reference photo added.
-        </p>
-      )}
-      {flash.ran && (
-        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-          Test run dispatched.
-        </p>
-      )}
-      {flash.marked === 'passed' && (
-        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-          Trend eval marked passed. Activate from the Edit page.
-        </p>
-      )}
-      {flash.marked === 'failed' && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-          Trend eval marked failed.
-        </p>
-      )}
+      {/* Step 1: references */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <StepDot n={1} /> Reference photos
+              </CardTitle>
+              <CardDescription>
+                Public image URLs covering the demographics, lighting, and ages this trend
+                must handle.
+              </CardDescription>
+            </div>
+            <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-mono">
+              {inputs.length}
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <form action={boundAdd} className="grid gap-3 sm:grid-cols-[1fr_2fr_1fr_auto]">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ref-label" className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                Label
+              </Label>
+              <Input id="ref-label" name="label" required maxLength={80} placeholder="child / glasses / dark" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ref-url" className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                Image URL
+              </Label>
+              <Input id="ref-url" name="image_url" required type="url" placeholder="https://…" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ref-tag" className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                Tag
+              </Label>
+              <Input id="ref-tag" name="demographic_tag" maxLength={40} placeholder="optional" />
+            </div>
+            <div className="flex flex-col justify-end">
+              <Button type="submit" size="default">
+                <Plus className="size-4" /> Add
+              </Button>
+            </div>
+          </form>
 
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Reference photos</h2>
-        <p className="mt-1 text-xs text-zinc-500">
-          Paste public image URLs covering the demographic + lighting + age ranges this trend
-          should handle.
-        </p>
-
-        <form action={boundAdd} className="mt-4 grid gap-3 sm:grid-cols-[1fr_2fr_1fr_auto]">
-          <input name="label" required maxLength={80} placeholder="Label (e.g. child / glasses / dark)" className={inputClasses} />
-          <input name="image_url" required type="url" placeholder="https://…" className={inputClasses} />
-          <input name="demographic_tag" maxLength={40} placeholder="Tag (optional)" className={inputClasses} />
-          <button
-            type="submit"
-            className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-zinc-50 hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-          >
-            Add
-          </button>
-        </form>
-
-        {inputs.length > 0 && (
-          <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {inputs.map((input) => {
-              async function boundRemove(): Promise<void> {
-                'use server'
-                await removeEvalInput(id, input.id)
-              }
-              return (
-                <li
-                  key={input.id}
-                  className="flex flex-col gap-2 rounded-md border border-zinc-200 p-3 dark:border-zinc-800"
-                >
-                  <div className="aspect-square overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={input.image_url} alt={input.label} className="h-full w-full object-cover" />
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <div className="text-xs font-medium text-zinc-900 dark:text-zinc-50">{input.label}</div>
-                      {input.demographic_tag && (
-                        <div className="text-xs text-zinc-500">{input.demographic_tag}</div>
-                      )}
+          {inputs.length > 0 && (
+            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {inputs.map((input) => {
+                async function boundRemove(): Promise<void> {
+                  'use server'
+                  await removeEvalInput(id, input.id)
+                }
+                return (
+                  <li
+                    key={input.id}
+                    className="group relative flex flex-col gap-2 overflow-hidden rounded-xl border border-border/60 bg-card p-2"
+                  >
+                    <div className="aspect-square overflow-hidden rounded-md bg-muted">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={input.image_url}
+                        alt={input.label}
+                        className="h-full w-full object-cover"
+                      />
                     </div>
-                    <form action={boundRemove}>
-                      <button
-                        type="submit"
-                        className="text-xs text-red-600 underline-offset-2 hover:underline"
-                      >
-                        Remove
-                      </button>
-                    </form>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Test run</h2>
-          <p className="mt-1 text-xs text-zinc-500">
-            Generates one output per reference photo using the current prompt + model.
-            {inputs.length === 0 && ' Add at least one reference photo first.'}
-          </p>
-        </div>
-        <form action={boundRun}>
-          <button
-            type="submit"
-            disabled={inputs.length === 0}
-            className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-medium text-zinc-50 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-          >
-            Test now ({inputs.length})
-          </button>
-        </form>
-      </div>
-
-      {inputs.length > 0 && Object.keys(latestRuns).length > 0 && (
-        <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Results</h2>
-          <p className="mt-1 text-xs text-zinc-500">
-            Rate each row. Once every row is rated you can mark the trend overall.
-          </p>
-          <ul className="mt-4 flex flex-col gap-4">
-            {inputs.map((input) => {
-              const run = latestRuns[input.id]
-              if (!run) return null
-
-              async function boundRatePass(): Promise<void> {
-                'use server'
-                await rateEvalRun(id, run.id, 'pass')
-              }
-              async function boundRateFail(): Promise<void> {
-                'use server'
-                await rateEvalRun(id, run.id, 'fail')
-              }
-
-              return (
-                <li
-                  key={run.id}
-                  className="grid gap-3 rounded-md border border-zinc-100 p-3 dark:border-zinc-800 sm:grid-cols-[1fr_1fr_auto] sm:items-center"
-                >
-                  <div className="aspect-square overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={input.image_url} alt={`input ${input.label}`} className="h-full w-full object-cover" />
-                  </div>
-                  <div className="aspect-square overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
-                    {run.output_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={run.output_url} alt={`output for ${input.label}`} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs text-red-600">
-                        {run.admin_rating?.startsWith('error:') ? run.admin_rating : 'pending'}
+                    <div className="flex items-center justify-between gap-2 px-1 pb-1">
+                      <div className="min-w-0">
+                        <div className="truncate text-xs font-semibold">{input.label}</div>
+                        {input.demographic_tag && (
+                          <div className="truncate text-[10px] text-muted-foreground">
+                            {input.demographic_tag}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <div className="text-xs font-medium text-zinc-900 dark:text-zinc-50">{input.label}</div>
+                      <form action={boundRemove}>
+                        <Button
+                          type="submit"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Remove ${input.label}`}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </form>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Step 2: dispatch run */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <StepDot n={2} /> Test run
+              </CardTitle>
+              <CardDescription>
+                Generates one output per reference using the current prompt + model.
+                {inputs.length === 0 && ' Add at least one reference photo first.'}
+              </CardDescription>
+            </div>
+            <form action={boundRun}>
+              <Button type="submit" disabled={inputs.length === 0} size="lg">
+                <Play className="size-4" /> Test now ({inputs.length})
+              </Button>
+            </form>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Step 3: rate */}
+      {hasResults && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <StepDot n={3} /> Rate results
+            </CardTitle>
+            <CardDescription>
+              Pass each row that nails the trend. Rated {rated.length}/{inputs.length}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="flex flex-col gap-3">
+              {inputs.map((input) => {
+                const run = latestRuns[input.id]
+                if (!run) return null
+
+                async function boundRatePass(): Promise<void> {
+                  'use server'
+                  await rateEvalRun(id, run.id, 'pass')
+                }
+                async function boundRateFail(): Promise<void> {
+                  'use server'
+                  await rateEvalRun(id, run.id, 'fail')
+                }
+
+                const errorMsg = run.admin_rating?.startsWith('error:') ? run.admin_rating : null
+
+                return (
+                  <li
+                    key={run.id}
+                    className="grid gap-3 rounded-xl border border-border/60 bg-card p-3 sm:grid-cols-[120px_120px_1fr_auto] sm:items-center"
+                  >
+                    <EvalThumb src={input.image_url} alt={`input ${input.label}`} placeholder="input" />
+                    <EvalThumb
+                      src={run.output_url}
+                      alt={`output ${input.label}`}
+                      placeholder={errorMsg ? errorMsg : 'pending'}
+                      isError={Boolean(errorMsg)}
+                    />
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <div className="truncate text-sm font-semibold">{input.label}</div>
+                      {input.demographic_tag && (
+                        <div className="text-xs text-muted-foreground">{input.demographic_tag}</div>
+                      )}
+                      <div className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        v{run.prompt_version}
+                      </div>
+                    </div>
                     <div className="flex gap-2">
                       <form action={boundRatePass}>
-                        <button
+                        <Button
                           type="submit"
-                          className={`h-8 rounded-md px-3 text-xs font-medium ${
-                            run.admin_rating === 'pass'
-                              ? 'bg-emerald-600 text-white'
-                              : 'border border-zinc-300 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800'
-                          }`}
+                          size="sm"
+                          variant={run.admin_rating === 'pass' ? 'default' : 'outline'}
+                          className={cn(
+                            run.admin_rating === 'pass' &&
+                              'bg-emerald-600 text-white hover:bg-emerald-700',
+                          )}
                         >
-                          Pass
-                        </button>
+                          <Check className="size-3.5" /> Pass
+                        </Button>
                       </form>
                       <form action={boundRateFail}>
-                        <button
+                        <Button
                           type="submit"
-                          className={`h-8 rounded-md px-3 text-xs font-medium ${
-                            run.admin_rating === 'fail'
-                              ? 'bg-red-600 text-white'
-                              : 'border border-zinc-300 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800'
-                          }`}
+                          size="sm"
+                          variant={run.admin_rating === 'fail' ? 'destructive' : 'outline'}
                         >
-                          Fail
-                        </button>
+                          <X className="size-3.5" /> Fail
+                        </Button>
                       </form>
                     </div>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </CardContent>
+        </Card>
       )}
 
-      <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <div>
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Mark trend</h2>
-          <p className="mt-1 text-xs text-zinc-500">
+      {/* Step 4: mark */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <StepDot n={4} /> Mark trend
+          </CardTitle>
+          <CardDescription>
             {allRated
               ? anyFail
-                ? 'At least one ref failed — mark trend failed.'
-                : 'All refs passed — mark trend passed to enable activation.'
-              : `Rate all ${inputs.length} ref(s) before marking the trend overall.`}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <form action={boundMarkPassed}>
-            <button
-              type="submit"
-              disabled={!allRated || anyFail}
-              className="h-10 rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Mark passed
-            </button>
-          </form>
-          <form action={boundMarkFailed}>
-            <button
-              type="submit"
-              disabled={!allRated}
-              className="h-10 rounded-md bg-red-600 px-4 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Mark failed
-            </button>
-          </form>
-        </div>
-      </div>
+                ? 'At least one reference failed — mark trend failed.'
+                : 'All references passed — mark trend passed to enable activation.'
+              : `Rate all ${inputs.length} reference(s) before marking the trend.`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Separator className="mb-4" />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              {allRated && !anyFail && (
+                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  <ArrowRight className="size-3.5" /> Next: activate on the Edit page.
+                </span>
+              )}
+            </p>
+            <div className="flex gap-2">
+              <form action={boundMarkPassed}>
+                <Button
+                  type="submit"
+                  size="default"
+                  disabled={!allRated || anyFail}
+                  className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  <Check className="size-4" /> Mark passed
+                </Button>
+              </form>
+              <form action={boundMarkFailed}>
+                <Button
+                  type="submit"
+                  variant="destructive"
+                  size="default"
+                  disabled={!allRated}
+                >
+                  <X className="size-4" /> Mark failed
+                </Button>
+              </form>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </section>
+  )
+}
+
+function StepDot({ n }: { n: number }) {
+  return (
+    <span className="grid size-6 place-items-center rounded-full bg-gradient-to-br from-[var(--brand-grad-1)] to-[var(--brand-grad-2)] text-[11px] font-bold text-white shadow-sm">
+      {n}
+    </span>
+  )
+}
+
+interface EvalThumbProps {
+  src: string | null
+  alt: string
+  placeholder: string
+  isError?: boolean
+}
+
+function EvalThumb({ src, alt, placeholder, isError }: EvalThumbProps) {
+  return (
+    <div className="aspect-square overflow-hidden rounded-lg border border-border/60 bg-muted">
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt={alt} className="h-full w-full object-cover" />
+      ) : (
+        <div
+          className={cn(
+            'flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center text-[10px]',
+            isError ? 'text-destructive' : 'text-muted-foreground',
+          )}
+        >
+          <ImageOff className="size-4" />
+          <span className="line-clamp-2 break-all">{placeholder}</span>
+        </div>
+      )}
+    </div>
   )
 }

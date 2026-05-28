@@ -1,5 +1,9 @@
+import { ClipboardCheck } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { FlashToasts } from '@/components/admin/FlashToasts'
+import { ActiveBadge, EvalBadge } from '@/components/admin/StatusBadges'
+import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/server'
 import { toggleActive, updateTrend } from '../../actions'
 import { TrendForm } from '../../TrendForm'
@@ -34,7 +38,7 @@ interface EditTrendPageProps {
 
 export default async function EditTrendPage({ params, searchParams }: EditTrendPageProps) {
   const { id } = await params
-  const { error, saved, created, activated } = await searchParams
+  await searchParams // consumed by FlashToasts client-side
 
   const supabase = await createClient()
   const { data: row } = await supabase
@@ -61,74 +65,65 @@ export default async function EditTrendPage({ params, searchParams }: EditTrendP
 
   return (
     <section className="flex flex-col gap-6">
-      <header className="flex items-baseline justify-between">
+      <FlashToasts
+        flashes={[
+          { key: 'error', level: 'error', message: (v) => v },
+          { key: 'saved', level: 'success', message: 'Saved.' },
+          { key: 'created', level: 'success', message: 'Draft created.' },
+          {
+            key: 'activated',
+            level: 'info',
+            message: (v) => (v === '1' ? 'Activated.' : 'Deactivated.'),
+          },
+        ]}
+      />
+
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-            {trend.title}
-          </h1>
-          <p className="mt-1 text-xs text-zinc-500">
-            /{trend.slug} · v{trend.version} · eval: <code>{trend.eval_status}</code> ·{' '}
-            {trend.is_active ? 'live' : 'draft'}
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            Editing
           </p>
+          <h1 className="text-3xl font-extrabold tracking-tight">{trend.title}</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <code className="rounded bg-muted px-1.5 py-0.5">/{trend.slug}</code>
+            <span>·</span>
+            <span>v{trend.version}</span>
+            <span>·</span>
+            <EvalBadge status={trend.eval_status} />
+            <ActiveBadge active={trend.is_active} />
+          </div>
         </div>
-        <div className="flex items-center gap-4 text-sm">
-          <Link
-            href={`/admin/trends/${trend.id}/eval`}
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            Eval →
-          </Link>
-          <Link
-            href="/admin/trends"
-            className="text-zinc-500 underline-offset-2 hover:underline"
-          >
-            ← Back
-          </Link>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/admin/trends/${trend.id}/eval`}>
+              <ClipboardCheck className="size-4" /> Eval
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/admin/trends">← Back</Link>
+          </Button>
         </div>
       </header>
 
       <TrendForm
         action={boundUpdate}
         initial={trend}
-        submitLabel="Save"
-        banner={
-          <>
-            {error && (
-              <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-                {decodeURIComponent(error)}
-              </p>
-            )}
-            {(saved || created) && (
-              <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                {created ? 'Draft created.' : 'Saved.'}
-              </p>
-            )}
-            {activated === '1' && (
-              <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                Activated.
-              </p>
-            )}
-            {activated === '0' && (
-              <p className="rounded-md bg-zinc-100 px-3 py-2 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                Deactivated.
-              </p>
-            )}
-          </>
-        }
+        submitLabel="Save changes"
         extraActions={
           <form action={boundToggle}>
-            <button
+            <Button
               type="submit"
+              variant={trend.is_active ? 'outline' : 'default'}
+              size="lg"
               disabled={!trend.is_active && !canActivate}
               title={
                 !trend.is_active && !canActivate
                   ? 'Eval must pass before activating'
                   : undefined
               }
-              className="h-10 rounded-md border border-zinc-300 px-4 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-50 dark:hover:bg-zinc-800"
             >
               {trend.is_active ? 'Deactivate' : canActivate ? 'Activate' : 'Activate (eval required)'}
-            </button>
+            </Button>
           </form>
         }
       />

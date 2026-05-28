@@ -1,4 +1,16 @@
+import { Check, ExternalLink, Inbox, X } from 'lucide-react'
 import { redirect } from 'next/navigation'
+import { FlashToasts } from '@/components/admin/FlashToasts'
+import { SourceBadge } from '@/components/admin/StatusBadges'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/server'
 import { TrendSuggestionPayloadSchema, type TrendSuggestionPayload } from '@/lib/trends/suggestions/payload'
 import { approveAutoSuggestion, rejectSuggestion } from './actions'
@@ -26,7 +38,7 @@ interface AdminSuggestionsPageProps {
 }
 
 export default async function AdminSuggestionsPage({ searchParams }: AdminSuggestionsPageProps) {
-  const flash = await searchParams
+  await searchParams // consumed by FlashToasts
 
   const supabase = await createClient()
   const {
@@ -54,125 +66,151 @@ export default async function AdminSuggestionsPage({ searchParams }: AdminSugges
 
   return (
     <section className="flex flex-col gap-6">
-      <header className="flex items-baseline justify-between">
-        <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-          Trend suggestions
-        </h1>
-        <p className="text-sm text-zinc-500">
-          {suggestions.length} pending — auto-detected + community submissions.
-        </p>
+      <FlashToasts
+        flashes={[
+          { key: 'error', level: 'error', message: (v) => v },
+          { key: 'rejected', level: 'info', message: 'Suggestion rejected.' },
+        ]}
+      />
+
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            Inbox
+          </p>
+          <h1 className="text-3xl font-extrabold tracking-tight">Trend suggestions</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {suggestions.length} pending · auto-detected + community submissions.
+          </p>
+        </div>
       </header>
 
-      {flash.error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-          {decodeURIComponent(flash.error)}
-        </p>
-      )}
-      {flash.rejected && (
-        <p className="rounded-md bg-zinc-100 px-3 py-2 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-          Suggestion rejected.
-        </p>
-      )}
-
       {suggestions.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-zinc-300 p-12 text-center text-sm text-zinc-500 dark:border-zinc-700">
-          Inbox empty. Run the detector or wait for new submissions.
-        </div>
+        <EmptyInbox />
       ) : (
         <ul className="flex flex-col gap-4">
-          {suggestions.map((s) => {
-            async function boundApprove(): Promise<void> {
-              'use server'
-              await approveAutoSuggestion(s.id)
-            }
-            async function boundReject(): Promise<void> {
-              'use server'
-              await rejectSuggestion(s.id)
-            }
-            const canAutoApprove = s.source === 'auto' && s.payload?.type === 'auto'
-
-            return (
-              <li
-                key={s.id}
-                className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                    {s.source}
-                  </span>
-                  <time className="text-xs text-zinc-500" dateTime={s.created_at}>
-                    {new Date(s.created_at).toLocaleString()}
-                  </time>
-                </div>
-                {s.payload && s.payload.type === 'auto' && (
-                  <div className="mt-3 flex flex-col gap-2">
-                    <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-50">
-                      {s.payload.proposal.suggested_title}
-                    </h2>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                      {s.payload.proposal.suggested_description}
-                    </p>
-                    <div className="flex flex-wrap gap-3 text-xs text-zinc-500">
-                      <span>slug: <code>{s.payload.proposal.suggested_slug}</code></span>
-                      <span>model: {s.payload.proposal.model}</span>
-                      <span>conf: {s.payload.proposal.confidence.toFixed(2)}</span>
-                      <span>momentum: {s.payload.candidate.momentum_score.toFixed(1)}</span>
-                      <a
-                        href={s.payload.candidate.source_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="underline-offset-2 hover:underline"
-                      >
-                        source ↗
-                      </a>
-                    </div>
-                  </div>
-                )}
-                {s.payload && s.payload.type === 'user' && (
-                  <div className="mt-3 flex flex-col gap-2">
-                    <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-50">
-                      {s.payload.title}
-                    </h2>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">{s.payload.description}</p>
-                    <p className="text-xs text-zinc-500">
-                      User suggestions need manual trend creation — review then reject.
-                    </p>
-                  </div>
-                )}
-                {!s.payload && (
-                  <p className="mt-3 text-xs text-red-600">
-                    Payload failed schema validation — admin attention required.
-                  </p>
-                )}
-                <div className="mt-4 flex gap-2">
-                  <form action={boundApprove}>
-                    <button
-                      type="submit"
-                      disabled={!canAutoApprove}
-                      title={
-                        !canAutoApprove
-                          ? 'Only auto suggestions with a valid proposal can be drafted automatically'
-                          : undefined
-                      }
-                      className="h-9 rounded-md bg-zinc-900 px-3 text-xs font-medium text-zinc-50 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-                    >
-                      Approve → draft trend
-                    </button>
-                  </form>
-                  <form action={boundReject}>
-                    <button
-                      type="submit"
-                      className="h-9 rounded-md border border-zinc-200 px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                    >
-                      Reject
-                    </button>
-                  </form>
-                </div>
-              </li>
-            )
-          })}
+          {suggestions.map((s) => (
+            <SuggestionCard key={s.id} suggestion={s} />
+          ))}
         </ul>
       )}
     </section>
+  )
+}
+
+function EmptyInbox() {
+  return (
+    <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-border/60 bg-card/40 p-16 text-center">
+      <div className="grid size-14 place-items-center rounded-full bg-muted text-foreground">
+        <Inbox className="size-6" />
+      </div>
+      <div>
+        <p className="text-lg font-bold">Inbox empty</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Run the detector or wait for new submissions.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function SuggestionCard({ suggestion }: { suggestion: ParsedSuggestion }) {
+  async function boundApprove(): Promise<void> {
+    'use server'
+    await approveAutoSuggestion(suggestion.id)
+  }
+  async function boundReject(): Promise<void> {
+    'use server'
+    await rejectSuggestion(suggestion.id)
+  }
+  const canAutoApprove = suggestion.source === 'auto' && suggestion.payload?.type === 'auto'
+
+  return (
+    <Card className="gap-4 py-5">
+      <CardHeader className="flex flex-row items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <SourceBadge source={suggestion.source} />
+            <time className="text-xs text-muted-foreground" dateTime={suggestion.created_at}>
+              {new Date(suggestion.created_at).toLocaleString()}
+            </time>
+          </div>
+          {suggestion.payload?.type === 'auto' && (
+            <CardTitle className="text-lg">
+              {suggestion.payload.proposal.suggested_title}
+            </CardTitle>
+          )}
+          {suggestion.payload?.type === 'user' && (
+            <CardTitle className="text-lg">{suggestion.payload.title}</CardTitle>
+          )}
+        </div>
+      </CardHeader>
+
+      <CardContent className="flex flex-col gap-3">
+        {suggestion.payload?.type === 'auto' && (
+          <>
+            <CardDescription>{suggestion.payload.proposal.suggested_description}</CardDescription>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
+              <Meta label="slug" value={<code>{suggestion.payload.proposal.suggested_slug}</code>} />
+              <Meta label="model" value={suggestion.payload.proposal.model} />
+              <Meta label="confidence" value={suggestion.payload.proposal.confidence.toFixed(2)} />
+              <Meta label="momentum" value={suggestion.payload.candidate.momentum_score.toFixed(1)} />
+            </dl>
+            <a
+              href={suggestion.payload.candidate.source_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-fit items-center gap-1 text-xs font-semibold text-[var(--brand-cyan)] hover:underline"
+            >
+              View source <ExternalLink className="size-3" />
+            </a>
+          </>
+        )}
+        {suggestion.payload?.type === 'user' && (
+          <>
+            <CardDescription>{suggestion.payload.description}</CardDescription>
+            <p className="text-xs text-muted-foreground">
+              User suggestions need manual trend creation — review then reject.
+            </p>
+          </>
+        )}
+        {!suggestion.payload && (
+          <p className="text-xs text-destructive">
+            Payload failed schema validation — admin attention required.
+          </p>
+        )}
+      </CardContent>
+
+      <CardFooter className="gap-2">
+        <form action={boundApprove}>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={!canAutoApprove}
+            title={
+              !canAutoApprove
+                ? 'Only auto suggestions with a valid proposal can be drafted automatically'
+                : undefined
+            }
+          >
+            <Check className="size-4" /> Approve → draft trend
+          </Button>
+        </form>
+        <form action={boundReject}>
+          <Button type="submit" size="sm" variant="outline">
+            <X className="size-4" /> Reject
+          </Button>
+        </form>
+      </CardFooter>
+    </Card>
+  )
+}
+
+function Meta({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex flex-col">
+      <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="font-mono text-xs text-foreground">{value}</dd>
+    </div>
   )
 }
