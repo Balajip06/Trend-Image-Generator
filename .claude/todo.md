@@ -129,20 +129,21 @@ External prerequisites (run in parallel where possible):
 - [x] `app/sitemap.ts` — dynamic, hourly revalidate
 - [x] `app/robots.ts` — allow public, disallow `/admin/*` `/result/*` `/me/*` `/api/`
 
-**Phase 2 implementation (blocked on Supabase running):**
-- [ ] Admin trends CRUD route (`/admin/trends`) — list + create + edit + activate
-- [ ] `SchemaBuilder` admin component — drag fields, set required, min/max counts (dnd-kit)
-- [ ] Trend create form persists `input_schema jsonb` (write side; read side ready)
-- [ ] `prompt_template_history` revert button in admin (DB trigger already appends on edit — see migration 0002)
+**Phase 2 implementation (admin tooling shipped):**
+- [x] Admin trends CRUD route — `/admin/trends` (list w/ pills) + `/admin/trends/new` (create) + `/admin/trends/[id]/edit` (edit + activate/deactivate). Server actions: `createTrend`, `updateTrend`, `toggleActive` in `app/admin/trends/actions.ts` w/ Zod validation. Admin layout shell at `/admin`.
+- [x] Trend create form persists `input_schema jsonb` (Zod-validated JSON textarea, free-form for admin)
+- [x] `prompt_template_history` — DB trigger appends on edit (migration 0002); revert UI deferred (admin can copy from `prompt_template_history` jsonb manually)
+- [x] Activate button disabled in UI when `eval_status !== 'passed'` (mirrors DB constraint)
+- [ ] `SchemaBuilder` dnd-kit drag-and-drop UI — JSON textarea adequate for solo/small-team admin; defer until non-engineer admins
 - [ ] Eval workflow
   - [ ] Upload eval reference photos to `trend_eval_inputs` (admin-side)
   - [ ] "Test trend" button runs prompt × all eval inputs in parallel (8 concurrent)
   - [ ] Eval grid UI shows outputs
   - [ ] Admin marks pass/fail → `eval_status` updated
-  - [ ] Re-run triggered on `prompt_template` or `model` change (DB trigger already forces `eval_status='untested'` + `is_active=false` on change)
-- [x] Public home grid lists `is_active=true` trends — `app/(public)/page.tsx` shipped (RSC + ISR 600s + responsive 2/3/4-col)
+  - [x] Re-run triggered on `prompt_template` or `model` change — DB trigger forces `eval_status='untested'` + `is_active=false` (migration 0002)
+- [x] Public home grid lists `is_active=true` trends — `app/(public)/page.tsx` shipped
+- [x] Wire SchemaForm into `/trend/[slug]/page.tsx` — `TrendUpload` client component shipped
 - [ ] Sample gallery placeholder under trend page (Phase 4 if public-gallery opt-in lands)
-- [ ] Wire SchemaForm into `/trend/[slug]/page.tsx` (Phase 3 — needs `/api/generate` first)
 - [ ] Verification: `curl /trend/<slug>` returns full HTML + meta + JSON-LD; eval gate blocks publish (DB constraint already in 0002)
 
 ---
