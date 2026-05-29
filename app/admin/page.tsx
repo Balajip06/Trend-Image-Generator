@@ -1,4 +1,4 @@
-import { Archive, ArrowRight, Eye, Inbox, MousePointerClick, Sparkles, TrendingUp } from 'lucide-react'
+import { Archive, ArrowRight, Eye, Gift, Inbox, MousePointerClick, Sparkles, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { getOverall } from '@/lib/analytics/event-store'
 import { Badge } from '@/components/ui/badge'
@@ -107,7 +107,7 @@ export default async function AdminHome() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <AdminTile
           href="/admin/trends"
           icon={<Sparkles className="size-5" />}
@@ -122,6 +122,13 @@ export default async function AdminHome() {
           description="Auto-detected and community-submitted candidates."
           accent="from-[var(--brand-violet)] to-[var(--brand-cyan)]"
           badge={counts.pendingSuggestions > 0 ? `${counts.pendingSuggestions} pending` : undefined}
+        />
+        <AdminTile
+          href="/admin/referrals"
+          icon={<Gift className="size-5" />}
+          title="Referrals"
+          description="Top referrers, bonus credits, conversion."
+          accent="from-[var(--brand-grad-1)] to-[var(--brand-grad-3)]"
         />
         <AdminTile
           href="/admin/audit"
