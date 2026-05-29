@@ -22,6 +22,9 @@ If any of these missing → stop, ask before proceeding.
 - **Original plan** — keep for diff context
 - `.claude/todo.md` — execution state
 - `.claude/lessons.md` — what NOT to repeat
+- [docs/TERMS_OF_SERVICE.md](docs/TERMS_OF_SERVICE.md) — draft ToS. §3 (personal-use only) + §4 (style references + takedown protocol) are load-bearing for franchise-IP risk in trend prompts. Wire into a public `/terms` page before launch.
+- [docs/RUNBOOK.md](docs/RUNBOOK.md) — 14-test verification matrix for the day creds arrive
+- [docs/CREDENTIALS.md](docs/CREDENTIALS.md) — per-service env var reference
 
 The amended plan overrides the original on: credit packs (not subscription), schema-driven inputs, 30d free / forever Pro storage, SSR SEO + JSON-LD + sitemap, eval workflow, push notifications, referral farming guard, GDPR soft-delete.
 
