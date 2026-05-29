@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated coverage report — lcov-report/* + block-navigation.js etc.
+    "coverage/**",
+    // E2E artifacts
+    "e2e/screenshots/**",
+    "playwright-report/**",
+    "test-results/**",
   ]),
 ]);
 
