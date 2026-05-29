@@ -8,6 +8,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
+import { TrendImpressionBeacon } from '@/components/analytics/TrendImpressionBeacon'
 import { Badge } from '@/components/ui/badge'
 import { buildFAQJsonLd, buildHowToJsonLd } from '@/lib/seo/json-ld'
 import { getActiveTrendBySlug } from '@/lib/trends/repository'
@@ -85,6 +86,7 @@ export default async function TrendPage({ params }: TrendPageProps) {
 
   return (
     <>
+      <TrendImpressionBeacon trendSlug={trend.slug} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(howTo) }}

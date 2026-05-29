@@ -1,7 +1,7 @@
 'use client'
 
 import { Copy, Share2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { analytics, EVENTS } from '@/lib/analytics/client'
 import {
@@ -22,6 +22,14 @@ interface ShareBurstProps {
 export function ShareBurst({ trendSlug, trendTitle, outputImageUrl }: ShareBurstProps) {
   const [copied, setCopied] = useState(false)
   const [sharing, setSharing] = useState(false)
+  // Defer feature-detected tiles until after hydration. isWebShareSupported()
+  // is false on the server (no `navigator`) but true on capable clients —
+  // gating on `mounted` keeps the first client render structurally identical
+  // to SSR, then reveals extra tiles post-mount. setState-in-effect is the
+  // canonical pattern for this hydration gate.
+  const [mounted, setMounted] = useState(false)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setMounted(true), [])
 
   // Use the env-pinned site URL so SSR and CSR agree (window.location.origin
   // is undefined on the server, which causes a hydration mismatch).
@@ -66,7 +74,7 @@ export function ShareBurst({ trendSlug, trendTitle, outputImageUrl }: ShareBurst
     }
   }
 
-  const showNative = typeof window !== 'undefined' && isWebShareSupported()
+  const showNative = mounted && isWebShareSupported()
 
   return (
     <div className="rounded-3xl border border-border/60 bg-card/80 p-6 backdrop-blur">

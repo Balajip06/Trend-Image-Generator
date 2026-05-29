@@ -4,7 +4,17 @@ import { ActiveBadge, EvalBadge } from '@/components/admin/StatusBadges'
 import { GradientButton } from '@/components/brand/GradientButton'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { getCountsBatch } from '@/lib/analytics/event-store'
 import { createClient } from '@/lib/supabase/server'
+
+function fmt(n: number): string {
+  return new Intl.NumberFormat('en-US').format(n)
+}
+
+function ctrPct(impressions: number, clicks: number): string {
+  if (impressions === 0) return '—'
+  return `${((clicks / impressions) * 100).toFixed(1)}%`
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +38,7 @@ export default async function AdminTrendsList() {
     .order('display_order', { ascending: true })
 
   const trends = (rows as unknown as AdminTrendRow[] | null) ?? []
+  const metricsMap = getCountsBatch(trends.map((t) => t.slug))
 
   return (
     <section className="flex flex-col gap-6">
@@ -61,49 +72,64 @@ export default async function AdminTrendsList() {
                   <th className="px-4 py-3 font-semibold">Model</th>
                   <th className="px-4 py-3 font-semibold">Eval</th>
                   <th className="px-4 py-3 font-semibold">State</th>
+                  <th className="px-4 py-3 text-right font-semibold">Views</th>
+                  <th className="px-4 py-3 text-right font-semibold">Clicks</th>
+                  <th className="px-4 py-3 text-right font-semibold">CTR</th>
                   <th className="px-4 py-3 font-semibold">Updated</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
-                {trends.map((t) => (
-                  <tr
-                    key={t.id}
-                    className="border-t border-border/60 transition-colors hover:bg-muted/30"
-                  >
-                    <td className="px-4 py-3 text-xs font-mono text-muted-foreground">
-                      {t.display_order}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/admin/trends/${t.id}/edit`}
-                        className="font-semibold text-foreground hover:underline"
-                      >
-                        {t.title}
-                      </Link>
-                      <div className="text-xs text-muted-foreground">
-                        /{t.slug} · v{t.version}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
-                      {t.model}
-                    </td>
-                    <td className="px-4 py-3">
-                      <EvalBadge status={t.eval_status} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <ActiveBadge active={t.is_active} />
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {new Date(t.updated_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Button asChild variant="ghost" size="sm">
-                        <Link href={`/admin/trends/${t.id}/edit`}>Edit</Link>
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                {trends.map((t) => {
+                  const m = metricsMap.get(t.slug) ?? { impressions: 0, clicks: 0 }
+                  return (
+                    <tr
+                      key={t.id}
+                      className="border-t border-border/60 transition-colors hover:bg-muted/30"
+                    >
+                      <td className="px-4 py-3 text-xs font-mono text-muted-foreground">
+                        {t.display_order}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/admin/trends/${t.id}/edit`}
+                          className="font-semibold text-foreground hover:underline"
+                        >
+                          {t.title}
+                        </Link>
+                        <div className="text-xs text-muted-foreground">
+                          /{t.slug} · v{t.version}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">
+                        {t.model}
+                      </td>
+                      <td className="px-4 py-3">
+                        <EvalBadge status={t.eval_status} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <ActiveBadge active={t.is_active} />
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-xs tabular-nums">
+                        {fmt(m.impressions)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-xs tabular-nums">
+                        {fmt(m.clicks)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-xs tabular-nums text-muted-foreground">
+                        {ctrPct(m.impressions, m.clicks)}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {new Date(t.updated_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button asChild variant="ghost" size="sm">
+                          <Link href={`/admin/trends/${t.id}/edit`}>Edit</Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

@@ -1,5 +1,6 @@
-import { Archive, ArrowRight, Inbox, Sparkles } from 'lucide-react'
+import { Archive, ArrowRight, Eye, Inbox, MousePointerClick, Sparkles, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
+import { getOverall } from '@/lib/analytics/event-store'
 import { Badge } from '@/components/ui/badge'
 import {
   Card,
@@ -16,27 +17,40 @@ interface DashboardCounts {
   trendsTotal: number
   trendsLive: number
   pendingSuggestions: number
+  trendSlugs: string[]
 }
 
 async function loadCounts(): Promise<DashboardCounts> {
   const supabase = await createClient()
-  const [{ count: trendsTotal }, { count: trendsLive }, { count: pendingSuggestions }] = await Promise.all([
-    supabase.from('trends').select('id', { count: 'exact', head: true }),
+  const [trendsRes, liveRes, suggRes] = await Promise.all([
+    supabase.from('trends').select('id, slug'),
     supabase.from('trends').select('id', { count: 'exact', head: true }).eq('is_active', true),
     supabase
       .from('trend_suggestions')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending'),
   ])
+  const trendRows = (trendsRes.data as { id: string; slug: string }[] | null) ?? []
   return {
-    trendsTotal: trendsTotal ?? 0,
-    trendsLive: trendsLive ?? 0,
-    pendingSuggestions: pendingSuggestions ?? 0,
+    trendsTotal: trendRows.length,
+    trendsLive: liveRes.count ?? 0,
+    pendingSuggestions: suggRes.count ?? 0,
+    trendSlugs: trendRows.map((r) => r.slug),
   }
+}
+
+function formatNumber(n: number): string {
+  return new Intl.NumberFormat('en-US').format(n)
+}
+
+function ctrPct(impressions: number, clicks: number): string {
+  if (impressions === 0) return '—'
+  return `${((clicks / impressions) * 100).toFixed(1)}%`
 }
 
 export default async function AdminHome() {
   const counts = await loadCounts()
+  const metrics = getOverall(counts.trendSlugs)
 
   return (
     <section className="flex flex-col gap-8">
@@ -57,6 +71,40 @@ export default async function AdminHome() {
           value={counts.pendingSuggestions > 0 ? 'Review' : 'Clear'}
           hint={counts.pendingSuggestions > 0 ? 'Suggestions waiting' : 'No backlog'}
         />
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            Engagement · last 7d
+          </h2>
+          <Link
+            href="/admin/trends"
+            className="text-xs font-semibold text-muted-foreground hover:text-foreground"
+          >
+            Per-trend breakdown →
+          </Link>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <MetricCard
+            icon={<Eye className="size-4" />}
+            label="Impressions"
+            value={formatNumber(metrics.impressions)}
+            hint="Trend page views"
+          />
+          <MetricCard
+            icon={<MousePointerClick className="size-4" />}
+            label="Generate clicks"
+            value={formatNumber(metrics.clicks)}
+            hint="CTA submits"
+          />
+          <MetricCard
+            icon={<TrendingUp className="size-4" />}
+            label="Click-through"
+            value={ctrPct(metrics.impressions, metrics.clicks)}
+            hint="Clicks ÷ impressions"
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -97,6 +145,28 @@ function StatCard({ label, value, hint }: { label: string; value: number | strin
       {hint && (
         <CardContent className="px-5 text-xs text-muted-foreground">{hint}</CardContent>
       )}
+    </Card>
+  )
+}
+
+interface MetricCardProps {
+  icon: React.ReactNode
+  label: string
+  value: string
+  hint: string
+}
+
+function MetricCard({ icon, label, value, hint }: MetricCardProps) {
+  return (
+    <Card className="gap-2 py-5">
+      <CardHeader className="px-5">
+        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+          <span className="grid size-6 place-items-center rounded-md bg-muted">{icon}</span>
+          {label}
+        </div>
+        <CardTitle className="text-3xl font-extrabold tracking-tight">{value}</CardTitle>
+      </CardHeader>
+      <CardContent className="px-5 text-xs text-muted-foreground">{hint}</CardContent>
     </Card>
   )
 }

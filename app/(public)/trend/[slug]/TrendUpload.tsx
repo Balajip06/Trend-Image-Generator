@@ -28,6 +28,12 @@ export function TrendUpload({ trendSlug, schema, model }: TrendUploadProps) {
 
       const fileCount = Object.values(payload.files).reduce((n, fs) => n + fs.length, 0)
       analytics.track(EVENTS.UPLOAD_STARTED, { trend_slug: trendSlug, file_count: fileCount })
+      void fetch('/api/track', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ trend_slug: trendSlug, type: 'click_generate' }),
+        keepalive: true,
+      }).catch(() => {})
 
       try {
         const supabase = createClient()
