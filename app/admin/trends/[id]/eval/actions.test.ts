@@ -1,0 +1,329 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('next/navigation', () => ({
+  redirect: vi.fn((url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`)
+  }),
+}))
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
+
+// Default Gemini mock — overridden per test by reassigning mockGenerateImageImpl.
+let mockGenerateImageImpl: (args: unknown) => Promise<unknown> = async () => ({
+  ok: true,
+  outputPng: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+  costUsd: 0.039,
+  modelUsed: 'gemini-2.5-flash-image',
+})
+
+vi.mock('@/lib/gemini/client', () => ({
+  generateImage: vi.fn((args: unknown) => mockGenerateImageImpl(args)),
+}))
+
+interface ChainOverrides {
+  // Per-table fetch results (used by maybeSingle)
+  trendFetchResult?: { data: unknown; error: { message: string } | null } | null
+  // For listing inputs: .eq(...) on a select chain
+  inputsListResult?: { data: unknown; error: { message: string } | null }
+  // For insertion into trend_eval_inputs / trend_eval_runs
+  insertResult?: { data: unknown; error: { message: string } | null }
+  // For update results
+  updateResult?: { error: { message: string } | null }
+  // Storage upload
+  uploadResult?: { error: { message: string } | null }
+  publicUrl?: string
+}
+
+function makeMockSupabase(overrides: ChainOverrides = {}) {
+  const inputsList = overrides.inputsListResult ?? { data: [], error: null }
+  const updateResult = overrides.updateResult ?? { error: null }
+  const insertResult = overrides.insertResult ?? { data: { id: 'new-id' }, error: null }
+  const trendFetchResult =
+    overrides.trendFetchResult === undefined
+      ? { data: { id: 'trend-1', prompt_template: 'do thing', model: 'nano-banana', version: 3 }, error: null }
+      : overrides.trendFetchResult
+  const uploadResult = overrides.uploadResult ?? { error: null }
+  const publicUrl = overrides.publicUrl ?? 'https://cdn.example.com/eval/abc.png'
+
+  // Track operation state to switch behavior in eq(): select(...).eq(...) for inputs
+  // vs update(...).eq(...) for writes.
+  let lastOp: 'select' | 'update' | 'delete' | 'insert' = 'select'
+  let lastTable: string | null = null
+
+  const fromImpl = (table: string) => {
+    lastTable = table
+    const chain = {
+      insert: vi.fn(function (this: unknown) {
+        lastOp = 'insert'
+        return chain
+      }),
+      update: vi.fn(function (this: unknown) {
+        lastOp = 'update'
+        return chain
+      }),
+      delete: vi.fn(function (this: unknown) {
+        lastOp = 'delete'
+        return chain
+      }),
+      select: vi.fn(function (this: unknown) {
+        if (lastOp !== 'insert') lastOp = 'select'
+        return chain
+      }),
+      eq: vi.fn(function (this: unknown) {
+        // For select().eq().maybeSingle() this is intermediate.
+        // For select(...).eq(...) terminal (list query), return the list result.
+        // For update().eq() the action awaits this directly.
+        if (lastOp === 'update') {
+          return Promise.resolve(updateResult)
+        }
+        if (lastOp === 'delete') {
+          return Promise.resolve({ error: null })
+        }
+        // select() chain — could be terminal (list) or precede maybeSingle().
+        // Return an object that is both awaitable (resolves to list) and chainable.
+        const thenable = {
+          then: (resolve: (v: unknown) => void) => resolve(inputsList),
+          maybeSingle: chain.maybeSingle,
+          eq: chain.eq,
+        }
+        return thenable
+      }),
+      maybeSingle: vi.fn(() => {
+        if (lastTable === 'trends') return Promise.resolve(trendFetchResult)
+        if (lastOp === 'insert') return Promise.resolve(insertResult)
+        return Promise.resolve({ data: null, error: null })
+      }),
+    }
+    return chain
+  }
+
+  const storageBucket = {
+    upload: vi.fn(() => Promise.resolve(uploadResult)),
+    getPublicUrl: vi.fn(() => ({ data: { publicUrl } })),
+  }
+
+  const supabase = {
+    from: vi.fn(fromImpl),
+    storage: {
+      from: vi.fn(() => storageBucket),
+    },
+    _lastTable: () => lastTable,
+    _storageBucket: storageBucket,
+  }
+  return supabase
+}
+
+let mockSupabase = makeMockSupabase()
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(() => Promise.resolve(mockSupabase)),
+  createServiceClient: vi.fn(() => mockSupabase),
+}))
+
+import {
+  addEvalInput,
+  removeEvalInput,
+  runEval,
+  rateEvalRun,
+  markTrendEval,
+} from './actions'
+import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
+import { generateImage } from '@/lib/gemini/client'
+
+function lastRedirectUrl(): string {
+  const calls = (redirect as unknown as { mock: { calls: [string][] } }).mock.calls
+  return calls[calls.length - 1]?.[0] ?? ''
+}
+
+function makeAddInputForm(overrides: Record<string, string> = {}): FormData {
+  const fd = new FormData()
+  const defaults: Record<string, string> = {
+    label: 'Sample person',
+    image_url: 'https://example.com/photo.jpg',
+    demographic_tag: 'adult-f',
+  }
+  const merged = { ...defaults, ...overrides }
+  for (const [k, v] of Object.entries(merged)) {
+    fd.set(k, v)
+  }
+  return fd
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockSupabase = makeMockSupabase()
+  mockGenerateImageImpl = async () => ({
+    ok: true,
+    outputPng: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+    costUsd: 0.039,
+    modelUsed: 'gemini-2.5-flash-image',
+  })
+})
+
+afterEach(() => {
+  vi.clearAllMocks()
+})
+
+describe('addEvalInput', () => {
+  it('redirects with ?added=1 on success', async () => {
+    await expect(addEvalInput('trend-1', makeAddInputForm())).rejects.toThrow(
+      /NEXT_REDIRECT:/
+    )
+    expect(lastRedirectUrl()).toBe('/admin/trends/trend-1/eval?added=1')
+  })
+
+  it('rejects invalid URL with ?error=...', async () => {
+    const fd = makeAddInputForm({ image_url: 'not-a-url' })
+    await expect(addEvalInput('trend-1', fd)).rejects.toThrow(/NEXT_REDIRECT:/)
+    expect(lastRedirectUrl()).toMatch(/^\/admin\/trends\/trend-1\/eval\?error=/)
+  })
+
+  it('rejects missing label', async () => {
+    const fd = makeAddInputForm({ label: '' })
+    await expect(addEvalInput('trend-1', fd)).rejects.toThrow(/NEXT_REDIRECT:/)
+    expect(lastRedirectUrl()).toMatch(/^\/admin\/trends\/trend-1\/eval\?error=/)
+  })
+
+  it('emptyToNull normalizes whitespace-only demographic_tag to null', async () => {
+    const fd = makeAddInputForm({ demographic_tag: '   ' })
+    await expect(addEvalInput('trend-1', fd)).rejects.toThrow(/NEXT_REDIRECT:/)
+    // The chain.insert mock was called somewhere — inspect first .insert() args by
+    // grabbing the supabase mock's last `from('trend_eval_inputs').insert(...)`.
+    const fromCalls = mockSupabase.from.mock.calls
+    expect(fromCalls.some((c) => c[0] === 'trend_eval_inputs')).toBe(true)
+    expect(lastRedirectUrl()).toBe('/admin/trends/trend-1/eval?added=1')
+  })
+
+  it('redirects ?error= on Supabase insert error', async () => {
+    mockSupabase = makeMockSupabase({
+      updateResult: { error: null },
+    })
+    // Override the insert flow: monkey-patch chain to return error after insert().
+    // Easiest: rebuild with a different chain via from() override.
+    const origFrom = mockSupabase.from
+    mockSupabase.from = vi.fn((table: string) => {
+      const chain = origFrom(table) as Record<string, unknown>
+      chain.insert = vi.fn(() =>
+        Promise.resolve({ error: { message: 'fk violation' } })
+      ) as unknown as typeof chain.insert
+      return chain as ReturnType<typeof origFrom>
+    }) as typeof mockSupabase.from
+    await expect(addEvalInput('trend-1', makeAddInputForm())).rejects.toThrow(
+      /NEXT_REDIRECT:/
+    )
+    expect(lastRedirectUrl()).toMatch(/^\/admin\/trends\/trend-1\/eval\?error=fk%20violation/)
+  })
+})
+
+describe('removeEvalInput', () => {
+  it('deletes by id and redirects ?removed=1', async () => {
+    await expect(removeEvalInput('trend-1', 'input-9')).rejects.toThrow(
+      /NEXT_REDIRECT:/
+    )
+    expect(lastRedirectUrl()).toBe('/admin/trends/trend-1/eval?removed=1')
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/trends/trend-1/eval')
+  })
+})
+
+describe('runEval', () => {
+  it('redirects ?error=trend_not_found when trend missing', async () => {
+    mockSupabase = makeMockSupabase({ trendFetchResult: { data: null, error: null } })
+    await expect(runEval('missing-trend')).rejects.toThrow(/NEXT_REDIRECT:/)
+    expect(lastRedirectUrl()).toBe('/admin/trends/missing-trend/eval?error=trend_not_found')
+  })
+
+  it('redirects ?error=no_inputs when no eval inputs exist', async () => {
+    mockSupabase = makeMockSupabase({ inputsListResult: { data: [], error: null } })
+    await expect(runEval('trend-1')).rejects.toThrow(/NEXT_REDIRECT:/)
+    expect(lastRedirectUrl()).toBe('/admin/trends/trend-1/eval?error=no_inputs')
+  })
+
+  it('happy path: inserts run, calls Gemini, uploads PNG, redirects ?ran=1', async () => {
+    mockSupabase = makeMockSupabase({
+      inputsListResult: {
+        data: [{ id: 'input-1', image_url: 'https://e.com/a.jpg' }],
+        error: null,
+      },
+    })
+    await expect(runEval('trend-1')).rejects.toThrow(/NEXT_REDIRECT:/)
+    expect(lastRedirectUrl()).toBe('/admin/trends/trend-1/eval?ran=1')
+    expect(generateImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'nano-banana',
+        prompt: 'do thing',
+        imageUrls: ['https://e.com/a.jpg'],
+      })
+    )
+    expect(mockSupabase._storageBucket.upload).toHaveBeenCalled()
+    const uploadCalls = mockSupabase._storageBucket.upload.mock.calls as unknown as Array<
+      [string, unknown, unknown]
+    >
+    expect(uploadCalls[0]?.[0]).toMatch(/^eval\/trend-1\/new-id\.png$/)
+  })
+
+  it('Gemini error: writes admin_rating="error:<reason>" to the run', async () => {
+    mockSupabase = makeMockSupabase({
+      inputsListResult: {
+        data: [{ id: 'input-1', image_url: 'https://e.com/a.jpg' }],
+        error: null,
+      },
+    })
+    mockGenerateImageImpl = async () => ({
+      ok: false,
+      reason: 'safety',
+      message: 'blocked',
+      costUsd: 0,
+    })
+    await expect(runEval('trend-1')).rejects.toThrow(/NEXT_REDIRECT:/)
+    expect(lastRedirectUrl()).toBe('/admin/trends/trend-1/eval?ran=1')
+    // The run-update receives admin_rating containing 'error:safety'
+    const fromCalls = mockSupabase.from.mock.calls
+    expect(fromCalls.some((c) => c[0] === 'trend_eval_runs')).toBe(true)
+    expect(mockSupabase._storageBucket.upload).not.toHaveBeenCalled()
+  })
+
+  it('storage upload error short-circuits before the post-upload update', async () => {
+    mockSupabase = makeMockSupabase({
+      inputsListResult: {
+        data: [{ id: 'input-1', image_url: 'https://e.com/a.jpg' }],
+        error: null,
+      },
+      uploadResult: { error: { message: 'storage down' } },
+    })
+    await expect(runEval('trend-1')).rejects.toThrow(/NEXT_REDIRECT:/)
+    expect(lastRedirectUrl()).toBe('/admin/trends/trend-1/eval?ran=1')
+    expect(mockSupabase._storageBucket.upload).toHaveBeenCalled()
+    // getPublicUrl should never be reached if upload failed
+    expect(mockSupabase._storageBucket.getPublicUrl).not.toHaveBeenCalled()
+  })
+})
+
+describe('rateEvalRun', () => {
+  it('updates the run with the rating, revalidates eval page', async () => {
+    // rateEvalRun has no redirect — it just runs.
+    await rateEvalRun('trend-1', 'run-1', 'pass')
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/trends/trend-1/eval')
+    expect(mockSupabase.from).toHaveBeenCalledWith('trend_eval_runs')
+  })
+})
+
+describe('markTrendEval', () => {
+  it('marks passed: redirects ?marked-passed=1 and revalidates 3 paths', async () => {
+    await expect(markTrendEval('trend-1', 'passed')).rejects.toThrow(/NEXT_REDIRECT:/)
+    expect(lastRedirectUrl()).toBe('/admin/trends/trend-1/eval?marked-passed=1')
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/trends/trend-1/eval')
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/trends')
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/trends/trend-1/edit')
+  })
+
+  it('marks failed: redirects ?marked-failed=1 and sets eval_status="failed"', async () => {
+    await expect(markTrendEval('trend-1', 'failed')).rejects.toThrow(/NEXT_REDIRECT:/)
+    expect(lastRedirectUrl()).toBe('/admin/trends/trend-1/eval?marked-failed=1')
+  })
+
+  it('redirects ?error= on update error', async () => {
+    mockSupabase = makeMockSupabase({ updateResult: { error: { message: 'denied' } } })
+    await expect(markTrendEval('trend-1', 'passed')).rejects.toThrow(/NEXT_REDIRECT:/)
+    expect(lastRedirectUrl()).toMatch(/^\/admin\/trends\/trend-1\/eval\?error=denied/)
+  })
+})
