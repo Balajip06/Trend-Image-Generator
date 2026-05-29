@@ -15,7 +15,7 @@ Append at end of each session. Newest on top.
 **Verification:**
 - `pnpm typecheck` clean (no source touched)
 - `pnpm lint` clean (no source touched)
-- `pnpm test` — unchanged 278/283 (ShareBurst regression pre-existed this session and is now logged in todo.md hygiene section)
+- `pnpm test` — **283/283 passing** (5 ShareBurst "reds" mentioned mid-session were a transient race against the test-coverage agent's commit `1fcf5b4` which landed seconds later; final state is all green)
 - `pnpm build` — 30-route table re-verified
 
 **Stale claims found + corrected:**

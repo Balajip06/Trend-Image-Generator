@@ -311,8 +311,8 @@ Coverage + quality:
 - [x] Vitest coverage for env schema (commit `9e439d8`)
 - [x] Vitest coverage for brand + theme + mock-data primitives (commit `e9fce88`)
 - [x] Audit log viewer + dynamic-id baseline coverage + auth dedup (commit `ea0b447`)
-- [x] Test stack delta: 31 files / 283 tests (up from 78 at end of Phase 4)
-- [ ] `ShareBurst` test regression — 5 failures introduced post-redesign (`web-share` mock + tile-rendering matchers); not yet triaged
+- [x] Test stack delta: 31 files / 283 tests all passing (up from 78 at end of Phase 4)
+- [x] Sub-component direct test coverage (commit `1fcf5b4`, +45 cases for StatusBadge/ResultCanvas/ShareBurst/TrendFormSections)
 
 Security + correctness:
 - [x] Closed JSON-LD XSS + open-redirect (commit `4dfd993`)
@@ -331,10 +331,10 @@ Performance:
 - [x] Sub-component extraction from `TrendForm` + `ResultView` to honour file-size cap (commit `fb27006`)
 
 Still pending:
-- [ ] Triage the 5 failing `ShareBurst` tests (regression introduced by web-share refactor in redesign Phase C)
 - [ ] Resume Sentry Replay enablement once perf budget review is done (deferred during bundle pass)
 - [ ] Wire real eval workflow once `GEMINI_API_KEY` arrives — re-evaluate the 15 v2 prompts and clear the eval-gate bypass debt
 - [ ] Run the 14-test verification matrix in `docs/RUNBOOK.md` once all creds in `.env.local`
+- [ ] Swap launch placeholders per `docs/LAUNCH_CHECKLIST.md` (commit `893bef8`) before going live
 
 ---
 

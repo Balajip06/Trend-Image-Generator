@@ -8,10 +8,10 @@ Viral-trend image generator. Next.js 16 + Supabase + Gemini Nano Banana. Consume
 
 - **Branch:** `main` (renamed from `master` post-bootstrap)
 - **Remote:** `origin` → https://github.com/Balajip06/Trend-Image-Generator
-- **HEAD:** `2f59467` perf: dev-only /styleguide no longer ships its body to prod
-- **Total commits on `origin/main`:** 86
+- **HEAD:** `ae01833` docs: refresh CLAUDE.md + todo.md + runbook to current state
+- **Total commits on `origin/main`:** 89+ (push pending)
 - **Routes (`pnpm build`):** 30 — consumer (`/`, `/trend/[slug]`, `/result/[id]`, `/me/{creations,settings}`, `/login`), admin (`/admin/{trends,trends/[id]/{edit,eval},suggestions,audit}`), public legal (`/terms`, `/privacy`), dev-only (`/styleguide` — prod-stripped via `notFound()` + dynamic-import), 9 API routes, sitemap + robots + auth callback
-- **Test gate:** Vitest 31 files / 283 tests — 278 passing, 5 failing in `app/(app)/result/[id]/ShareBurst.test.tsx` (regression introduced post-redesign; not yet triaged)
+- **Test gate:** Vitest **31 files / 283 tests — 283/283 passing**
 - **Static gates:** `pnpm typecheck` clean, `pnpm lint` clean, `pnpm build` clean (18 static + 12 dynamic)
 - **MOCK_TRENDS=true** still toggleable for screenshot work; production never sets it (proxy.ts + repository.ts short-circuit auth + data when on)
 - **Phase status:** 0 ✅ resolved, 1 ✅ except blocked-on-creds items, 2 ✅ shipped (admin CRUD + eval workflow + SSR trend pages + sitemap/robots), 3 ✅ shipped (Edge Function + Realtime + push/email fallback), 4 ✅ shipped (watermark + share + referrals + history + data export + branded OG), 5 prep ✅ + checkout UI ✅ (blocked on Stripe creds), 6 prep ✅ + approve/reject ✅ (blocked on real proposer + sources)
