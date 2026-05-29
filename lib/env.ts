@@ -51,6 +51,24 @@ export function getServerEnv(): ServerEnv {
     const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('\n')
     throw new Error(`Invalid server env:\n${issues}`)
   }
+  // Fail-loud production guard: MOCK_TRENDS short-circuits auth (proxy.ts),
+  // RLS (repository.ts mock branch), and authed-area gates in /me + /admin +
+  // /result pages. Leaving it on in production would expose private user data
+  // + admin surfaces to unauthenticated visitors. Boot must crash if this
+  // combination is ever attempted. See docs/LAUNCH_CHECKLIST.md "Dev-mode flags".
+  //
+  // Exempt CI runners (GitHub Actions auto-sets CI=true). Playwright e2e
+  // tests need MOCK_TRENDS=true to render authed routes against an empty
+  // CI Supabase; the CI environment is ephemeral and not user-facing.
+  if (
+    parsed.data.MOCK_TRENDS === 'true' &&
+    process.env.NODE_ENV === 'production' &&
+    process.env.CI !== 'true'
+  ) {
+    throw new Error(
+      'MOCK_TRENDS=true is set in a production build outside CI. This flag bypasses auth + RLS and must never run in real production. Unset it before deploy.',
+    )
+  }
   cached = parsed.data
   return cached
 }

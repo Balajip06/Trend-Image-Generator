@@ -56,6 +56,9 @@ afterEach(() => {
       process.env[k] = originalEnv[k]
     }
   }
+  // Vitest manages stubbed envs (NODE_ENV, CI) separately from process.env
+  // mutations; unstub here so the next test starts on clean ground.
+  vi.unstubAllEnvs()
 })
 
 describe('getServerEnv', () => {
@@ -109,6 +112,39 @@ describe('getServerEnv', () => {
     process.env.MOCK_TRENDS = 'yes'
     mod = await loadEnv()
     expect(() => mod.getServerEnv()).toThrow(/MOCK_TRENDS/)
+  })
+
+  // process.env.NODE_ENV is typed as a read-only literal in @types/node;
+  // vi.stubEnv is the vitest-supported escape hatch. Tests are isolated via
+  // vi.unstubAllEnvs in afterEach so each case starts clean.
+  it('throws when MOCK_TRENDS=true in production outside CI (security guard)', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('MOCK_TRENDS', 'true')
+    vi.stubEnv('CI', '')
+    const { getServerEnv } = await loadEnv()
+    expect(() => getServerEnv()).toThrow(/MOCK_TRENDS=true is set in a production build/)
+  })
+
+  it('allows MOCK_TRENDS=true in production when CI=true (e.g. GitHub Actions)', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('MOCK_TRENDS', 'true')
+    vi.stubEnv('CI', 'true')
+    const { getServerEnv } = await loadEnv()
+    expect(getServerEnv().MOCK_TRENDS).toBe('true')
+  })
+
+  it('allows MOCK_TRENDS=true in non-production environments', async () => {
+    vi.stubEnv('NODE_ENV', 'development')
+    vi.stubEnv('MOCK_TRENDS', 'true')
+    const { getServerEnv } = await loadEnv()
+    expect(getServerEnv().MOCK_TRENDS).toBe('true')
+  })
+
+  it('allows MOCK_TRENDS=false in production (the safe combination)', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('MOCK_TRENDS', 'false')
+    const { getServerEnv } = await loadEnv()
+    expect(getServerEnv().MOCK_TRENDS).toBe('false')
   })
 
   it('defaults ANONYMOUS_DAILY_BUDGET_USD to 20 when unset', async () => {

@@ -59,6 +59,12 @@ jobs:
     name: Playwright
     runs-on: ubuntu-latest
     needs: static
+    # MOCK_TRENDS=true lets the dev server render authed routes against an
+    # empty CI Supabase. lib/env.ts only allows this combination because the
+    # CI environment variable is auto-set by GitHub Actions; real-prod boots
+    # without CI=true would crash. See lib/env.ts getServerEnv guard.
+    env:
+      MOCK_TRENDS: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
