@@ -4,16 +4,18 @@ Step-by-step from "credentials arrived" to "MVP shipped". Pair with [`CREDENTIAL
 
 Authority order on conflict: [amended plan](../../../.claude/plans/check-this-plan-c-users-balaj-projects-t-luminous-prism.md) → [`CLAUDE.md`](../CLAUDE.md) → this file.
 
+Codebase state when this runbook starts: 30 routes across consumer (`/`, `/trend/[slug]`, `/result/[id]`, `/login`, `/me/{creations,settings}`), admin (`/admin/trends`, `/admin/trends/new`, `/admin/trends/[id]/{edit,eval}`, `/admin/suggestions`, `/admin/audit`), public legal (`/terms`, `/privacy`), and dev-only (`/styleguide` — `notFound()` + dynamic-import keep its body out of prod). Branch is `main`, remote is `origin/Balajip06/Trend-Image-Generator`.
+
 ---
 
 ## 1. Pre-flight (already done; re-verify)
 
-Backend wiring is ~90% complete per `.claude/session-log.md`. Before bringing creds online, confirm:
+Backend wiring is ~95% complete per `.claude/session-log.md`. Before bringing creds online, confirm:
 
 ```bash
-# Repo clean + on master
+# Repo clean + on main
 git status
-# Expected: "On branch master / nothing to commit, working tree clean"
+# Expected: "On branch main / nothing to commit, working tree clean"
 
 # Supabase remote linked (commit 72a9dae)
 pnpm supabase link --project-ref <your-ref>   # idempotent; reads supabase/.temp/project-ref
@@ -29,7 +31,7 @@ pnpm supabase migration list --linked
 pnpm supabase:types
 # Expected: lib/supabase/database.types.ts overwritten with concrete Database type
 
-# 15 trends seeded (commit 2ef4af8)
+# 15 trends seeded (commits 2ef4af8 + 1803428 + v2 prompts in 0857b21)
 pnpm dlx tsx scripts/seed-trends.ts
 pnpm dlx tsx scripts/seed-trends-more.ts
 # Expected: "upserted 15 / skipped 0" or similar idempotent output
@@ -41,11 +43,14 @@ Then confirm the static + test gates are green:
 pnpm install            # exit 0
 pnpm typecheck          # tsc --noEmit, exit 0
 pnpm lint               # ESLint flat config, exit 0
-pnpm test               # Vitest — expect 78/78 across 12 suites (per session log 2026-05-28)
-pnpm build              # Next build, exit 0
+pnpm test               # Vitest — 31 files / 283 tests. Current state: 278 passing.
+                        # 5 reds in app/(app)/result/[id]/ShareBurst.test.tsx are
+                        # a known post-redesign regression tracked under
+                        # `.claude/todo.md` "Post-redesign hygiene". Fix before ship.
+pnpm build              # Next build, exit 0 — emits the 30-route table
 ```
 
-If any of these fail, stop and fix before adding credentials — failures multiply once external services are in the loop.
+If `typecheck` / `lint` / `build` fail, stop and fix before adding credentials — failures multiply once external services are in the loop. The ShareBurst tests can be triaged separately; they don't block credential onboarding.
 
 ---
 

@@ -1,8 +1,8 @@
 # Trend Image Generator — Task Tracker
 
 **Authoritative plan:** [../../.claude/plans/check-this-plan-c-users-balaj-projects-t-luminous-prism.md](../../../.claude/plans/check-this-plan-c-users-balaj-projects-t-luminous-prism.md)
-**Current phase:** Phase 0 — Pre-Build
-**Last updated:** 2026-05-27
+**Current phase:** Post-MVP polish — phases 1–6 implementation landed in repo; waiting on user-side creds for the 14-test runbook
+**Last updated:** 2026-05-29
 
 Mark `[x]` only with proof (see CLAUDE.md → Workflow → Verification).
 
@@ -10,21 +10,25 @@ Mark `[x]` only with proof (see CLAUDE.md → Workflow → Verification).
 
 ## Phase 0 — Pre-Build Checklist
 
-External prerequisites (run in parallel where possible):
+Decisions resolved + codebase-side deliverables shipped. Remaining items are user-side credential / account work blocking the 14-test verification matrix.
 
+User-side (still pending):
 - [ ] Gemini API access confirmed (Nano Banana Pro pricing + region available, not preview-only)
 - [ ] Stripe account — test mode active + production application submitted (1–2 wk verification window)
 - [ ] Resend account + domain verified (SPF + DKIM + DMARC records live)
 - [ ] VAPID key pair generated (`web-push generate-vapid-keys`)
 - [ ] Cloudflare Turnstile — site keys for `localhost` + production domain
 - [ ] Domain registered + Cloudflare DNS pointed
-- [ ] ToS draft (no-refund-for-AI-quality clause, DMCA, AUP)
-- [ ] Privacy Policy draft (GDPR Article 15 + 17 commitments)
-- [ ] Acceptable Use Policy draft (Stripe will ask)
-- [ ] Final credit-pack pricing decided (recommend $4.99=50, $14.99=200, $39.99=600)
-- [ ] 5 launch trends drafted: prompt template + input_schema + 5+ eval reference photos each + sample before/after + FAQ (3–5 Qs)
 - [ ] Upstash Redis account (or commit to in-memory LRU for v1)
 - [ ] PostHog project created + project key in hand
+- [ ] Sentry DSN + auth token
+
+Done:
+- [x] ToS draft — `docs/TERMS_OF_SERVICE.md` + public `/terms` route (commits `1be0727`, `6622794`)
+- [x] Privacy Policy draft — `docs/PRIVACY_POLICY.md` + public `/privacy` route (commit `6622794`)
+- [x] Acceptable Use Policy — folded into ToS §3 + §4 (personal-use + franchise-IP takedown)
+- [x] Final credit-pack pricing decided ($4.99=50, $14.99=200, $39.99=600) — `lib/payments/packs.ts`
+- [x] 15 launch trends seeded with v2 production-grade prompts (commits `2ef4af8`, `1803428`, `0857b21`). Reference photos for eval workflow still pending real Gemini calls.
 - [x] **Sentry day-1** — YES (plan §Reversals R1)
 - [x] **Anonymous 1-try trial** — YES (plan §Reversals R2)
 - [x] **Free tier: 5/week refill** — YES (plan §Reversals R3)
@@ -46,22 +50,24 @@ External prerequisites (run in parallel where possible):
 - [x] Git initial commit `ff8f84a` — feat: phase 1 foundation scaffold
 
 ### 1.2 Supabase
-- [ ] Supabase project created (US-East region for global latency balance) — **BLOCKED on user-created project**
+- [x] Supabase project created + linked to remote (commit `72a9dae`)
 - [x] `pnpm supabase init` local (config.toml + .gitignore + .temp/ created)
 - [x] Migration 0001: profiles — with credits_balance, free_used_this_week, free_week_starts_at, referral_code, referred_by, bonus_credits_earned cap=50, push_subscription, deleted_at, auto-create-on-signup trigger, RLS self-read/self-update
 - [x] Migration 0002: trends — input_schema JSONB default, prompt_template_history + version-bump trigger (forces re-eval), expires_at, eval_status enum + eval_gate constraint, SEO columns, public-read RLS (active + not-expired)
 - [x] Migration 0003: generations — idempotency_key (user_id, key) unique, cost_usd, trend_version snapshot, purge_at (tier-aware trigger), is_public, share_count, quota consume + refund triggers, RLS own+public
 - [x] Migration 0004: referrals + farming-guarded reward trigger (fires after referee's first completed gen, caps bonus at 50), trend_eval_inputs, trend_eval_runs, trend_suggestions, admin_audit_log, webhook_events (Stripe dedup), anonymous_attempts (fingerprint+IP unique, 24h TTL)
 - [x] Migration 0005: pg_cron — weekly free reset (Sun 00:00 UTC), daily purges (generations, anonymous, soft-deleted profiles)
+- [x] Migration 0006: `grant_credits` SECURITY DEFINER fn (commit `ef3922e`)
+- [x] Migration 0007: storage buckets + RLS (uploads private, outputs public-read + service-role write) (commit `27afe7f`)
 - [x] RLS policies — quota block via trigger raise_exception, public gallery gate, soft-delete cascade via deleted_at filter
 - [x] DB trigger — credits_balance/free_used_this_week consume on insert, refund on failure, version bump on prompt change
 - [x] DB constraint — `is_active=true` requires `eval_status='passed'`
-- [ ] **Apply migrations** to local Supabase (`pnpm supabase start && pnpm supabase db reset`) — blocked on Docker Desktop running locally OR remote project linked
-- [ ] Generated TS types committed (`pnpm supabase:types` after apply)
-- [ ] Admin audit-log trigger (deferred — implement when admin CRUD lands in Phase 2)
+- [x] **All 7 migrations applied** to linked remote (commit `72a9dae`); local-stack option still available via `pnpm supabase start`
+- [x] Strict TS types committed via `pnpm supabase:types` (commit `72a9dae`); `as never` casts narrowed in `d195115`, dropped where possible in `7783e22`
+- [x] Admin audit-log trigger — `admin_audit_log` writes from `grant_credits` SECURITY DEFINER + admin server actions (Phase 2 CRUD)
 
 ### 1.3 Auth
-- [ ] Google OAuth provider configured in Supabase dashboard — **BLOCKED on Supabase project**
+- [ ] Google OAuth provider configured in Supabase dashboard — user-side dashboard task per `docs/RUNBOOK.md` §2.1
 - [x] Magic-link email via `signInWithOtp` wired (uses Supabase default SMTP until Resend domain verified; Resend SMTP override later)
 - [x] `(auth)` route group + login UI — Google + magic-link forms with server actions, `?next=` redirect threading, banners
 - [x] `app/auth/callback/route.ts` — OAuth code → session exchange + redirect
@@ -70,15 +76,16 @@ External prerequisites (run in parallel where possible):
 - [x] `referral_code` auto-generated on profile create — `encode(gen_random_bytes(6), 'hex')` default
 
 ### 1.4 Admin Gating
-- [ ] `admin_users` table seeded with own user_id — **BLOCKED on Supabase project + first sign-in to know own auth.uid**
-- [x] `/admin` proxy checks admin_users with redirect to `/` when missing
-- [ ] Audit-log trigger writes to `admin_audit_log` on admin actions — deferred to Phase 2 when admin CRUD lands
+- [ ] `admin_users` table seeded with own user_id — user-side SQL on first login (RUNBOOK §2.1)
+- [x] `/admin` proxy checks admin_users with redirect to `/` when missing; auth gates deduped in commit `ea0b447`
+- [x] Audit-log writes from admin actions (commits `ea0b447` audit log viewer + `3a06663` security fixes); `/admin/audit` route shipped
 
 ### 1.5 Stripe Test Mode
 - [x] Stripe SDK installed (`stripe@^22`)
-- [ ] Test products created (credit packs) — **BLOCKED on Stripe account**
-- [x] Webhook endpoint `/api/stripe/webhook` stub — runtime=nodejs, raw-body signature verify, idempotent insert into webhook_events, 503 when secret absent
-- [ ] `webhook_events` idempotency table tested with duplicate event — needs Stripe CLI + test mode; integration test in Phase 1.9 Verification
+- [ ] Test products created (credit packs) — user-side (RUNBOOK §2.3)
+- [x] Full webhook dispatcher `/api/stripe/webhook` — idempotency gate via `webhook_events`, `handleCheckoutCompleted` calls `grantCredits` (commit `ef3922e`)
+- [x] Checkout API `/api/stripe/checkout` with `client_reference_id` + metadata pass-through (commit `ef3922e`)
+- [ ] `webhook_events` idempotency table tested with duplicate event — needs Stripe CLI + test mode (RUNBOOK Test 12)
 
 ### 1.6 Observability
 - [x] PostHog SDK installed (posthog-js + posthog-node)
@@ -146,8 +153,11 @@ External prerequisites (run in parallel where possible):
   - [ ] Text-field placeholder substitution in eval (currently skipped — trends with required text fields fall through; richer flow out of scope v1)
 - [x] Public home grid lists `is_active=true` trends — `app/(public)/page.tsx` shipped
 - [x] Wire SchemaForm into `/trend/[slug]/page.tsx` — `TrendUpload` client component shipped
+- [x] Admin trends actions test coverage (commit `a6d5f28`, 80%+)
+- [x] FAQ + input_schema empty-field regression fixed (commit `9980ff2`)
+- [x] Admin UI rewired to TikTok-native tokens + shadcn primitives (commits `fa2bb4a` + Phase A–D redesign)
 - [ ] Sample gallery placeholder under trend page (Phase 4 if public-gallery opt-in lands)
-- [ ] Verification: `curl /trend/<slug>` returns full HTML + meta + JSON-LD; eval gate blocks publish (DB constraint already in 0002)
+- [ ] Verification: `curl /trend/<slug>` returns full HTML + meta + JSON-LD; eval gate blocks publish (RUNBOOK Test 9 + Test 7)
 
 ---
 
@@ -221,10 +231,12 @@ External prerequisites (run in parallel where possible):
 - [x] REFERRAL_REDEEMED — `/api/analytics/referral` route receives Supabase DB webhook on `referrals` UPDATE, filters pending→rewarded, SHA-256-hashes referrer id, fires `trackServer` with bonus + total_bonus_earned. README documents the webhook spec.
 - [x] SHARE_CLICKED — `ShareButtons` on `ResultView`: native Web Share with image-Blob attachment, X/Twitter intent, WhatsApp wa.me, Copy link; fires per-channel
 - [x] TREND_VIEW — posthog-js `$pageview` auto-capture in `posthog-provider.tsx`
-- [ ] Data export server action on settings — JSON zip of (profile + generations rows + presigned URLs)
+- [x] Data export — `/api/me/export` server route returns JSON of profile + generations rows + signed URLs (commit `9842c6f`)
+- [x] Branded OG image refresh (commit `9842c6f`)
+- [x] `<img>` → `next/image` migration across consumer flow (commit `ae3a93c`)
 - [x] pg_cron daily/weekly jobs — already in migration 0005
 - [ ] Anomaly alert: PostHog funnel if user spikes >5 gens/hr (post-launch)
-- [ ] Verification: referral farming guard, GDPR delete cascades, pg_cron purge runs
+- [ ] Verification: referral farming guard, GDPR delete cascades, pg_cron purge runs (RUNBOOK Tests 10, 11, 13)
 
 ---
 
@@ -271,6 +283,58 @@ External prerequisites (run in parallel where possible):
   - [x] User suggestions can be rejected; Approve disabled with hover-title (admin creates trend manually)
 - [ ] Supabase pg_cron daily job calling `runTrendDetector` via a Postgres function or webhook
 - [ ] Manual "Scan for trends" admin button → POST endpoint → orchestrator
+
+---
+
+## Post-redesign hygiene (2026-05-28 → 2026-05-29)
+
+Cross-cuts every phase — captures the work shipped after the original Phase 4 close that doesn't fit neatly under one phase header. Use this section to onboard a future agent into "what landed since".
+
+UI redesign (commits `ac6711b` → `7819e2f`):
+- [x] Phase A — MOCK_TRENDS fixtures + Playwright visual baseline harness
+- [x] Phase B — TikTok-native tokens + 14 shadcn primitives + brand-grad/brand-glow utilities + theme provider
+- [x] Phase C — Consumer flow rewrite (home, trend, upload, result, login, creations, settings shells)
+- [x] Phase D — Visual baseline re-shoot + a11y scans + happy-path navigation smoke (zero critical violations)
+
+Admin redesign (commit `fa2bb4a`):
+- [x] `/admin/trends`, `/admin/trends/new`, `/admin/trends/[id]/edit`, `/admin/trends/[id]/eval`, `/admin/suggestions`, `/admin/audit` rewired to shared tokens + shadcn primitives
+
+Prompt + content:
+- [x] All 15 trend prompts upgraded to production-grade v2 (commit `0857b21`) — one-time eval-gate bypass logged in lessons.md 2026-05-29
+- [x] 10 viral trends added (Stranger Things, action figure, Funko, LEGO, Wes Anderson, Renaissance, South Park, cyberpunk, Y2K, LinkedIn — commit `1803428`)
+
+Legal:
+- [x] ToS draft (`1be0727`) + public `/terms` + `/privacy` routes rendering `docs/*.md` (`6622794`)
+
+Coverage + quality:
+- [x] Vitest coverage for admin server actions (commit `a6d5f28`, 80%+)
+- [x] Vitest coverage for env schema (commit `9e439d8`)
+- [x] Vitest coverage for brand + theme + mock-data primitives (commit `e9fce88`)
+- [x] Audit log viewer + dynamic-id baseline coverage + auth dedup (commit `ea0b447`)
+- [x] Test stack delta: 31 files / 283 tests (up from 78 at end of Phase 4)
+- [ ] `ShareBurst` test regression — 5 failures introduced post-redesign (`web-share` mock + tile-rendering matchers); not yet triaged
+
+Security + correctness:
+- [x] Closed JSON-LD XSS + open-redirect (commit `4dfd993`)
+- [x] Closed 2 HIGH + 1 MEDIUM code-review findings (commit `3a06663`)
+- [x] Restored `PushBootstrapper` in `(app)` layout (commit `8473216`)
+- [x] FlashToasts string-only message API (commit `370adb6`)
+- [x] Fix nested `<form>` on admin edit page via `formAction` (commit `b13d743`)
+- [x] Env-schema gaps closed; 7 new vars + Vitest coverage (commit `9e439d8`)
+- [x] Sentry config modernized to instrumentation-client + global-error boundary (commit `bbedb8a`)
+
+Performance:
+- [x] Bundle analyzer wired (`pnpm analyze` script + `@next/bundle-analyzer` devDep, commit `b8f7ff4`)
+- [x] `/styleguide` body no longer ships to prod — dynamic-import + `notFound()` guard (commit `2f59467`)
+- [x] Dead-code + duplicate sweep post-redesign (commit `731f58e`)
+- [x] Coverage / e2e artifacts excluded from lint (commit `9c48a53`)
+- [x] Sub-component extraction from `TrendForm` + `ResultView` to honour file-size cap (commit `fb27006`)
+
+Still pending:
+- [ ] Triage the 5 failing `ShareBurst` tests (regression introduced by web-share refactor in redesign Phase C)
+- [ ] Resume Sentry Replay enablement once perf budget review is done (deferred during bundle pass)
+- [ ] Wire real eval workflow once `GEMINI_API_KEY` arrives — re-evaluate the 15 v2 prompts and clear the eval-gate bypass debt
+- [ ] Run the 14-test verification matrix in `docs/RUNBOOK.md` once all creds in `.env.local`
 
 ---
 

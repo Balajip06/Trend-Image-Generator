@@ -1,6 +1,21 @@
 # Trend Image Generator — Project Instructions
 
-Viral-trend image generator. Next.js 15 + Supabase + Gemini Nano Banana. Consumer-facing, IG + TikTok distribution.
+Viral-trend image generator. Next.js 16 + Supabase + Gemini Nano Banana. Consumer-facing, IG + TikTok distribution.
+
+---
+
+## Current state (2026-05-29)
+
+- **Branch:** `main` (renamed from `master` post-bootstrap)
+- **Remote:** `origin` → https://github.com/Balajip06/Trend-Image-Generator
+- **HEAD:** `2f59467` perf: dev-only /styleguide no longer ships its body to prod
+- **Total commits on `origin/main`:** 86
+- **Routes (`pnpm build`):** 30 — consumer (`/`, `/trend/[slug]`, `/result/[id]`, `/me/{creations,settings}`, `/login`), admin (`/admin/{trends,trends/[id]/{edit,eval},suggestions,audit}`), public legal (`/terms`, `/privacy`), dev-only (`/styleguide` — prod-stripped via `notFound()` + dynamic-import), 9 API routes, sitemap + robots + auth callback
+- **Test gate:** Vitest 31 files / 283 tests — 278 passing, 5 failing in `app/(app)/result/[id]/ShareBurst.test.tsx` (regression introduced post-redesign; not yet triaged)
+- **Static gates:** `pnpm typecheck` clean, `pnpm lint` clean, `pnpm build` clean (18 static + 12 dynamic)
+- **MOCK_TRENDS=true** still toggleable for screenshot work; production never sets it (proxy.ts + repository.ts short-circuit auth + data when on)
+- **Phase status:** 0 ✅ resolved, 1 ✅ except blocked-on-creds items, 2 ✅ shipped (admin CRUD + eval workflow + SSR trend pages + sitemap/robots), 3 ✅ shipped (Edge Function + Realtime + push/email fallback), 4 ✅ shipped (watermark + share + referrals + history + data export + branded OG), 5 prep ✅ + checkout UI ✅ (blocked on Stripe creds), 6 prep ✅ + approve/reject ✅ (blocked on real proposer + sources)
+- **Outstanding work:** see [.claude/todo.md](.claude/todo.md) "Post-redesign hygiene" + the un-checked items per phase
 
 ---
 
@@ -38,7 +53,7 @@ The amended plan overrides the original on: credit packs (not subscription), sch
 
 ## Tech Stack (locked)
 
-- **Frontend:** Next.js 16.2 App Router (Turbopack stable), React 19.2, TypeScript 5.9, Tailwind v4 (CSS-first, no config file), shadcn/ui
+- **Frontend:** Next.js 16.2.6 App Router (Turbopack default), React 19.2.4, TypeScript 5.9, Tailwind v4 (CSS-first, no config file), shadcn/ui (14 primitives ejected into `components/ui/`)
 - **Backend:** Supabase (Postgres + Auth + Storage + Realtime + Edge Functions + pg_cron)
 - **AI:** Google Gemini — Nano Banana Pro default, v1 quick toggle, per-trend model override
 - **Payments:** Stripe Checkout, USD, one-time credit packs
@@ -213,38 +228,50 @@ MVP target: **~14–16 days solo**.
 
 ## Commands
 
-_(populate during Phase 1 init)_
-
 ```bash
-# TBD after scaffold:
-# pnpm install
-# pnpm dev
-# pnpm build
-# pnpm test
-# pnpm typecheck
-# pnpm lint
-# pnpm supabase:reset
-# pnpm supabase:types
+pnpm install
+pnpm dev                  # next dev (Turbopack)
+pnpm build                # next build — emits 30-route table
+pnpm analyze              # cross-env ANALYZE=true next build → bundle report
+pnpm typecheck            # tsc --noEmit
+pnpm lint / pnpm lint:fix # eslint 9 flat config
+pnpm format / pnpm format:check
+pnpm test                 # vitest run (currently 278/283; ShareBurst suite has 5 reds)
+pnpm test:watch
+pnpm test:e2e             # playwright (chromium / webkit / mobile-chrome / mobile-safari)
+pnpm test:e2e:visual      # RUN_VISUAL_BASELINE=true → 40-PNG sweep
+pnpm supabase:start       # local stack (needs Docker)
+pnpm supabase:reset       # apply migrations + seed locally
+pnpm supabase:types       # regenerate lib/supabase/database.types.ts from live schema
+pnpm supabase:diff        # detect drift between local DB and migrations
 ```
+
+Full ship runbook (per-credential onboarding + 14-test verification matrix): [docs/RUNBOOK.md](docs/RUNBOOK.md). Per-var reference: [docs/CREDENTIALS.md](docs/CREDENTIALS.md).
 
 ---
 
 ## Environment Variables
 
-_(populate during Phase 1)_
+Authoritative source: [`lib/env.ts`](lib/env.ts) (Zod `ServerEnvSchema`). What follows mirrors that file as of commit `9e439d8`.
 
-`.env.local` will hold:
-- `NEXT_PUBLIC_SITE_URL` (canonical site URL — used by `@vercel/og`, Stripe success/cancel URLs, push action URLs)
-- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-- `GEMINI_API_KEY`
-- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- `RESEND_API_KEY`
-- `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`
-- `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`
-- `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`
-- `SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`
-- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` (rate limit + abuse budget counter)
-- `ANONYMOUS_DAILY_BUDGET_USD` (default `20`)
+**Required (Zod throws at first `getServerEnv()` if missing):**
+- `NEXT_PUBLIC_SITE_URL` — canonical site URL; used by OG, Stripe success/cancel, push click-through, sitemap base
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (renamed from `SUPABASE_ANON_KEY` per commit `5bb647d`), `SUPABASE_SERVICE_ROLE_KEY`
+
+**Optional (call sites degrade gracefully — see CREDENTIALS.md for the "what breaks if missing" matrix):**
+- `GEMINI_API_KEY` (mock-mode fallback)
+- Stripe: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_PRICE_ID_SMALL` / `_MEDIUM` / `_LARGE`
+- Resend: `RESEND_API_KEY`, `RESEND_FROM_EMAIL` (`.email()` enforced)
+- VAPID: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (`^mailto:` regex)
+- Turnstile: `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`
+- PostHog: `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`
+- Sentry: `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`
+- Upstash: `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
+- Anonymous budget: `ANONYMOUS_DAILY_BUDGET_USD` (coerced number, default `20`)
+- Phase 6 sources (post-MVP): `TIKTOK_CREATIVE_CENTER_KEY`, `INSTAGRAM_SESSION_COOKIE`, `REDDIT_USER_AGENT`
+
+**Dev-only:**
+- `MOCK_TRENDS` (string enum `'true' | 'false'`) — short-circuits Supabase reads with `lib/dev/mock-data.ts`; proxy.ts + `lib/supabase/middleware.ts` also bypass auth gates. Never set in prod.
 
 ---
 
@@ -261,6 +288,14 @@ _(append as discovered)_
 - **pnpm virtual store** is path-sensitive — if you ever move the project folder, run `rm -rf node_modules pnpm-lock.yaml && pnpm install` to relink.
 - **`api/stripe/webhook`** is excluded from Supabase middleware (raw-body handling).
 - **Next 16: `middleware.ts` → `proxy.ts`** + exported function renamed `middleware` → `proxy`. Old name builds with deprecation warning; new name is the convention. Helper file `lib/supabase/middleware.ts` keeps its name (internal module, only `updateSession` exported).
+- **`bg-gradient-*` custom utility names collide with tailwind-merge.** Lightning CSS dropped `.bg-gradient-hero` at runtime when combined with `shadow-glow-pink`. Fix: brand-prefixed utilities (`.brand-grad`, `.brand-glow`) avoid the twMerge group conflict (commit `7819e2f`; see lessons.md 2026-05-28).
+- **`window.location.origin` in client components → SSR hydration mismatch.** Use `process.env.NEXT_PUBLIC_SITE_URL` for URLs rendered during SSR; only touch `window` inside `useEffect` (commit `7819e2f`).
+- **Eval gate trigger fires on prompt edits.** Any UPDATE to `public.trends.prompt_template` flips `eval_status='untested'` + `is_active=false` (migration 0002). Don't bundle prompt edits with `is_active=true` resets — route through `/admin/trends/[id]/eval` once Gemini key is wired. One-time SQL bypass logged in lessons.md 2026-05-29.
+- **Database stub forces `as never` casts on insert/update** until `pnpm supabase:types` runs against the live DB and writes concrete `Database` types. Most casts were removed in commit `7783e22` once strict types landed.
+- **`/styleguide` ships its body to prod even with runtime `notFound()`** — `notFound()` only runs at request time; the module imports still bundle. Use `next/dynamic` to keep dev-only bodies out of prod bundles (commit `2f59467`, lessons.md 2026-05-29).
+- **Audit log surfaces actor emails by design.** `app/admin/audit/page.tsx` resolves admin emails via service-role and renders them — intentional (attribution is the point of the trail). If lower-role tiers are added later, tier the join, don't anonymize (lessons.md 2026-05-29).
+- **FlashToasts API takes strings, not functions.** RSC serialization rejects function-style messages — pass already-resolved strings through `?flash=` query params (commit `370adb6`).
+- **Empty admin FAQ + input_schema fields previously broke trend create/update** — fixed in commit `9980ff2`. If admin form regression appears, check the optional-vs-required branch in `app/admin/trends/actions.ts`.
 
 ---
 
@@ -278,10 +313,25 @@ _(append as discovered)_
 
 ---
 
-## Pre-Build Checklist (before Phase 1)
+## Pre-Build Checklist (status as of 2026-05-29)
 
-See amended plan "Pre-Build Checklist — additions". Highlights: Gemini pricing + region confirmed, Stripe production app started, Resend domain DKIM/SPF/DMARC, VAPID keys, Turnstile keys, ToS/Privacy/AUP drafts, final credit-pack prices, domain + Cloudflare DNS, 5 launch trends with eval photos + FAQ.
+Shipped from the codebase side:
+- ToS draft (`docs/TERMS_OF_SERVICE.md`) + Privacy draft (`docs/PRIVACY_POLICY.md`) + public `/terms` and `/privacy` routes (commits `1be0727`, `6622794`)
+- 15 launch trends seeded with v2 prompts (commits `2ef4af8`, `1803428`, `0857b21`); FAQ + reference photos still pending real eval runs (need Gemini key)
+- Credit-pack pricing decided: $4.99=50 / $14.99=200 / $39.99=600 (`lib/payments/packs.ts`)
+- Checkout UI on `/me/settings` (`CreditPacksClient`, commit `e29462a`)
+
+Still user-side (creds not yet in `.env.local`):
+- Gemini API access + Nano Banana Pro pricing + region confirmed
+- Stripe production app submitted; test-mode price IDs paste into `STRIPE_PRICE_ID_*`
+- Resend domain DKIM/SPF/DMARC verified
+- VAPID key pair generated (kept forever — rotating breaks subscriptions)
+- Cloudflare Turnstile site keys (localhost + production)
+- Domain registered + Cloudflare DNS
+- Upstash Redis (or commit to in-memory LRU for v1)
+- PostHog project + Sentry DSN
+- Run the 14-test verification matrix in [`docs/RUNBOOK.md`](docs/RUNBOOK.md) once creds are wired.
 
 ## Verification (must pass before MVP ship)
 
-12 end-to-end tests in amended plan §"Verification": RLS quota block, idempotency replay, retry/refund, schema-driven form, eval gate, push + email fallback, SEO HTML correctness, pg_cron purge, referral farming guard, Stripe webhook dedup, GDPR delete, PostHog funnel.
+14-test verification matrix lives in [`docs/RUNBOOK.md`](docs/RUNBOOK.md) §3. Covers RLS quota block + decrement, `/api/generate` idempotency replay, Edge Function retry path, refund-on-safety, schema-driven form, eval gate constraint, push + email fallback, SSR HTML completeness, pg_cron purges, referral farming guard, Stripe webhook dedup, GDPR delete cascade, PostHog funnel. Local sanity loop (`pnpm typecheck && pnpm lint && pnpm test && pnpm build`) must be green before running the cred-dependent matrix.

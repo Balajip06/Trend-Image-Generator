@@ -8,6 +8,8 @@ Two enforcement layers exist:
 
 `NEXT_PUBLIC_` vars are bundled into the client JS. Any var without that prefix is server-only.
 
+Last re-synced with `lib/env.ts` on 2026-05-29 (commit `9e439d8` closed the schema gaps).
+
 ---
 
 ## App

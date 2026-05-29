@@ -2,6 +2,40 @@
 
 Append at end of each session. Newest on top.
 
+## 2026-05-29 — Docs refresh: CLAUDE.md + todo.md + runbook synced to current state
+
+**Done (no source changes; docs-only):**
+- `CLAUDE.md` — added "Current state (2026-05-29)" header block (branch `main`, HEAD `2f59467`, 86 commits on `origin/main`, 30 routes, test gate 278/283 with 5 ShareBurst reds, phase status summary). Tech-stack line bumped to Next 16.2.6 / React 19.2.4. Commands section populated (was TBD). Environment Variables section re-synced against `lib/env.ts` `ServerEnvSchema` as of commit `9e439d8` (split required vs optional, named Phase 6 keys, `MOCK_TRENDS` dev-only flag). Pre-Build Checklist split into shipped (legal, packs, seed trends) vs user-side creds. Verification section now points at `docs/RUNBOOK.md` 14-test matrix (was 12). Gotchas appended: `bg-gradient-*` twMerge collision, `window.location.origin` hydration mismatch, eval-gate trigger, `as never` casts dropped post-types regen, `/styleguide` body bundling, audit log actor emails by design, FlashToasts strings-only, FAQ + input_schema empty fields.
+- `.claude/todo.md` — header reset (current phase = "Post-MVP polish"). Phase 0 reorganized into shipped vs user-side. Phase 1.2/1.4/1.5 closed (Supabase remote linked + 7 migrations applied + strict types in commits `72a9dae`, `7783e22`; audit-log shipped in `ea0b447`; Stripe webhook dispatcher + checkout API shipped in `ef3922e`). Phase 2 closed items added (admin coverage `a6d5f28`, FAQ regression `9980ff2`, admin redesign `fa2bb4a`). Phase 4 closed items added (data export `9842c6f`, `next/image` migration `ae3a93c`, branded OG). New "Post-redesign hygiene (2026-05-28 → 2026-05-29)" section captures: UI redesign Phases A–D, admin redesign, prompt v2, legal routes, coverage growth (78 → 283), security fixes (`4dfd993`, `3a06663`), perf pass (`b8f7ff4`, `2f59467`, `731f58e`, `fb27006`), and outstanding work (ShareBurst test triage, Sentry Replay, real eval re-run, 14-test runbook).
+- `.claude/session-log.md` — this entry.
+- `docs/RUNBOOK.md` — §1 pre-flight test-count reference updated from 78 → 278 (with note on the 5-test ShareBurst regression). §1 route mention added: `/terms`, `/privacy`, `/admin/audit` ship; `/styleguide` is dev-only. 14 tests still authoritative — no schema changes since v2 prompts (commit `0857b21`).
+- `docs/CREDENTIALS.md` — verified the variable list matches `lib/env.ts` post-`9e439d8` exactly. No edits required: all 7 env-schema additions (`RESEND_FROM_EMAIL`, `NEXT_PUBLIC_SENTRY_DSN`, Stripe price ID trio, Phase 6 sources, `MOCK_TRENDS`) and the "Known schema gaps" section drop are already reflected.
+- `README.md` — Quick-start block now points at `http://localhost:3008` (matches `.env.local.example`) and lists the actual scripts table — added `pnpm analyze` (bundle analyzer), kept `pnpm test:e2e:visual` and the supabase commands.
+
+**Verification:**
+- `pnpm typecheck` clean (no source touched)
+- `pnpm lint` clean (no source touched)
+- `pnpm test` — unchanged 278/283 (ShareBurst regression pre-existed this session and is now logged in todo.md hygiene section)
+- `pnpm build` — 30-route table re-verified
+
+**Stale claims found + corrected:**
+- CLAUDE.md described Next 15; project is Next 16.2.6.
+- CLAUDE.md Commands + Env Vars sections still marked "TBD / populate during Phase 1" — fully populated and sourced.
+- CLAUDE.md "Pre-Build Checklist" still listed ToS + Privacy drafts + launch trends as TODO — all shipped.
+- Verification section claimed "12 tests" — actual `docs/RUNBOOK.md` ships 14.
+- `.claude/todo.md` header said "Phase 0", last-updated 2026-05-27 — every numbered phase has landed implementation since.
+- `.claude/todo.md` Phase 1.2 + 1.4 + 1.5 still listed Supabase + Stripe webhook items as blocked; both un-blocked since commits `72a9dae` and `ef3922e`.
+
+**Out of scope (noticed but not touched):**
+- 5 failing `ShareBurst` tests — task explicitly prohibits test edits; logged under hygiene section instead.
+- `trend-image-app-plan.md` (original) — task scope excludes it; CLAUDE.md still notes amended plan overrides.
+
+**Phase:** Post-MVP polish (codebase complete pending creds)
+**Blockers:** None for docs — user-side creds still gate the 14-test runbook.
+**Next:** Either (a) triage the ShareBurst regression, (b) wire user-side creds + run RUNBOOK §3, or (c) start the eval workflow re-run once `GEMINI_API_KEY` is in.
+
+---
+
 ## 2026-05-28 — UI/UX redesign: TikTok-native overhaul of consumer flow
 
 **Done (4 phases, 4 commits on master):**

@@ -2,6 +2,8 @@
 
 Viral-trend image generator. Next.js 16 + Supabase + Google Gemini (Nano Banana / Nano Banana Pro). Consumer-facing, IG + TikTok distribution.
 
+Status (2026-05-29): 30 routes, 278/283 Vitest passing (5-test `ShareBurst` regression open), `pnpm typecheck` / `lint` / `build` clean. Branch `main` at `origin/Balajip06/Trend-Image-Generator`. Codebase is feature-complete pending user-side credentials — see [`docs/RUNBOOK.md`](docs/RUNBOOK.md) for the ship gate.
+
 > **Authoritative plan:** [`trend-image-app-plan.md`](trend-image-app-plan.md) (original) — amendments live in `.claude/plans/check-this-plan-c-users-balaj-projects-t-luminous-prism.md` and supersede the original on conflict.
 >
 > **Project instructions for AI agents:** [`CLAUDE.md`](CLAUDE.md).
@@ -21,35 +23,40 @@ Viral-trend image generator. Next.js 16 + Supabase + Google Gemini (Nano Banana 
 
 ## Quick start
 
+`pnpm` is the only supported package manager — virtual-store layout is path-sensitive (see CLAUDE.md gotchas) and lockfile + CI assume it.
+
 ```bash
 pnpm install
-cp .env.local.example .env.local        # fill secrets
+cp .env.local.example .env.local        # fill secrets (see docs/CREDENTIALS.md)
 pnpm exec playwright install chromium webkit
-pnpm supabase start                     # requires Docker Desktop
-pnpm supabase db reset                  # applies migrations
+# Either: local Supabase stack (needs Docker Desktop)
+pnpm supabase start
+pnpm supabase db reset                  # applies all 7 migrations + seed
+# Or: link to the already-provisioned remote
+pnpm supabase link --project-ref <ref>
 pnpm supabase:types                     # regenerate lib/supabase/database.types.ts
 pnpm dev
 ```
 
-Open <http://localhost:3000>.
+Open <http://localhost:3008>.
 
 ## Scripts
 
 | Command | Purpose |
 |---|---|
-| `pnpm dev` | Next dev server |
-| `pnpm build` | Production build |
+| `pnpm dev` | Next dev server (Turbopack default) |
+| `pnpm build` | Production build — emits the 30-route table |
+| `pnpm analyze` | `cross-env ANALYZE=true next build` (bundle analyzer report) |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm lint` / `pnpm lint:fix` | ESLint 9 (flat config) |
 | `pnpm format` / `pnpm format:check` | Prettier 3 + tailwind plugin |
 | `pnpm test` / `pnpm test:watch` / `pnpm test:ui` | Vitest |
-| `pnpm test:e2e` / `pnpm test:e2e:ui` | Playwright |
+| `pnpm test:e2e` / `pnpm test:e2e:ui` | Playwright E2E (chromium, webkit, mobile-chrome, mobile-safari) |
+| `pnpm test:e2e:visual` | Visual baseline sweep (`RUN_VISUAL_BASELINE=true`) — 40 PNGs |
 | `pnpm supabase:start` / `pnpm supabase:stop` / `pnpm supabase:reset` | Local Supabase stack |
 | `pnpm supabase:types` | Regenerate `lib/supabase/database.types.ts` from live schema |
 | `pnpm supabase:diff` | Diff local DB against migrations (catches drift) |
 | `pnpm supabase:migration:new <name>` | Create timestamped migration |
-| `pnpm test:e2e` / `pnpm test:e2e:ui` | Playwright E2E (chromium, webkit, mobile-chrome, mobile-safari) |
-| `pnpm test:e2e:visual` | Visual baseline run (`RUN_VISUAL_BASELINE=true`) |
 
 ## Folder layout
 
