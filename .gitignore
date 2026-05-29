@@ -17,6 +17,8 @@
 /playwright/.cache
 /e2e/screenshots
 /.playwright-mcp/
+/terms-page-verify.png
+*-verify.png
 
 # next.js
 /.next/
