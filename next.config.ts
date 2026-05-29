@@ -1,5 +1,8 @@
+import withBundleAnalyzer from '@next/bundle-analyzer'
 import { withSentryConfig } from '@sentry/nextjs'
 import type { NextConfig } from 'next'
+
+const bundleAnalyzer = withBundleAnalyzer({ enabled: process.env.ANALYZE === 'true' })
 
 const nextConfig: NextConfig = {
   images: {
@@ -31,7 +34,7 @@ const sentryEnabled =
   !!process.env.SENTRY_DSN && !!process.env.SENTRY_AUTH_TOKEN && process.env.NODE_ENV === 'production'
 
 export default sentryEnabled
-  ? withSentryConfig(nextConfig, {
+  ? withSentryConfig(bundleAnalyzer(nextConfig), {
       org: process.env.SENTRY_ORG,
       project: process.env.SENTRY_PROJECT,
       authToken: process.env.SENTRY_AUTH_TOKEN,
@@ -40,4 +43,4 @@ export default sentryEnabled
       disableLogger: true,
       automaticVercelMonitors: false,
     })
-  : nextConfig
+  : bundleAnalyzer(nextConfig)
