@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { cn } from '@/lib/utils/cn'
 import type { PublicTrend } from '@/lib/trends/repository'
 import { TrendDrawer } from './TrendDrawer'
@@ -28,14 +28,19 @@ export function TrendGrid({ trends, freeUsedThisWeek, initialSlug, onSelect }: T
   const searchParams = useSearchParams()
   const paramSlug = searchParams.get('trend')
 
-  const [selectedTrend, setSelectedTrend] = useState<PublicTrend | null>(
-    () => trends.find((t) => t.slug === (initialSlug ?? paramSlug)) ?? null
+  // Slug in state — stable string, not stale object reference
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(initialSlug ?? paramSlug ?? null)
+  const [drawerOpen, setDrawerOpen] = useState(() => !!(initialSlug ?? paramSlug))
+
+  // Derive selected trend from live trends + slug — stays fresh if trends prop updates
+  const selectedTrend = useMemo(
+    () => (selectedSlug ? (trends.find((t) => t.slug === selectedSlug) ?? null) : null),
+    [selectedSlug, trends]
   )
-  const [drawerOpen, setDrawerOpen] = useState(initialSlug !== null)
 
   const handleSelect = useCallback(
     (trend: PublicTrend) => {
-      setSelectedTrend(trend)
+      setSelectedSlug(trend.slug)
       setDrawerOpen(true)
       router.replace(`/me/studio?trend=${trend.slug}`, { scroll: false })
       onSelect?.(trend)
@@ -47,6 +52,8 @@ export function TrendGrid({ trends, freeUsedThisWeek, initialSlug, onSelect }: T
     (open: boolean) => {
       setDrawerOpen(open)
       if (!open) {
+        // Clear slug after close so next open starts fresh
+        setSelectedSlug(null)
         router.replace('/me/studio', { scroll: false })
       }
     },
@@ -79,8 +86,7 @@ export function TrendGrid({ trends, freeUsedThisWeek, initialSlug, onSelect }: T
                 <button
                   type="button"
                   onClick={() => handleSelect(trend)}
-                  aria-current={isSelected ? 'page' : undefined}
-                  aria-label={trend.title}
+                  aria-pressed={isSelected}
                   className={cn(
                     'group border-border/60 bg-card/40 relative block w-full overflow-hidden rounded-2xl border text-left transition-all',
                     'hover:border-border focus-visible:ring-ring hover:shadow-md focus-visible:ring-2 focus-visible:outline-none',

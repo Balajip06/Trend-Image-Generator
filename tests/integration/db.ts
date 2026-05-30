@@ -54,10 +54,14 @@ export async function closeSql(): Promise<void> {
 export async function asUser<T>(userId: string, fn: (sql: Sql) => Promise<T>): Promise<T> {
   const sql = getSql()
   const result = await sql.begin(async (tx) => {
-    await tx.unsafe(`set local role = 'authenticated'`)
+    // Some auth.uid() implementations read the singular GUC, some the
+    // JSON blob. Set both so we don't have to detect the local stack
+    // version per CI run.
+    await tx.unsafe(`set local request.jwt.claim.sub = '${userId}'`)
     await tx.unsafe(
       `set local request.jwt.claims = '${JSON.stringify({ sub: userId, role: 'authenticated' })}'`
     )
+    await tx.unsafe(`set local role = 'authenticated'`)
     return await fn(tx as unknown as Sql)
   })
   return result as T

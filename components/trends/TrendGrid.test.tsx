@@ -78,10 +78,9 @@ describe('TrendGrid', () => {
     expect(onSelect).toHaveBeenCalledWith(defaultProps.trends[0])
   })
 
-  it('marks selected card with aria-current="page"', () => {
+  it('marks selected card with aria-pressed="true"', () => {
     render(<TrendGrid {...defaultProps} initialSlug="ghibli-portrait" />)
-    // Find the grid card button by aria-current attribute directly
-    const selected = document.querySelector('[aria-current="page"]')
+    const selected = document.querySelector('[aria-pressed="true"]')
     expect(selected).not.toBeNull()
     expect(selected?.tagName).toBe('BUTTON')
   })

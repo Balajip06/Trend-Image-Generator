@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { X } from 'lucide-react'
 import {
   Dialog,
@@ -27,14 +28,20 @@ interface TrendDrawerProps {
  * display + owns nothing except the Dialog open state bridge.
  */
 export function TrendDrawer({ trend, open, onOpenChange, freeUsedThisWeek }: TrendDrawerProps) {
-  if (!trend) return null
+  // Retain the last non-null trend so the Radix close animation completes
+  // before content disappears. useState (not useRef) because React 19 forbids
+  // ref mutation during render.
+  const [lastTrend, setLastTrend] = useState<PublicTrend | null>(trend)
+  if (trend && trend !== lastTrend) setLastTrend(trend)
+  const displayTrend = lastTrend
+  if (!displayTrend) return null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
         aria-labelledby="trend-drawer-title"
-        aria-describedby={trend.description ? 'trend-drawer-desc' : undefined}
+        aria-describedby={displayTrend.description ? 'trend-drawer-desc' : undefined}
         className={[
           // Mobile: bottom-sheet — slide up from bottom, full width, rounded top
           'fixed inset-x-0 top-auto bottom-0 mx-0 max-w-none translate-x-0 translate-y-0 rounded-t-3xl px-4 pt-6 pb-8',
@@ -66,14 +73,14 @@ export function TrendDrawer({ trend, open, onOpenChange, freeUsedThisWeek }: Tre
 
         <DialogHeader className="mb-4 pr-12">
           <DialogTitle id="trend-drawer-title" className="text-2xl font-extrabold tracking-tight">
-            {trend.title}
+            {displayTrend.title}
           </DialogTitle>
-          {trend.description && (
-            <DialogDescription id="trend-drawer-desc">{trend.description}</DialogDescription>
+          {displayTrend.description && (
+            <DialogDescription id="trend-drawer-desc">{displayTrend.description}</DialogDescription>
           )}
         </DialogHeader>
 
-        <TrendRunner trend={trend} freeUsedThisWeek={freeUsedThisWeek} />
+        <TrendRunner trend={displayTrend} freeUsedThisWeek={freeUsedThisWeek} />
       </DialogContent>
     </Dialog>
   )

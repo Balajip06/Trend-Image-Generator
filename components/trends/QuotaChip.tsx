@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { AlertTriangle, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
@@ -33,10 +34,13 @@ export function QuotaChip({ freeUsedThisWeek, creditsBalance, className }: Quota
           <span>{creditsBalance} credits</span>
         </>
       ) : exhausted ? (
-        <>
+        <Link
+          href="/me/settings#packs"
+          className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline"
+        >
           <AlertTriangle className="size-3" aria-hidden="true" />
           <span>Out of free · Upgrade</span>
-        </>
+        </Link>
       ) : (
         <span>{freeLeft} free left this week</span>
       )}
