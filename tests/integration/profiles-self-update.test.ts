@@ -2,15 +2,17 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { asUser, createTestUser, getSql, resetTables } from './db'
 
 /**
- * Red-team C1: `profiles_self_update` RLS must column-restrict writes.
- * A user impersonating their own JWT cannot mutate credits_balance,
- * free_used_this_week, is_vip, etc. — service-role still can.
+ * Red-team C1: `profiles_self_update` column lockdown via the
+ * `enforce_profiles_self_update_lockdown` BEFORE UPDATE trigger
+ * (migration 0029, which replaced 0020's broken WITH CHECK approach).
  *
- * These tests use the asUser() helper to set the session role to
- * `authenticated` and request.jwt.claims.sub = userId, which is how
- * Supabase resolves auth.uid() inside RLS evaluation.
+ * The trigger RAISES a check_violation (SQLSTATE 42501 at RLS layer,
+ * P0001 at trigger layer — Postgres reports the wrapped error to the
+ * client). Tests assert the SQL call rejects rather than checking a
+ * zero-row return — the broken 0020 approach silently allowed the
+ * mutation, the 0029 approach hard-rejects.
  */
-describe('profiles_self_update RLS lockdown', () => {
+describe('profiles_self_update column lockdown', () => {
   beforeEach(async () => {
     await resetTables(['generations', 'profiles'])
     const sql = getSql()
@@ -20,16 +22,11 @@ describe('profiles_self_update RLS lockdown', () => {
   it('blocks user from self-granting is_vip', async () => {
     const user = await createTestUser({ credits: 0 })
 
-    await asUser(user.id, async (tx) => {
-      const result = await tx<{ count: number }[]>`
-        with upd as (
-          update public.profiles set is_vip = true where id = ${user.id} returning 1
-        )
-        select count(*)::int from upd
-      `
-      // RLS WITH CHECK rejects the row, so zero rows updated.
-      expect(result[0].count).toBe(0)
-    })
+    await expect(
+      asUser(user.id, async (tx) => {
+        await tx`update public.profiles set is_vip = true where id = ${user.id}`
+      })
+    ).rejects.toThrow(/is_vip is locked|check/i)
 
     const sql = getSql()
     const [profile] = await sql<{ is_vip: boolean }[]>`
@@ -41,15 +38,11 @@ describe('profiles_self_update RLS lockdown', () => {
   it('blocks user from self-incrementing credits_balance', async () => {
     const user = await createTestUser({ credits: 0 })
 
-    await asUser(user.id, async (tx) => {
-      const result = await tx<{ count: number }[]>`
-        with upd as (
-          update public.profiles set credits_balance = 99 where id = ${user.id} returning 1
-        )
-        select count(*)::int from upd
-      `
-      expect(result[0].count).toBe(0)
-    })
+    await expect(
+      asUser(user.id, async (tx) => {
+        await tx`update public.profiles set credits_balance = 99 where id = ${user.id}`
+      })
+    ).rejects.toThrow(/credits_balance is locked|check/i)
 
     const sql = getSql()
     const [profile] = await sql<{ credits_balance: number }[]>`
@@ -61,15 +54,11 @@ describe('profiles_self_update RLS lockdown', () => {
   it('blocks user from zeroing free_used_this_week', async () => {
     const user = await createTestUser({ credits: 0, freeUsed: 5 })
 
-    await asUser(user.id, async (tx) => {
-      const result = await tx<{ count: number }[]>`
-        with upd as (
-          update public.profiles set free_used_this_week = 0 where id = ${user.id} returning 1
-        )
-        select count(*)::int from upd
-      `
-      expect(result[0].count).toBe(0)
-    })
+    await expect(
+      asUser(user.id, async (tx) => {
+        await tx`update public.profiles set free_used_this_week = 0 where id = ${user.id}`
+      })
+    ).rejects.toThrow(/free_used_this_week is locked|check/i)
 
     const sql = getSql()
     const [profile] = await sql<{ free_used_this_week: number }[]>`
@@ -112,8 +101,10 @@ describe('profiles_self_update RLS lockdown', () => {
     const sql = getSql()
     await sql`update public.profiles set deleted_at = now() where id = ${user.id}`
 
+    // USING clause rejects pre-image with deleted_at set, so the row is
+    // not visible to the UPDATE at all → 0 rows affected, no raise.
+    // (The trigger only fires on rows that pass RLS USING.)
     await asUser(user.id, async (tx) => {
-      // USING clause rejects pre-image with deleted_at set, so 0 rows updated.
       const result = await tx<{ count: number }[]>`
         with upd as (
           update public.profiles set deleted_at = null where id = ${user.id} returning 1

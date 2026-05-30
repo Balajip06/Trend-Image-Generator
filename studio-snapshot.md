@@ -1,0 +1,132 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "Trendly home" [ref=e5] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e6]:
+            - img [ref=e7]
+            - generic [ref=e11]: Trendly
+        - navigation [ref=e12]:
+          - link "Studio" [ref=e13] [cursor=pointer]:
+            - /url: /me/studio
+          - link "My creations" [ref=e14] [cursor=pointer]:
+            - /url: /me/creations
+          - link "Settings" [ref=e15] [cursor=pointer]:
+            - /url: /me/settings
+          - button "Switch to dark mode" [ref=e16]:
+            - img
+          - generic "balaji@kimp.xyz" [ref=e17]:
+            - generic [ref=e18]: balaji@kimp.xyz
+            - button "Sign out" [ref=e20]:
+              - img [ref=e21]
+    - main [ref=e24]:
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - paragraph [ref=e27]: Studio
+          - heading "Pick a trend and go" [level=1] [ref=e28]
+          - paragraph [ref=e29]: Every active trend is here. Tap one, drop a photo, get a result in seconds.
+        - region "Pick a trend" [ref=e30]:
+          - generic [ref=e31]:
+            - heading "Pick a trend" [level=2] [ref=e32]
+            - paragraph [ref=e33]: 15 trends live
+          - list [ref=e34]:
+            - listitem [ref=e35]:
+              - link "Ghibli-style portrait Turn your selfie into a soft, painterly Studio Ghibli still." [ref=e36] [cursor=pointer]:
+                - /url: /me/studio?trend=ghibli-portrait#upload
+                - generic [ref=e38]:
+                  - paragraph [ref=e39]: Ghibli-style portrait
+                  - paragraph [ref=e40]: Turn your selfie into a soft, painterly Studio Ghibli still.
+            - listitem [ref=e41]:
+              - link "Pixar 3D character Reimagine yourself as a Pixar-style 3D animated character." [ref=e42] [cursor=pointer]:
+                - /url: /me/studio?trend=pixar-3d-character#upload
+                - generic [ref=e44]:
+                  - paragraph [ref=e45]: Pixar 3D character
+                  - paragraph [ref=e46]: Reimagine yourself as a Pixar-style 3D animated character.
+            - listitem [ref=e47]:
+              - link "Anime-style portrait Bold-line anime portrait inspired by modern shōnen art." [ref=e48] [cursor=pointer]:
+                - /url: /me/studio?trend=anime-portrait#upload
+                - generic [ref=e50]:
+                  - paragraph [ref=e51]: Anime-style portrait
+                  - paragraph [ref=e52]: Bold-line anime portrait inspired by modern shōnen art.
+            - listitem [ref=e53]:
+              - link "Vintage Polaroid Faded, sun-soaked 1970s Polaroid aesthetic with a white border." [ref=e54] [cursor=pointer]:
+                - /url: /me/studio?trend=vintage-polaroid#upload
+                - generic [ref=e56]:
+                  - paragraph [ref=e57]: Vintage Polaroid
+                  - paragraph [ref=e58]: Faded, sun-soaked 1970s Polaroid aesthetic with a white border.
+            - listitem [ref=e59]:
+              - link "Greek marble statue You, sculpted in classical Greek marble. Dramatic lighting included." [ref=e60] [cursor=pointer]:
+                - /url: /me/studio?trend=marble-statue#upload
+                - generic [ref=e62]:
+                  - paragraph [ref=e63]: Greek marble statue
+                  - paragraph [ref=e64]: You, sculpted in classical Greek marble. Dramatic lighting included.
+            - listitem [ref=e65]:
+              - link "Stranger Things 80s poster Cinematic Netflix-style poster — neon red & teal, fog, retro grain, Upside Down vibes." [ref=e66] [cursor=pointer]:
+                - /url: /me/studio?trend=stranger-things-poster#upload
+                - generic [ref=e68]:
+                  - paragraph [ref=e69]: Stranger Things 80s poster
+                  - paragraph [ref=e70]: Cinematic Netflix-style poster — neon red & teal, fog, retro grain, Upside Down vibes.
+            - listitem [ref=e71]:
+              - link "Action figure in box You as a collectible toy, packaged in a branded blister card — Barbie / Star Wars / Funko vibes." [ref=e72] [cursor=pointer]:
+                - /url: /me/studio?trend=action-figure-box#upload
+                - generic [ref=e74]:
+                  - paragraph [ref=e75]: Action figure in box
+                  - paragraph [ref=e76]: You as a collectible toy, packaged in a branded blister card — Barbie / Star Wars / Funko vibes.
+            - listitem [ref=e77]:
+              - link "Funko Pop figure You as the chunky-headed, dot-eyed vinyl collectible — clean studio backdrop." [ref=e78] [cursor=pointer]:
+                - /url: /me/studio?trend=funko-pop-figure#upload
+                - generic [ref=e80]:
+                  - paragraph [ref=e81]: Funko Pop figure
+                  - paragraph [ref=e82]: You as the chunky-headed, dot-eyed vinyl collectible — clean studio backdrop.
+            - listitem [ref=e83]:
+              - link "LEGO minifigure You as a smooth yellow LEGO minifigure with printed face + accessories." [ref=e84] [cursor=pointer]:
+                - /url: /me/studio?trend=lego-minifigure#upload
+                - generic [ref=e86]:
+                  - paragraph [ref=e87]: LEGO minifigure
+                  - paragraph [ref=e88]: You as a smooth yellow LEGO minifigure with printed face + accessories.
+            - listitem [ref=e89]:
+              - link "Wes Anderson pastel Centered symmetrical composition, pastel palette, dollhouse lighting — Grand Budapest aesthetic." [ref=e90] [cursor=pointer]:
+                - /url: /me/studio?trend=wes-anderson-pastel#upload
+                - generic [ref=e92]:
+                  - paragraph [ref=e93]: Wes Anderson pastel
+                  - paragraph [ref=e94]: Centered symmetrical composition, pastel palette, dollhouse lighting — Grand Budapest aesthetic.
+            - listitem [ref=e95]:
+              - link "Renaissance oil painting You as a 16th-century noble — chiaroscuro lighting, brushwork, gold-leaf frame." [ref=e96] [cursor=pointer]:
+                - /url: /me/studio?trend=renaissance-oil-painting#upload
+                - generic [ref=e98]:
+                  - paragraph [ref=e99]: Renaissance oil painting
+                  - paragraph [ref=e100]: You as a 16th-century noble — chiaroscuro lighting, brushwork, gold-leaf frame.
+            - listitem [ref=e101]:
+              - link "South Park character You as a paper-cutout South Park kid — round head, beady eyes, mountain backdrop." [ref=e102] [cursor=pointer]:
+                - /url: /me/studio?trend=south-park-cartoon#upload
+                - generic [ref=e104]:
+                  - paragraph [ref=e105]: South Park character
+                  - paragraph [ref=e106]: You as a paper-cutout South Park kid — round head, beady eyes, mountain backdrop.
+            - listitem [ref=e107]:
+              - link "Cyberpunk neon portrait You as a Night City netrunner — chrome implants, rain-slick neon streets, holographic ads." [ref=e108] [cursor=pointer]:
+                - /url: /me/studio?trend=cyberpunk-neon#upload
+                - generic [ref=e110]:
+                  - paragraph [ref=e111]: Cyberpunk neon portrait
+                  - paragraph [ref=e112]: You as a Night City netrunner — chrome implants, rain-slick neon streets, holographic ads.
+            - listitem [ref=e113]:
+              - link "Y2K digicam flash 2006 nightlife aesthetic — harsh on-camera flash, glowy skin, low-res digicam grain." [ref=e114] [cursor=pointer]:
+                - /url: /me/studio?trend=y2k-digicam-flash#upload
+                - generic [ref=e116]:
+                  - paragraph [ref=e117]: Y2K digicam flash
+                  - paragraph [ref=e118]: 2006 nightlife aesthetic — harsh on-camera flash, glowy skin, low-res digicam grain.
+            - listitem [ref=e119]:
+              - link "LinkedIn headshot Professional studio headshot from any selfie — soft key light, neutral backdrop, business attire." [ref=e120] [cursor=pointer]:
+                - /url: /me/studio?trend=linkedin-headshot#upload
+                - generic [ref=e122]:
+                  - paragraph [ref=e123]: LinkedIn headshot
+                  - paragraph [ref=e124]: Professional studio headshot from any selfie — soft key light, neutral backdrop, business attire.
+        - region "Pick a trend above to get started" [ref=e125]:
+          - img [ref=e127]
+          - generic [ref=e129]:
+            - heading "Pick a trend above to get started" [level=2] [ref=e130]
+            - paragraph [ref=e131]: Tap any thumbnail and the upload form will appear right here.
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e137] [cursor=pointer]:
+    - img [ref=e138]
+  - alert [ref=e141]

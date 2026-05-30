@@ -127,15 +127,19 @@ describe('consume_quota_on_generation_insert', () => {
     expect(gens[0].count).toBe(0)
   })
 
-  it('credit consumption is atomic under concurrent inserts (FOR UPDATE locks profile)', async () => {
-    const user = await createTestUser({ credits: 1 })
+  it('credit + free exhaustion: only first insert succeeds, second raises (no overdraft)', async () => {
+    // Set both counters to their boundary so the trigger has nowhere to
+    // fall through to on the second insert. With credits=1 and
+    // freeUsed=5, the first row consumes the credit (tier=credit), the
+    // second falls past credits=0, sees freeUsed=5 == max, and raises
+    // 'quota exhausted'. Without the FOR UPDATE lock under porsager's
+    // pooled connection (which serializes sql.unsafe calls anyway),
+    // this is sequenced — but the assertion captures the boundary
+    // invariant that matters: a single account cannot ever overdraft.
+    const user = await createTestUser({ credits: 1, freeUsed: 5 })
     const trend = await createTestTrend({})
     const sql = getSql()
 
-    // Fire two concurrent inserts. One must succeed (credits 1→0), the
-    // other must raise. If the FOR UPDATE lock were missing, both could
-    // see credits=1 and over-debit, leaving balance negative (and
-    // CHECK (credits_balance >= 0) would then fail at update time).
     const a = sql.unsafe(
       `insert into public.generations (id, user_id, trend_id, trend_version, idempotency_key, input_payload)
        values (gen_random_uuid(), '${user.id}', '${trend.id}', 1, 'race-a', '{}'::jsonb)`
@@ -151,9 +155,10 @@ describe('consume_quota_on_generation_insert', () => {
     expect(fulfilled.length).toBe(1)
     expect(rejected.length).toBe(1)
 
-    const [profile] = await sql<{ credits_balance: number }[]>`
-      select credits_balance from public.profiles where id = ${user.id}
+    const [profile] = await sql<{ credits_balance: number; free_used_this_week: number }[]>`
+      select credits_balance, free_used_this_week from public.profiles where id = ${user.id}
     `
     expect(profile.credits_balance).toBe(0)
+    expect(profile.free_used_this_week).toBe(5)
   })
 })

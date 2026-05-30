@@ -103,6 +103,11 @@ describe('admin_audit_log triggers', () => {
     const user = await createTestUser({ isVip: true })
     const sql = getSql()
 
+    // createTestUser flipped is_vip false→true via setup; that legitimately
+    // fired a vip_grant audit row. Clear the log so the assertion below
+    // measures only what the no-op update produced.
+    await sql`delete from public.admin_audit_log where target_id = ${user.id}`
+
     // Touch a different column. The trigger guards on `is_vip is not distinct`.
     await sql`update public.profiles set name = 'noop' where id = ${user.id}`
 
