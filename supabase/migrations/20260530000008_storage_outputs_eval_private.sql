@@ -15,17 +15,26 @@
 --
 -- Trade-off: any existing public link that pointed at outputs/eval/...
 -- breaks. Acceptable — we never published those URLs anywhere.
+--
+-- Policy ops on storage.objects must run as supabase_storage_admin
+-- (the table's owner). The migration runner role can't drop or create
+-- policies there directly — wrap in a transaction-local role switch.
 
-drop policy if exists "outputs_public_read" on storage.objects;
+do $$
+begin
+  set local role to supabase_storage_admin;
 
-create policy "outputs_public_read" on storage.objects
-  for select using (
-    bucket_id = 'outputs'
-    and (
-      auth.role() = 'service_role'
-      or (storage.foldername(name))[1] <> 'eval'
-    )
-  );
+  drop policy if exists "outputs_public_read" on storage.objects;
 
-comment on policy "outputs_public_read" on storage.objects is
-  'Public read on outputs/* EXCEPT outputs/eval/* (admin QA outputs, service-role only).';
+  create policy "outputs_public_read" on storage.objects
+    for select using (
+      bucket_id = 'outputs'
+      and (
+        auth.role() = 'service_role'
+        or (storage.foldername(name))[1] <> 'eval'
+      )
+    );
+
+  comment on policy "outputs_public_read" on storage.objects is
+    'Public read on outputs/* EXCEPT outputs/eval/* (admin QA outputs, service-role only).';
+end $$;
