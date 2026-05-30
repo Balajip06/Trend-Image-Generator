@@ -69,7 +69,6 @@ export default async function StudioPage({ searchParams }: StudioPageProps) {
       <TrendGrid
         trends={trends}
         freeUsedThisWeek={freeUsedThisWeek}
-        creditsBalance={creditsBalance}
         initialSlug={selectedTrend?.slug ?? null}
       />
     </div>

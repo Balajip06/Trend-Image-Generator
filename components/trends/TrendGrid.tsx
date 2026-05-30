@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { cn } from '@/lib/utils/cn'
 import type { PublicTrend } from '@/lib/trends/repository'
 import { TrendDrawer } from './TrendDrawer'
@@ -10,7 +10,6 @@ import { TrendDrawer } from './TrendDrawer'
 interface TrendGridProps {
   trends: PublicTrend[]
   freeUsedThisWeek: number
-  creditsBalance: number
   initialSlug: string | null
   onSelect?: (trend: PublicTrend) => void
 }
@@ -24,13 +23,7 @@ function isNewTrend(activatedAt: string | null): boolean {
   return Date.now() - ts < NEW_WINDOW_MS
 }
 
-export function TrendGrid({
-  trends,
-  freeUsedThisWeek,
-  creditsBalance,
-  initialSlug,
-  onSelect,
-}: TrendGridProps) {
+export function TrendGrid({ trends, freeUsedThisWeek, initialSlug, onSelect }: TrendGridProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const paramSlug = searchParams.get('trend')
@@ -39,18 +32,6 @@ export function TrendGrid({
     () => trends.find((t) => t.slug === (initialSlug ?? paramSlug)) ?? null
   )
   const [drawerOpen, setDrawerOpen] = useState(initialSlug !== null)
-
-  // Sync URL param on initial mount only (SSR-driven initial selection)
-  useEffect(() => {
-    if (initialSlug && !drawerOpen) {
-      const t = trends.find((t) => t.slug === initialSlug)
-      if (t) {
-        setSelectedTrend(t)
-        setDrawerOpen(true)
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const handleSelect = useCallback(
     (trend: PublicTrend) => {
@@ -150,7 +131,6 @@ export function TrendGrid({
         open={drawerOpen}
         onOpenChange={handleDrawerClose}
         freeUsedThisWeek={freeUsedThisWeek}
-        creditsBalance={creditsBalance}
       />
     </>
   )

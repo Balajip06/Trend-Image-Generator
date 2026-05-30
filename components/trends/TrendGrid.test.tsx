@@ -25,8 +25,14 @@ const makeTrend = (overrides?: Partial<PublicTrend>): PublicTrend => ({
   thumbnail_url: null,
   sample_before_url: null,
   sample_after_url: 'https://example.com/after.jpg',
+  aspect_ratio: '1:1',
   input_schema: { fields: [] },
-  model: 'gemini-nano',
+  model: 'nano-banana',
+  seo_title: null,
+  seo_description: null,
+  faq: [],
+  display_order: 0,
+  updated_at: '2026-01-01T00:00:00Z',
   activated_at: null,
   ...overrides,
 })
@@ -35,7 +41,6 @@ describe('TrendGrid', () => {
   const defaultProps = {
     trends: [makeTrend()],
     freeUsedThisWeek: 2,
-    creditsBalance: 0,
     initialSlug: null,
     onSelect: vi.fn(),
   }

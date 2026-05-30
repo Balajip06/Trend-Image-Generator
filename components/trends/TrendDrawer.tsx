@@ -16,7 +16,6 @@ interface TrendDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   freeUsedThisWeek: number
-  creditsBalance?: number
 }
 
 /**
@@ -27,13 +26,7 @@ interface TrendDrawerProps {
  * Selection state lives in the parent (TrendGrid). This component is pure
  * display + owns nothing except the Dialog open state bridge.
  */
-export function TrendDrawer({
-  trend,
-  open,
-  onOpenChange,
-  freeUsedThisWeek,
-  creditsBalance = 0,
-}: TrendDrawerProps) {
+export function TrendDrawer({ trend, open, onOpenChange, freeUsedThisWeek }: TrendDrawerProps) {
   if (!trend) return null
 
   return (
