@@ -203,7 +203,7 @@ function mockCohortRetention(): CohortRetentionRow[] {
       w1: elapsedWeeks >= 1 ? w1 : 0,
       w2: elapsedWeeks >= 2 ? w2 : 0,
       w4: elapsedWeeks >= 4 ? w4 : 0,
-      w8: elapsedWeeks >= 8 ? w8 : 0,
+      w8: elapsedWeeks >= 7 ? w8 : 0,
     })
   }
   return rows
