@@ -8,11 +8,10 @@ import { createClient } from '@/lib/supabase/server'
 import { verifyTurnstile } from '@/lib/turnstile/verify'
 
 // `tos_accepted` MUST be the literal string "1" — the LoginForms checkbox
-// emits "0" by default and "1" only once the user checks it. Refusing
-// anything else closes the bypass route where a script POSTs without
-// rendering the form.
-const EmailSchema = z.object({
+// emits "0" by default and "1" only once the user checks it.
+const EmailPasswordSchema = z.object({
   email: z.string().email(),
+  password: z.string().min(8),
   next: z.string().optional(),
   turnstile_token: z.string().optional(),
   tos_accepted: z.literal('1'),
@@ -23,46 +22,72 @@ async function clientIp(): Promise<string | undefined> {
   return h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? undefined
 }
 
+function resolveNext(raw: string | undefined): string {
+  const normalized = safeNextPath(raw ?? '/me/studio')
+  return normalized === '/' ? '/me/studio' : normalized
+}
+
 export async function signInWithEmail(formData: FormData): Promise<void> {
-  const parsed = EmailSchema.safeParse({
+  const parsed = EmailPasswordSchema.safeParse({
     email: formData.get('email'),
+    password: formData.get('password'),
     next: formData.get('next'),
     turnstile_token: formData.get('turnstile_token'),
     tos_accepted: formData.get('tos_accepted'),
   })
   if (!parsed.success) {
-    // Distinguish ToS-not-checked from generic validation so the UI can show
-    // the right copy.
     const tosFailed = parsed.error.issues.some((i) => i.path[0] === 'tos_accepted')
-    redirect(tosFailed ? '/login?error=tos_required' : '/login?error=invalid_email')
+    if (tosFailed) redirect('/login?error=tos_required')
+    const pwFailed = parsed.error.issues.some((i) => i.path[0] === 'password')
+    if (pwFailed) redirect('/login?error=password_too_short')
+    redirect('/login?error=invalid_email')
   }
 
   const ok = await verifyTurnstile(parsed.data.turnstile_token ?? '', await clientIp())
   if (!ok) redirect('/login?error=bot_check_failed')
 
+  const next = resolveNext(parsed.data.next)
   const supabase = await createClient()
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-  // Red-team H8: normalize `next` at the schema layer before it is
-  // embedded into the magic-link `emailRedirectTo`. safeNextPath rejects
-  // protocol-relative + backslash + userinfo escapes, falling back to
-  // /me/creations. The callback re-runs safeNextPath on the post-exchange
-  // redirect, so this is defence in depth — the goal here is to keep
-  // hostile URLs out of the email body in the first place.
-  const rawNext = parsed.data.next ?? '/me/studio'
-  const normalizedNext = safeNextPath(rawNext)
-  const next = normalizedNext === '/' ? '/me/studio' : normalizedNext
-  const { error } = await supabase.auth.signInWithOtp({
+
+  // Try password sign-in first (returning user path).
+  const { error: signInError } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
-    options: { emailRedirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(next)}` },
+    password: parsed.data.password,
   })
-  if (error) redirect('/login?error=otp_send_failed')
-  redirect('/login?sent=1')
+
+  if (!signInError) {
+    redirect(next)
+  }
+
+  // signInWithPassword failed — could be new user or wrong password.
+  // Attempt signUp: if the email is already registered, Supabase returns
+  // "User already registered" and we know it's a wrong password.
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const { error: signUpError } = await supabase.auth.signUp({
+    email: parsed.data.email,
+    password: parsed.data.password,
+    options: {
+      emailRedirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(next)}`,
+    },
+  })
+
+  if (!signUpError) {
+    // New user — confirmation email sent.
+    redirect('/login?sent=1')
+  }
+
+  const msg = signUpError.message.toLowerCase()
+  if (msg.includes('already registered') || msg.includes('already been registered')) {
+    // Email exists but password was wrong.
+    redirect('/login?error=wrong_password')
+  }
+
+  redirect('/login?error=signup_failed')
 }
 
 export async function signInWithGoogle(formData: FormData): Promise<void> {
   const rawNext = (formData.get('next') as string) || '/me/studio'
-  const normalizedNext = safeNextPath(rawNext)
-  const next = normalizedNext === '/' ? '/me/studio' : normalizedNext
+  const next = resolveNext(rawNext)
   const token = (formData.get('turnstile_token') as string) || ''
   const tosAccepted = (formData.get('tos_accepted') as string) || '0'
 

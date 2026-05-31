@@ -1,18 +1,15 @@
 /**
- * Magic-link / token-hash verification endpoint.
+ * Email token-hash verification endpoint (signup confirmation + recovery).
  *
- * Production traffic source: Supabase Auth email template embeds this URL via
- * `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=magiclink&next=/me/studio`.
+ * Handles two traffic sources:
+ *  - signUp confirmation: Supabase sends type=signup after email+password signup.
+ *  - Recovery: type=recovery for password reset emails.
+ *
  * Cross-device safe — no `code_verifier` cookie required because the token
- * hash is consumed by `verifyOtp()` server-side. This is the official
- * Supabase pattern for SSR magic-link sign-in.
+ * hash is consumed by `verifyOtp()` server-side.
  *
- * Dev traffic source: `pnpm dlx tsx scripts/generate-magic-link.ts` prints
- * a URL pointing here (replaces the previous `/auth/admin-verify` path).
- *
- * On success, the route runs the same new-user onboarding as `/auth/callback`
- * (TOS stamp, acquisition_source capture, referral cookie consumption,
- * SIGNUP_COMPLETED tracking) via the shared `runPostAuthOnboarding` helper.
+ * On success, runs new-user onboarding (TOS stamp, acquisition_source,
+ * referral cookie consumption, SIGNUP_COMPLETED tracking) via `runPostAuthOnboarding`.
  */
 
 import { NextResponse, type NextRequest } from 'next/server'
@@ -21,9 +18,10 @@ import { safeNextPath } from '@/lib/auth/safe-next-path'
 import { REFERRAL_COOKIE_NAME } from '@/lib/referrals/links'
 import { createClient } from '@/lib/supabase/server'
 
-type EmailOtpType = 'magiclink' | 'recovery' | 'invite' | 'email_change' | 'email'
+type EmailOtpType = 'signup' | 'magiclink' | 'recovery' | 'invite' | 'email_change' | 'email'
 
 const VALID_TYPES = new Set<EmailOtpType>([
+  'signup',
   'magiclink',
   'recovery',
   'invite',

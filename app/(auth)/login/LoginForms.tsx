@@ -103,9 +103,22 @@ export function LoginForms({ next }: LoginFormsProps) {
             autoComplete="email"
           />
         </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            type="password"
+            name="password"
+            required
+            placeholder="Min 8 characters"
+            className="h-12 rounded-xl"
+            autoComplete="current-password"
+            minLength={8}
+          />
+        </div>
         <GradientButton type="submit" size="lg" disabled={!ready} className="w-full">
           <Mail className="size-4" />
-          Send magic link
+          Continue with email
         </GradientButton>
       </form>
     </div>

@@ -10,14 +10,14 @@ vi.mock('next/headers', () => ({
   headers: vi.fn(async () => new Headers({ 'x-forwarded-for': '1.2.3.4' })),
 }))
 
-// Default: Turnstile always passes. Tests can override per-case.
 let turnstileOk = true
 vi.mock('@/lib/turnstile/verify', () => ({
   verifyTurnstile: vi.fn(async () => turnstileOk),
 }))
 
-// Stub Supabase client — `signInWithOtp` + `signInWithOAuth` succeed by default.
-let signInWithOtpResult: { error: { message: string } | null } = { error: null }
+// Controls per-test behaviour of the Supabase stub.
+let signInWithPasswordResult: { error: { message: string } | null } = { error: null }
+let signUpResult: { error: { message: string } | null } = { error: null }
 let signInWithOAuthResult: {
   data: { url: string } | null
   error: { message: string } | null
@@ -26,7 +26,8 @@ let signInWithOAuthResult: {
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({
     auth: {
-      signInWithOtp: vi.fn(async () => signInWithOtpResult),
+      signInWithPassword: vi.fn(async () => signInWithPasswordResult),
+      signUp: vi.fn(async () => signUpResult),
       signInWithOAuth: vi.fn(async () => signInWithOAuthResult),
     },
   })),
@@ -44,6 +45,7 @@ function lastRedirectUrl(err: unknown): string {
 function makeEmailForm(overrides: Partial<Record<string, string>> = {}): FormData {
   const fd = new FormData()
   fd.set('email', 'user@example.com')
+  fd.set('password', 'password123')
   fd.set('next', '/')
   fd.set('turnstile_token', 'tok-ok')
   fd.set('tos_accepted', '1')
@@ -68,7 +70,8 @@ function makeGoogleForm(overrides: Partial<Record<string, string>> = {}): FormDa
 
 beforeEach(() => {
   turnstileOk = true
-  signInWithOtpResult = { error: null }
+  signInWithPasswordResult = { error: null }
+  signUpResult = { error: null }
   signInWithOAuthResult = {
     data: { url: 'https://accounts.google.com/test' },
     error: null,
@@ -102,12 +105,23 @@ describe('signInWithEmail', () => {
     throw new Error('redirect was not invoked')
   })
 
-  it('redirects to ?error=invalid_email when email is malformed but ToS is accepted', async () => {
+  it('redirects to ?error=invalid_email when email is malformed', async () => {
     const form = makeEmailForm({ email: 'not-an-email' })
     try {
       await signInWithEmail(form)
     } catch (err) {
       expect(lastRedirectUrl(err)).toBe('/login?error=invalid_email')
+      return
+    }
+    throw new Error('redirect was not invoked')
+  })
+
+  it('redirects to ?error=password_too_short when password is under 8 chars', async () => {
+    const form = makeEmailForm({ password: 'short' })
+    try {
+      await signInWithEmail(form)
+    } catch (err) {
+      expect(lastRedirectUrl(err)).toBe('/login?error=password_too_short')
       return
     }
     throw new Error('redirect was not invoked')
@@ -124,7 +138,20 @@ describe('signInWithEmail', () => {
     throw new Error('redirect was not invoked')
   })
 
-  it('redirects to ?sent=1 on the happy path', async () => {
+  it('redirects to next on the happy path (returning user)', async () => {
+    try {
+      await signInWithEmail(makeEmailForm())
+    } catch (err) {
+      // next='/' normalises to /me/studio
+      expect(lastRedirectUrl(err)).toBe('/me/studio')
+      return
+    }
+    throw new Error('redirect was not invoked')
+  })
+
+  it('redirects to ?sent=1 for a new user (signUp succeeds)', async () => {
+    signInWithPasswordResult = { error: { message: 'Invalid login credentials' } }
+    // signUpResult defaults to { error: null } — new user, confirmation sent
     try {
       await signInWithEmail(makeEmailForm())
     } catch (err) {
@@ -134,12 +161,25 @@ describe('signInWithEmail', () => {
     throw new Error('redirect was not invoked')
   })
 
-  it('redirects to ?error=otp_send_failed when Supabase send fails', async () => {
-    signInWithOtpResult = { error: { message: 'rate limited' } }
+  it('redirects to ?error=wrong_password when email is already registered', async () => {
+    signInWithPasswordResult = { error: { message: 'Invalid login credentials' } }
+    signUpResult = { error: { message: 'User already registered' } }
     try {
       await signInWithEmail(makeEmailForm())
     } catch (err) {
-      expect(lastRedirectUrl(err)).toBe('/login?error=otp_send_failed')
+      expect(lastRedirectUrl(err)).toBe('/login?error=wrong_password')
+      return
+    }
+    throw new Error('redirect was not invoked')
+  })
+
+  it('redirects to ?error=signup_failed when signUp returns an unexpected error', async () => {
+    signInWithPasswordResult = { error: { message: 'Invalid login credentials' } }
+    signUpResult = { error: { message: 'rate limited' } }
+    try {
+      await signInWithEmail(makeEmailForm())
+    } catch (err) {
+      expect(lastRedirectUrl(err)).toBe('/login?error=signup_failed')
       return
     }
     throw new Error('redirect was not invoked')
