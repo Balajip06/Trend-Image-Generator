@@ -226,7 +226,7 @@ const trends: NewTrend[] = [
       "A cinematic cyberpunk neon-noir portrait of the subject in the reference photo, in the visual language of Blade Runner 2049, Cyberpunk: Edgerunners, and Ghost in the Shell. Subtle chrome cybernetic implants — a thin jaw plate, a glowing temple chip, a neck port — placed tastefully so the subject's face remains the focal point. Rain-slick Night City street background with vivid pink and cyan neon signage out of focus behind them, holographic kanji advertisements reflecting on the wet pavement below. Soft volumetric fog. Strong rim-light on the subject's hair and shoulders in hot magenta from camera-right, with cyan key-light from camera-left for a complementary palette. Slight CRT scanline overlay and chromatic aberration on highlights. Futuristic streetwear: a high-collared technical jacket with reflective trim, perhaps a glowing neckline LED. Intense piercing gaze preserved from the reference. Photoreal cinematic quality, shot as if on an ARRI Alexa with anamorphic lenses. Portrait 3:4 framing. Preserve the subject's exact face, age, ethnicity, and hairstyle. No legible text, no real brand names, no weapons.",
     model: 'nano-banana-pro',
     aspect_ratio: '3:4',
-    display_order: 17,
+    display_order: 0,
     seo_title: 'Cyberpunk portrait generator — Night City neon photo AI',
     seo_description:
       'Turn your selfie into a cyberpunk netrunner portrait with chrome implants and neon streets.',

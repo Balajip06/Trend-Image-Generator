@@ -26,7 +26,7 @@ import {
   getQuotaBlockedSummary,
 } from '@/lib/analytics/event-store'
 import { getMarginDetail } from '@/lib/analytics/margin'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +38,11 @@ interface DashboardCounts {
 }
 
 async function loadCounts(): Promise<DashboardCounts> {
-  const supabase = await createClient()
+  // Service-role: trend_suggestions has RLS enabled with no SELECT policy
+  // (deny-all to the authed client), so the pending-suggestions count read
+  // by an authed client is always 0 even when the inbox has rows. Proxy.ts
+  // already gates /admin to admins; service-role is the correct read here.
+  const supabase = createServiceClient()
   const [trendsRes, liveRes, suggRes] = await Promise.all([
     supabase.from('trends').select('id, slug'),
     supabase.from('trends').select('id', { count: 'exact', head: true }).eq('is_active', true),

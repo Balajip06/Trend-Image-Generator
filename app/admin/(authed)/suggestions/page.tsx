@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import {
   TrendSuggestionPayloadSchema,
   type TrendSuggestionPayload,
@@ -49,7 +49,10 @@ export default async function AdminSuggestionsPage({ searchParams }: AdminSugges
   await searchParams // consumed by FlashToasts
 
   // Auth + admin-role gating happens in proxy.ts (/admin/* route matcher).
-  const supabase = await createClient()
+  // trend_suggestions has RLS enabled with no SELECT policy (deny-all to the
+  // authed client) — rows are written by the service-role orchestrator/cron.
+  // Read via service-role so the admin inbox can see them; proxy is the gate.
+  const supabase = createServiceClient()
   const { data: rows } = await supabase
     .from('trend_suggestions')
     .select('id, source, payload, status, created_at')

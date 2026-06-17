@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils/cn'
 import { addEvalInput, markTrendEval, rateEvalRun, removeEvalInput, runEval } from './actions'
 
@@ -39,7 +39,11 @@ export default async function EvalPage({ params, searchParams }: EvalPageProps) 
   const { id } = await params
   await searchParams // consumed by FlashToasts client-side
 
-  const supabase = await createClient()
+  // Service-role: trend_eval_inputs + trend_eval_runs have RLS enabled with
+  // no SELECT policy (deny-all to the authed client), so the eval grid would
+  // render empty even when test inputs/runs exist. Proxy.ts gates /admin to
+  // admins; service-role is the correct read for this admin-only workflow.
+  const supabase = createServiceClient()
 
   const { data: trendRow } = await supabase
     .from('trends')

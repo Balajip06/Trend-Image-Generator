@@ -68,7 +68,7 @@ const trends: SeedTrend[] = [
     model: 'nano-banana-pro',
     aspect_ratio: '1:1',
     input_schema: singlePhoto,
-    display_order: 1,
+    display_order: 9,
     seo_title: 'Ghibli-style portrait generator — turn your photo into a Studio Ghibli still',
     seo_description:
       'Free Ghibli-style portrait generator. Upload a photo and get a soft, painterly result in seconds.',

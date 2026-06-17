@@ -69,3 +69,6 @@ graphify-out/
 
 # Scratch
 .claude/draft/
+
+.vercel
+.env*
