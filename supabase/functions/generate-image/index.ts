@@ -7,8 +7,8 @@
 //   2. Database Webhook: table=generations, event=INSERT,
 //      URL=<edge-fn-url>, HTTP method=POST,
 //      header `Authorization: Bearer <service_role>`
-//   3. Function secrets: GEMINI_API_KEY, SUPABASE_URL,
-//      SUPABASE_SERVICE_ROLE_KEY (auto-injected by Supabase)
+//   3. Function secrets: GEMINI_API_KEY, OPENAI_API_KEY, OPENAI_IMAGE_MODEL,
+//      SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (auto-injected by Supabase)
 //
 // Failure model per amended plan §"Phase 3":
 //   - safety   → status='failed' (DB trigger refunds quota)
@@ -44,10 +44,13 @@ interface GenerationRow {
   output_image_url: string | null
 }
 
+type EdgeImageModel = 'nano-banana' | 'nano-banana-pro' | 'gpt-image'
+type EdgeProvider = 'gemini' | 'openai'
+
 interface TrendRow {
   id: string
   prompt_template: string
-  model: 'nano-banana' | 'nano-banana-pro'
+  model: EdgeImageModel
   aspect_ratio: string
   version: number
 }
@@ -63,13 +66,24 @@ interface WebhookPayload {
 const MAX_ATTEMPTS = 3
 const GEMINI_TIMEOUT_MS = 90_000
 const WALL_TIMEOUT_MS = 110_000
-const COST_USD: Record<TrendRow['model'], number> = {
+
+// See also: lib/gemini/cost.ts COST_USD_PER_IMAGE (Node copy — keep in sync)
+const COST_USD: Record<EdgeImageModel, number> = {
   'nano-banana': 0.0039,
   'nano-banana-pro': 0.024,
+  'gpt-image': 0.04,
 }
-const MODEL_ID: Record<TrendRow['model'], string> = {
+
+// Gemini model IDs — not used for OpenAI
+const GEMINI_MODEL_ID: Record<'nano-banana' | 'nano-banana-pro', string> = {
   'nano-banana': 'gemini-2.5-flash-image',
   'nano-banana-pro': 'gemini-3.0-pro-image',
+}
+
+const MODEL_PROVIDER: Record<EdgeImageModel, EdgeProvider> = {
+  'nano-banana': 'gemini',
+  'nano-banana-pro': 'gemini',
+  'gpt-image': 'openai',
 }
 
 Deno.serve(async (req: Request) => {
@@ -149,8 +163,8 @@ async function process(supabase: ReturnType<typeof createClient>, gen: Generatio
   const imageUrls =
     gen.input_payload.image_urls ?? collectImagesFromValues(gen.input_payload.values)
 
-  // 4. Call Gemini.
-  const result = await callGemini(trendData.model, prompt, imageUrls)
+  // 4. Call provider (Gemini or OpenAI depending on model).
+  const result = await callProvider(trendData.model, prompt, imageUrls)
 
   if (!result.ok) {
     if (result.reason === 'safety') {
@@ -197,7 +211,10 @@ async function process(supabase: ReturnType<typeof createClient>, gen: Generatio
       status: 'completed',
       output_image_url: publicUrl.publicUrl,
       cost_usd: COST_USD[trendData.model],
-      model_used: MODEL_ID[trendData.model],
+      model_used:
+        trendData.model === 'gpt-image'
+          ? (Deno.env.get('OPENAI_IMAGE_MODEL') ?? 'gpt-image-1')
+          : GEMINI_MODEL_ID[trendData.model as 'nano-banana' | 'nano-banana-pro'],
       completed_at: new Date().toISOString(),
     })
     .eq('id', gen.id)
@@ -281,14 +298,14 @@ interface GeminiFail {
 }
 
 async function callGemini(
-  model: TrendRow['model'],
+  model: 'nano-banana' | 'nano-banana-pro',
   prompt: string,
   imageUrls: string[]
 ): Promise<GeminiOk | GeminiFail> {
   const apiKey = Deno.env.get('GEMINI_API_KEY')
   if (!apiKey) return { ok: false, reason: 'invalid', message: 'GEMINI_API_KEY missing' }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID[model]}:generateContent?key=${apiKey}`
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_ID[model]}:generateContent?key=${apiKey}`
 
   let imageParts: Array<{ inlineData: { mimeType: string; data: string } }>
   try {
@@ -361,6 +378,102 @@ async function callGemini(
   } finally {
     clearTimeout(t)
   }
+}
+
+/**
+ * OpenAI image generation (Deno).
+ * See also: lib/image-provider/openai.ts (Node copy — keep failure taxonomy in sync)
+ */
+async function callOpenAI(
+  prompt: string,
+  imageUrls: string[]
+): Promise<GeminiOk | GeminiFail> {
+  const apiKey = Deno.env.get('OPENAI_API_KEY')
+  const modelId = Deno.env.get('OPENAI_IMAGE_MODEL') ?? 'gpt-image-1'
+
+  if (!apiKey) return { ok: false, reason: 'invalid', message: 'OPENAI_API_KEY missing' }
+
+  const controller = new AbortController()
+  const t = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS)
+
+  try {
+    let res: Response
+
+    if (imageUrls.length > 0) {
+      // Identity-preserving: use /v1/images/edits (multipart form).
+      // Fetch raw bytes directly — fetchAsInlineData returns Gemini's base64 format,
+      // not suitable for OpenAI multipart.
+      const form = new FormData()
+      form.append('model', modelId)
+      form.append('prompt', prompt)
+      form.append('n', '1')
+      form.append('response_format', 'b64_json')
+
+      for (let i = 0; i < imageUrls.length; i++) {
+        const rawRes = await fetch(imageUrls[i])
+        if (!rawRes.ok) throw new Error(`image fetch ${rawRes.status}: ${imageUrls[i]}`)
+        const blob = await rawRes.blob()
+        form.append(i === 0 ? 'image' : `image[${i}]`, blob, `image${i}.png`)
+      }
+
+      res = await fetch('https://api.openai.com/v1/images/edits', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+        signal: controller.signal,
+      })
+    } else {
+      // Text-to-image: use /v1/images/generations
+      res = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ model: modelId, prompt, n: 1, response_format: 'b64_json' }),
+        signal: controller.signal,
+      })
+    }
+
+    if (!res.ok) {
+      const text = await res.text()
+      if (res.status === 400 && text.includes('content_policy_violation')) {
+        return { ok: false, reason: 'safety', message: `OpenAI policy: ${text.slice(0, 200)}` }
+      }
+      const transient = res.status === 429 || res.status >= 500
+      return {
+        ok: false,
+        reason: transient ? 'transient' : 'invalid',
+        message: `OpenAI ${res.status}: ${text.slice(0, 200)}`,
+      }
+    }
+
+    interface OpenAIResponse {
+      data?: Array<{ b64_json?: string }>
+    }
+    const json = (await res.json()) as OpenAIResponse
+    const b64 = json.data?.[0]?.b64_json
+    if (!b64) return { ok: false, reason: 'invalid', message: 'no b64_json in OpenAI response' }
+    return { ok: true, outputPng: decodeBase64(b64) }
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return { ok: false, reason: 'timeout', message: 'OpenAI call timed out' }
+    }
+    return {
+      ok: false,
+      reason: 'transient',
+      message: err instanceof Error ? err.message : 'unknown',
+    }
+  } finally {
+    clearTimeout(t)
+  }
+}
+
+async function callProvider(
+  model: EdgeImageModel,
+  prompt: string,
+  imageUrls: string[]
+): Promise<GeminiOk | GeminiFail> {
+  const provider = MODEL_PROVIDER[model]
+  if (provider === 'openai') return callOpenAI(prompt, imageUrls)
+  return callGemini(model as 'nano-banana' | 'nano-banana-pro', prompt, imageUrls)
 }
 
 async function fetchAsInlineData(
