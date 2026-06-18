@@ -114,6 +114,8 @@ export function ResultView({ initial, trend }: ResultViewProps) {
     if (row.status === 'completed' || row.status === 'failed') return
 
     const supabase = createClient()
+    const wasSubscribedRef = { current: false }
+
     const channel = supabase
       .channel(`gen-${row.id}`)
       .on(
@@ -124,10 +126,23 @@ export function ResultView({ initial, trend }: ResultViewProps) {
           setRow((prev) => ({ ...prev, ...next }))
         }
       )
-      .subscribe()
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          // Cover the RSC→SUBSCRIBED window (H-R2) and reconnect gap (H-R3)
+          wasSubscribedRef.current = true
+          try {
+            const { data } = await supabase
+              .from('generations')
+              .select('id, status, output_image_url, error_message, attempts, cost_usd, completed_at')
+              .eq('id', row.id)
+              .maybeSingle()
+            if (data) setRow((prev) => ({ ...prev, ...data }))
+          } catch { /* best-effort */ }
+        }
+      })
 
     return () => {
-      supabase.removeChannel(channel)
+      void supabase.removeChannel(channel)
     }
   }, [row.id, row.status])
 
