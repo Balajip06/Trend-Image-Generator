@@ -15,22 +15,15 @@ create or replace function public.consume_quota_on_generation_insert()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
   v_profile     public.profiles;
-  v_kimp        boolean;
-  v_vip         boolean;
+  v_kimp        boolean := false;
+  v_vip         boolean := false;
 begin
-  -- Fast path: read kimp_unlimited + is_vip without a row lock.
-  -- These are set server-side only; service-role bypass of lockdown makes
-  -- TOCTOU impossible between the read and the early return.
-  select
-    coalesce(is_vip, false),
-    coalesce(
-      (select kimp_unlimited from public.profiles where id = new.user_id),
-      false
-    )
-  into v_vip, v_kimp
+  -- Read is_vip WITHOUT touching kimp_unlimited (column doesn't exist until Phase 2).
+  select coalesce(is_vip, false) into v_vip
   from public.profiles where id = new.user_id;
 
-  -- kimp_unlimited check (Phase 2 adds the column; guard until then)
+  -- kimp_unlimited guard: attempt read, fall back to false if column absent (Phase 2 not yet deployed).
+  -- Must be in its own BEGIN/EXCEPTION block so undefined_column is catchable at runtime.
   begin
     select coalesce(kimp_unlimited, false) into v_kimp
     from public.profiles where id = new.user_id;
