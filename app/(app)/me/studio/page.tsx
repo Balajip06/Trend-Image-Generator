@@ -51,18 +51,11 @@ export default async function StudioPage({ searchParams }: StudioPageProps) {
     } = await supabase.auth.getUser()
     if (!user) redirect('/login?next=/me/studio')
 
-    // Cast needed until `pnpm supabase:types` runs after migration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: profile } = await (supabase.from('profiles') as any)
+    const { data: profile } = await supabase
+      .from('profiles')
       .select('free_used_this_week, credits_balance, favourite_trend_ids')
       .eq('id', user.id)
-      .maybeSingle() as {
-        data: {
-          free_used_this_week: number
-          credits_balance: number
-          favourite_trend_ids: string[]
-        } | null
-      }
+      .maybeSingle()
 
     freeUsedThisWeek = profile?.free_used_this_week ?? 0
     creditsBalance = profile?.credits_balance ?? 0

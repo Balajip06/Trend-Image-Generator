@@ -24,8 +24,7 @@ interface AllowlistRow {
 export default async function AdminKimpPage() {
   const service = createServiceClient()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rows } = await (service as any)
+  const { data: rows } = await service
     .from('kimp_client_allowlist')
     .select('id, email, kimp_subject_id, is_active, note, created_at, updated_at')
     .order('created_at', { ascending: false })

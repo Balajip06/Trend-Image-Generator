@@ -42,6 +42,7 @@ const ServerEnvSchema = z.object({
   UPSTASH_REDIS_REST_URL: z.string().url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
   ANONYMOUS_DAILY_BUDGET_USD: z.coerce.number().positive().default(20),
+  UNLIMITED_DAILY_BUDGET_USD: z.coerce.number().positive().default(50),
   // Phase 6 (auto trend detector, post-MVP) — optional sources
   TIKTOK_CREATIVE_CENTER_KEY: z.string().min(1).optional(),
   INSTAGRAM_SESSION_COOKIE: z.string().min(1).optional(),

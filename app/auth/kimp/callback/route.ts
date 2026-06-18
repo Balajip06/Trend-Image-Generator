@@ -106,8 +106,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   // Bridge into Supabase: prefer matching by kimp_subject_id, fall back to email
   const service = createServiceClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: subjectRow } = await (service as any)
+  const { data: subjectRow } = await service
     .from('profiles')
     .select('id')
     .eq('kimp_subject_id', sub)
@@ -128,9 +127,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   if (existingUser) {
     // Guard: if sub is already linked to a DIFFERENT profile → conflict
-    // Cast required: kimp_subject_id column added by migration, types not yet regenerated
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: conflictRow } = await (service as any)
+    const { data: conflictRow } = await service
       .from('profiles')
       .select('id')
       .eq('kimp_subject_id', sub)
@@ -173,13 +170,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   })
 
   // Grant unlimited if active
-  // Cast required: grant_kimp_unlimited RPC added by migration, types not yet regenerated
   if (entitlement === 'active') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (service as any).rpc('grant_kimp_unlimited', {
+    await service.rpc('grant_kimp_unlimited', {
       p_user_id: supabaseUserId,
       p_subject: sub,
-      p_client_id: claims.data['kimp:client_id'] ?? null,
+      // p_client_id is nullable in Postgres (text, no NOT NULL); generated types are
+      // overly strict here — cast to satisfy the client while preserving null semantics.
+      p_client_id: (claims.data['kimp:client_id'] ?? null) as string,
       p_verified_at: new Date().toISOString(),
     })
   }

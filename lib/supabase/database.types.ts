@@ -204,6 +204,7 @@ export type Database = {
           input_payload: Json
           is_favorite: boolean
           is_public: boolean
+          kimp_client_id: string | null
           model_used: string | null
           monthly_cycle_reset_at: string | null
           output_image_url: string | null
@@ -227,6 +228,7 @@ export type Database = {
           input_payload: Json
           is_favorite?: boolean
           is_public?: boolean
+          kimp_client_id?: string | null
           model_used?: string | null
           monthly_cycle_reset_at?: string | null
           output_image_url?: string | null
@@ -250,6 +252,7 @@ export type Database = {
           input_payload?: Json
           is_favorite?: boolean
           is_public?: boolean
+          kimp_client_id?: string | null
           model_used?: string | null
           monthly_cycle_reset_at?: string | null
           output_image_url?: string | null
@@ -278,6 +281,80 @@ export type Database = {
           },
         ]
       }
+      kimp_client_allowlist: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean
+          kimp_subject_id: string | null
+          note: string | null
+          updated_at: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          is_active?: boolean
+          kimp_subject_id?: string | null
+          note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          kimp_subject_id?: string | null
+          note?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      kimp_verifications: {
+        Row: {
+          confirmed: boolean
+          created_at: string
+          id: string
+          kimp_client_id: string | null
+          kimp_subject_id: string
+          source: string
+          user_id: string
+          verified_at: string
+        }
+        Insert: {
+          confirmed?: boolean
+          created_at?: string
+          id?: string
+          kimp_client_id?: string | null
+          kimp_subject_id: string
+          source: string
+          user_id: string
+          verified_at: string
+        }
+        Update: {
+          confirmed?: boolean
+          created_at?: string
+          id?: string
+          kimp_client_id?: string | null
+          kimp_subject_id?: string
+          source?: string
+          user_id?: string
+          verified_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kimp_verifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           acquisition_source: Json | null
@@ -293,6 +370,12 @@ export type Database = {
           free_week_starts_at: string
           id: string
           is_vip: boolean
+          kimp_client_id: string | null
+          kimp_client_status: Database["public"]["Enums"]["kimp_client_status"]
+          kimp_linked_at: string | null
+          kimp_subject_id: string | null
+          kimp_unlimited: boolean
+          kimp_verified_at: string | null
           monthly_credits: number
           monthly_credits_reset_at: string | null
           name: string | null
@@ -300,6 +383,7 @@ export type Database = {
           push_subscription: Json | null
           referral_code: string
           referred_by: string | null
+          stripe_customer_id: string | null
           tos_accepted_at: string | null
           vip_granted_at: string | null
           vip_granted_by: string | null
@@ -319,6 +403,12 @@ export type Database = {
           free_week_starts_at?: string
           id: string
           is_vip?: boolean
+          kimp_client_id?: string | null
+          kimp_client_status?: Database["public"]["Enums"]["kimp_client_status"]
+          kimp_linked_at?: string | null
+          kimp_subject_id?: string | null
+          kimp_unlimited?: boolean
+          kimp_verified_at?: string | null
           monthly_credits?: number
           monthly_credits_reset_at?: string | null
           name?: string | null
@@ -326,6 +416,7 @@ export type Database = {
           push_subscription?: Json | null
           referral_code?: string
           referred_by?: string | null
+          stripe_customer_id?: string | null
           tos_accepted_at?: string | null
           vip_granted_at?: string | null
           vip_granted_by?: string | null
@@ -345,6 +436,12 @@ export type Database = {
           free_week_starts_at?: string
           id?: string
           is_vip?: boolean
+          kimp_client_id?: string | null
+          kimp_client_status?: Database["public"]["Enums"]["kimp_client_status"]
+          kimp_linked_at?: string | null
+          kimp_subject_id?: string | null
+          kimp_unlimited?: boolean
+          kimp_verified_at?: string | null
           monthly_credits?: number
           monthly_credits_reset_at?: string | null
           name?: string | null
@@ -352,6 +449,7 @@ export type Database = {
           push_subscription?: Json | null
           referral_code?: string
           referred_by?: string | null
+          stripe_customer_id?: string | null
           tos_accepted_at?: string | null
           vip_granted_at?: string | null
           vip_granted_by?: string | null
@@ -748,6 +846,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      grant_kimp_unlimited: {
+        Args: {
+          p_client_id: string
+          p_subject: string
+          p_user_id: string
+          p_verified_at: string
+        }
+        Returns: undefined
+      }
       purge_expired_anonymous: { Args: never; Returns: undefined }
       purge_expired_generations: { Args: never; Returns: undefined }
       purge_soft_deleted_profiles: { Args: never; Returns: undefined }
@@ -764,6 +871,7 @@ export type Database = {
         | "failed"
         | "failed_retryable"
       generation_tier: "free" | "credit" | "vip" | "monthly" | "kimp"
+      kimp_client_status: "active" | "inactive" | "unverified"
       referral_status: "pending" | "rewarded"
       suggestion_source: "auto" | "user"
       suggestion_status: "pending" | "approved" | "rejected"
@@ -909,6 +1017,7 @@ export const Constants = {
         "failed_retryable",
       ],
       generation_tier: ["free", "credit", "vip", "monthly", "kimp"],
+      kimp_client_status: ["active", "inactive", "unverified"],
       referral_status: ["pending", "rewarded"],
       suggestion_source: ["auto", "user"],
       suggestion_status: ["pending", "approved", "rejected"],

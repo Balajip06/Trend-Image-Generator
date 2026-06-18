@@ -30,8 +30,7 @@ export async function addAllowlistEntry(formData: FormData): Promise<void> {
   if (!parsed.success) back(new URLSearchParams({ error: 'Invalid email address' }))
 
   const service = createServiceClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (service as any).from('kimp_client_allowlist').insert({
+  const { error } = await service.from('kimp_client_allowlist').insert({
     email: parsed.data.email.toLowerCase(),
     note: parsed.data.note ?? null,
     added_by: userId,
@@ -70,8 +69,7 @@ export async function deactivateAllowlistEntry(formData: FormData): Promise<void
   if (!email) back(new URLSearchParams({ error: 'Missing email' }))
 
   const service = createServiceClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (service as any)
+  const { error } = await service
     .from('kimp_client_allowlist')
     .update({ is_active: false, updated_at: new Date().toISOString() })
     .eq('email', email)
@@ -101,8 +99,7 @@ export async function reactivateAllowlistEntry(formData: FormData): Promise<void
   if (!email) back(new URLSearchParams({ error: 'Missing email' }))
 
   const service = createServiceClient()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (service as any)
+  const { error } = await service
     .from('kimp_client_allowlist')
     .update({ is_active: true, updated_at: new Date().toISOString() })
     .eq('email', email)

@@ -11,6 +11,7 @@ import {
 import { TrendInputSchema } from '@/lib/trends/input-schema'
 import { getActiveTrendBySlug } from '@/lib/trends/repository'
 import { assertStorageUrl } from '@/lib/storage/validate-image-url'
+import { getServerEnv } from '@/lib/env'
 
 export const runtime = 'nodejs'
 
@@ -56,7 +57,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  // 4. Body validation
+  // 4. Global unlimited-tier daily cap (H-C7 / Risk #1)
+  // kimp/vip tiers have no per-week free quota, so the primary backstop is the
+  // per-IP rate limiter (20/hr). This secondary count-based guard protects
+  // against a single compromised unlimited account burning budget unbounded.
+  // Threshold: UNLIMITED_DAILY_BUDGET_USD (env, default 500 gens/day).
+  // cost_usd is written post-completion by the Edge Function, so we count rows
+  // rather than sum costs.
+  {
+    const env = getServerEnv()
+    const UNLIMITED_GEN_CAP = Math.round(env.UNLIMITED_DAILY_BUDGET_USD * 10) // $50 default → 500
+    const dayStart = new Date()
+    dayStart.setUTCHours(0, 0, 0, 0)
+    const { count } = await supabase
+      .from('generations')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .in('tier_at_generation', ['kimp', 'vip'])
+      .gte('created_at', dayStart.toISOString())
+    if ((count ?? 0) >= UNLIMITED_GEN_CAP) {
+      return NextResponse.json({ error: 'Daily generation limit reached' }, { status: 429 })
+    }
+  }
+
+  // 5. Body validation
   // Red-team H2: prior code trusted `content-length`. Chunked transfer
   // omits that header, `Number(null) === 0` passed the guard, and
   // `request.json()` then buffered without bound. Fix: stream the body
@@ -106,19 +130,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 400 })
   }
 
-  // 5. Trend fetch (RLS-filtered: only active + not expired)
+  // 6. Trend fetch (RLS-filtered: only active + not expired)
   const trend = await getActiveTrendBySlug(parsedBody.trend_slug)
   if (!trend) {
     return NextResponse.json({ error: 'Trend not found or inactive' }, { status: 404 })
   }
 
-  // 6. Validate values against the trend's input_schema (defence in depth — DB also checks).
+  // 7. Validate values against the trend's input_schema (defence in depth — DB also checks).
   const schemaCheck = TrendInputSchema.safeParse(trend.input_schema)
   if (!schemaCheck.success) {
     return NextResponse.json({ error: 'Trend input_schema corrupt' }, { status: 500 })
   }
 
-  // 7. Build prompt + image URL list. Validation throws on missing required.
+  // 8. Build prompt + image URL list. Validation throws on missing required.
   const values = parsedBody.values as TrendInputValues
   let _imageUrls: string[]
   try {
@@ -131,7 +155,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // 8. SSRF guard: assertStorageUrl is also called inside collectImageInputs, but
+  // 9. SSRF guard: assertStorageUrl is also called inside collectImageInputs, but
   //    we re-check here so raw API calls that bypass collectImageInputs can't reach
   //    the DB with arbitrary URLs.
   for (const [key, val] of Object.entries(values)) {
@@ -146,7 +170,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // 9. Insert generation row. UNIQUE (user_id, idempotency_key) makes replay safe;
+  // 10. Insert generation row. UNIQUE (user_id, idempotency_key) makes replay safe;
   //    BEFORE-INSERT trigger consumes quota and raises on exhaustion.
   //    tier_at_generation is required by the type but the BEFORE INSERT trigger
   //    overwrites this value with the correct bucket — 'free' is a placeholder.

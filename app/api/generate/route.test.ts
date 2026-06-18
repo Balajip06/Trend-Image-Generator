@@ -48,6 +48,29 @@ let replayLookupResult: { data: { id: string } | null } = { data: null }
 const calls: { inserts: number; replayLookups: number } = { inserts: 0, replayLookups: 0 }
 
 function makeAuthedClient() {
+  // Unlimited-cap guard: generations count query resolves to 0 by default.
+  let generationsCountResult: { count: number | null } = { count: 0 }
+
+  function fromGenerations() {
+    let op: 'insert' | 'select' = 'select'
+    const chain: Record<string, unknown> = {}
+    chain.insert = vi.fn(() => {
+      op = 'insert'
+      calls.inserts += 1
+      return chain
+    })
+    chain.select = vi.fn(() => chain)
+    chain.eq = vi.fn(() => chain)
+    chain.in = vi.fn(() => chain)
+    // .gte() terminates the count-select chain for the unlimited cap guard
+    chain.gte = vi.fn(() => Promise.resolve(generationsCountResult))
+    chain.maybeSingle = vi.fn(() => {
+      if (op === 'insert') return Promise.resolve(insertResult)
+      return Promise.resolve({ data: null })
+    })
+    return chain
+  }
+
   function fromTrends() {
     let op: 'insert' | 'select' = 'select'
     let lookupEqCount = 0
@@ -77,9 +100,13 @@ function makeAuthedClient() {
     })
     return chain
   }
+
   return {
     auth: { getUser: vi.fn(() => Promise.resolve({ data: { user: authUser } })) },
-    from: vi.fn(() => fromTrends()),
+    from: vi.fn((table: string) => (table === 'generations' ? fromGenerations() : fromTrends())),
+    _setGenerationsCount: (n: number | null) => {
+      generationsCountResult = { count: n }
+    },
   }
 }
 
@@ -88,6 +115,9 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 vi.mock('@/lib/rate-limit', () => ({
   generationIpLimiter: { limit: (identifier: string) => limiterLimit(identifier) },
+}))
+vi.mock('@/lib/env', () => ({
+  getServerEnv: () => ({ UNLIMITED_DAILY_BUDGET_USD: 50 }),
 }))
 vi.mock('@/lib/trends/repository', () => ({
   getActiveTrendBySlug: (slug: string) => getActiveTrendBySlug(slug),

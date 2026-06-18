@@ -66,8 +66,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Cron-only idempotency: only run once per calendar day (UTC).
   if (isCron) {
     const eventId = `reverify:${new Date().toISOString().slice(0, 10)}`
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: dupError } = await (service as any)
+    const { error: dupError } = await service
       .from('webhook_events')
       .insert({ source: 'kimp360', event_id: eventId, payload: {} })
     if (dupError?.code === '23505') {
@@ -76,8 +75,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // ── Phase A: re-verify linked profiles (have kimp_subject_id) ────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: linkedRows } = await (service as any)
+  const { data: linkedRows } = await service
     .from('profiles')
     .select('id, email, kimp_subject_id, kimp_verified_at, kimp_unlimited, kimp_client_id')
     .not('kimp_subject_id', 'is', null)
@@ -131,17 +129,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         active++
         if (!profile.kimp_unlimited) {
           // Restore grant via RPC (proof row will be upserted inside the function)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (service as any).rpc('grant_kimp_unlimited', {
+          await service.rpc('grant_kimp_unlimited', {
             p_user_id: profile.id,
             p_subject: profile.kimp_subject_id,
-            p_client_id: profile.kimp_client_id ?? null,
+            // p_client_id is nullable in Postgres; generated types are overly strict.
+            p_client_id: (profile.kimp_client_id ?? null) as string,
             p_verified_at: new Date().toISOString(),
           })
         } else {
           // Already granted — just bump the verification timestamp
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (service as any)
+          await service
             .from('profiles')
             .update({ kimp_verified_at: new Date().toISOString() })
             .eq('id', profile.id)
@@ -155,8 +152,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           revoked++
           // Direct update — enforce_kimp_unlimited_proof only fires on false→true,
           // so this revocation bypasses it correctly (intended).
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (service as any)
+          await service
             .from('profiles')
             .update({
               kimp_unlimited: false,
@@ -181,8 +177,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // ── Phase B: allowlist-only users (no kimp_subject_id) ───────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: allowlistRows } = await (service as any)
+  const { data: allowlistRows } = await service
     .from('kimp_client_allowlist')
     .select('email, is_active')
 
@@ -193,8 +188,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Allowlist entry deactivated — revoke any profile that matched on email
     // and has no kimp_subject_id (pure allowlist grant)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: matchedRows } = await (service as any)
+    const { data: matchedRows } = await service
       .from('profiles')
       .select('id, kimp_unlimited')
       .eq('email', entry.email)
@@ -207,8 +201,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       if (!profile.kimp_unlimited) continue
 
       revoked++
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (service as any)
+      await service
         .from('profiles')
         .update({
           kimp_unlimited: false,
