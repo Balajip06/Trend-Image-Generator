@@ -59,30 +59,20 @@ export async function signInWithEmail(formData: FormData): Promise<void> {
     redirect(next)
   }
 
-  // signInWithPassword failed — could be new user or wrong password.
-  // Attempt signUp: if the email is already registered, Supabase returns
-  // "User already registered" and we know it's a wrong password.
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-  const { error: signUpError } = await supabase.auth.signUp({
-    email: parsed.data.email,
-    password: parsed.data.password,
-    options: {
-      emailRedirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(next)}`,
-    },
-  })
+  // Password wrong or account doesn't exist — single generic error (no enumeration).
+  redirect('/login?error=invalid_credentials')
+}
 
-  if (!signUpError) {
-    // New user — confirmation email sent.
-    redirect('/login?sent=1')
-  }
+export async function signInWithKimp(formData: FormData): Promise<void> {
+  const rawNext = (formData.get('next') as string) || '/me/studio'
+  const next = resolveNext(rawNext)
+  const tosAccepted = (formData.get('tos_accepted') as string) || '0'
 
-  const msg = signUpError.message.toLowerCase()
-  if (msg.includes('already registered') || msg.includes('already been registered')) {
-    // Email exists but password was wrong.
-    redirect('/login?error=wrong_password')
-  }
+  if (tosAccepted !== '1') redirect('/login?error=tos_required')
 
-  redirect('/login?error=signup_failed')
+  // Delegate to the dedicated initiate route. The route handler performs the
+  // OIDC redirect — server actions cannot issue external OAuth redirects directly.
+  redirect(`/api/auth/kimp/initiate?next=${encodeURIComponent(next)}`)
 }
 
 export async function signInWithGoogle(formData: FormData): Promise<void> {

@@ -23,7 +23,7 @@ export async function toggleFavouriteTrend(formData: FormData): Promise<void> {
     .from('profiles')
     .select('favourite_trend_ids')
     .eq('id', user.id)
-    .maybeSingle() as unknown as { data: { favourite_trend_ids: string[] } | null }
+    .maybeSingle()
 
   if (!profile) redirect('/me/studio?error=not_found')
 
@@ -32,11 +32,7 @@ export async function toggleFavouriteTrend(formData: FormData): Promise<void> {
     ? current.filter((id) => id !== trendId)
     : [...current, trendId]
 
-  // Cast needed until `pnpm supabase:types` runs after migration
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase.from('profiles') as any)
-    .update({ favourite_trend_ids: next })
-    .eq('id', user.id)
+  await supabase.from('profiles').update({ favourite_trend_ids: next }).eq('id', user.id)
 
   revalidatePath('/me/studio')
 }

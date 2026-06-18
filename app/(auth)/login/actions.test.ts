@@ -17,7 +17,6 @@ vi.mock('@/lib/turnstile/verify', () => ({
 
 // Controls per-test behaviour of the Supabase stub.
 let signInWithPasswordResult: { error: { message: string } | null } = { error: null }
-let signUpResult: { error: { message: string } | null } = { error: null }
 let signInWithOAuthResult: {
   data: { url: string } | null
   error: { message: string } | null
@@ -27,13 +26,12 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({
     auth: {
       signInWithPassword: vi.fn(async () => signInWithPasswordResult),
-      signUp: vi.fn(async () => signUpResult),
       signInWithOAuth: vi.fn(async () => signInWithOAuthResult),
     },
   })),
 }))
 
-import { signInWithEmail, signInWithGoogle } from './actions'
+import { signInWithEmail, signInWithGoogle, signInWithKimp } from './actions'
 
 function lastRedirectUrl(err: unknown): string {
   if (err instanceof Error && err.message.startsWith('NEXT_REDIRECT:')) {
@@ -68,10 +66,20 @@ function makeGoogleForm(overrides: Partial<Record<string, string>> = {}): FormDa
   return fd
 }
 
+function makeKimpForm(overrides: Partial<Record<string, string>> = {}): FormData {
+  const fd = new FormData()
+  fd.set('next', '/')
+  fd.set('tos_accepted', '1')
+  for (const [k, v] of Object.entries(overrides)) {
+    if (v === '') fd.delete(k)
+    else fd.set(k, v as string)
+  }
+  return fd
+}
+
 beforeEach(() => {
   turnstileOk = true
   signInWithPasswordResult = { error: null }
-  signUpResult = { error: null }
   signInWithOAuthResult = {
     data: { url: 'https://accounts.google.com/test' },
     error: null,
@@ -149,37 +157,12 @@ describe('signInWithEmail', () => {
     throw new Error('redirect was not invoked')
   })
 
-  it('redirects to ?sent=1 for a new user (signUp succeeds)', async () => {
+  it('redirects to ?error=invalid_credentials when signInWithPassword fails', async () => {
     signInWithPasswordResult = { error: { message: 'Invalid login credentials' } }
-    // signUpResult defaults to { error: null } — new user, confirmation sent
     try {
       await signInWithEmail(makeEmailForm())
     } catch (err) {
-      expect(lastRedirectUrl(err)).toBe('/login?sent=1')
-      return
-    }
-    throw new Error('redirect was not invoked')
-  })
-
-  it('redirects to ?error=wrong_password when email is already registered', async () => {
-    signInWithPasswordResult = { error: { message: 'Invalid login credentials' } }
-    signUpResult = { error: { message: 'User already registered' } }
-    try {
-      await signInWithEmail(makeEmailForm())
-    } catch (err) {
-      expect(lastRedirectUrl(err)).toBe('/login?error=wrong_password')
-      return
-    }
-    throw new Error('redirect was not invoked')
-  })
-
-  it('redirects to ?error=signup_failed when signUp returns an unexpected error', async () => {
-    signInWithPasswordResult = { error: { message: 'Invalid login credentials' } }
-    signUpResult = { error: { message: 'rate limited' } }
-    try {
-      await signInWithEmail(makeEmailForm())
-    } catch (err) {
-      expect(lastRedirectUrl(err)).toBe('/login?error=signup_failed')
+      expect(lastRedirectUrl(err)).toBe('/login?error=invalid_credentials')
       return
     }
     throw new Error('redirect was not invoked')
@@ -224,6 +207,31 @@ describe('signInWithGoogle', () => {
       await signInWithGoogle(makeGoogleForm())
     } catch (err) {
       expect(lastRedirectUrl(err)).toBe('/login?error=oauth_failed')
+      return
+    }
+    throw new Error('redirect was not invoked')
+  })
+})
+
+describe('signInWithKimp', () => {
+  it('redirects to ?error=tos_required when checkbox is not checked', async () => {
+    try {
+      await signInWithKimp(makeKimpForm({ tos_accepted: '0' }))
+    } catch (err) {
+      expect(lastRedirectUrl(err)).toBe('/login?error=tos_required')
+      return
+    }
+    throw new Error('redirect was not invoked')
+  })
+
+  it('redirects to the KIMP initiate route on the happy path', async () => {
+    try {
+      await signInWithKimp(makeKimpForm())
+    } catch (err) {
+      // next='/' normalises to /me/studio
+      expect(lastRedirectUrl(err)).toBe(
+        `/api/auth/kimp/initiate?next=${encodeURIComponent('/me/studio')}`,
+      )
       return
     }
     throw new Error('redirect was not invoked')

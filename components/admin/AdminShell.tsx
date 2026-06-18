@@ -15,6 +15,7 @@ import {
   Menu,
   Receipt,
   Settings,
+  Shield,
   Sparkles,
   Users,
   X,
@@ -119,6 +120,11 @@ const NAV_GROUPS: readonly NavGroup[] = [
         href: '/admin/vip',
         label: 'VIP',
         icon: <Crown className="size-4" />,
+      },
+      {
+        href: '/admin/kimp',
+        label: 'KIMP360',
+        icon: <Shield className="size-4" />,
       },
       {
         href: '/admin/settings',
