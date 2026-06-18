@@ -26,7 +26,7 @@ create or replace function public.grant_monthly_credits(
 )
 returns boolean  -- true = granted, false = already granted (idempotent no-op)
 language plpgsql security definer set search_path = public as $$
-declare v_inserted boolean;
+declare v_rows int;
 begin
   if p_allotment <= 0 then
     raise exception 'grant_monthly_credits: allotment must be positive';
@@ -36,9 +36,9 @@ begin
   values (p_subscription_id, p_period_start, p_user_id, p_allotment)
   on conflict (stripe_subscription_id, period_start) do nothing;
 
-  get diagnostics v_inserted = row_count;
+  get diagnostics v_rows = row_count;
 
-  if v_inserted then
+  if v_rows > 0 then
     -- SET (use-it-or-lose-it, no rollover)
     update public.profiles
        set monthly_credits          = p_allotment,
@@ -54,7 +54,7 @@ begin
       ));
   end if;
 
-  return v_inserted;
+  return v_rows > 0;
 end;
 $$;
 

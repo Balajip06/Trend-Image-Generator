@@ -6,7 +6,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
 import { grantCredits } from '@/lib/payments/credits'
 import { findPack, isPackId } from '@/lib/payments/packs'
-import { findPlanByPriceId } from '@/lib/payments/plans'
+import { findPlan, findPlanByPriceId } from '@/lib/payments/plans'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -178,14 +178,24 @@ async function handleCheckoutCompleted(
         : session.subscription?.id ?? null
 
     if (subscriptionId && customerId) {
-      // subscriptions table not yet in generated types; cast to any until pnpm supabase:types runs.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from('subscriptions').upsert(
+      // Resolve plan from session metadata so plan + monthly_credit_allotment (NOT NULL)
+      // are populated even before invoice.paid arrives (Fix I3).
+      const planId = session.metadata?.plan_id
+      const plan = planId ? findPlan(planId) : null
+      if (!plan) {
+        throw new Error(
+          `checkout.session.completed: unknown plan_id ${planId} (event ${eventId}, session ${session.id})`
+        )
+      }
+
+      await supabase.from('subscriptions').upsert(
         {
           user_id: userId,
           stripe_subscription_id: subscriptionId,
           stripe_customer_id: customerId,
-          status: session.payment_status ?? 'unpaid',
+          plan: plan.id,
+          monthly_credit_allotment: plan.monthlyCredits,
+          status: (session.payment_status ?? 'unpaid') as 'active' | 'past_due' | 'canceled' | 'incomplete' | 'trialing',
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'stripe_subscription_id' }
@@ -237,18 +247,14 @@ async function handleSubscriptionUpsert(
   sub: Stripe.Subscription,
   supabase: ReturnType<typeof createServiceClient>
 ): Promise<void> {
-  // subscriptions table not yet in generated types; cast to any until pnpm supabase:types runs.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any
-
   // Resolve user_id from existing subscriptions row or metadata
-  const { data: existing } = await db
+  const { data: existing } = await supabase
     .from('subscriptions')
     .select('user_id')
     .eq('stripe_subscription_id', sub.id)
     .maybeSingle()
 
-  const userId = (existing as { user_id: string } | null)?.user_id ?? sub.metadata?.user_id ?? null
+  const userId = existing?.user_id ?? sub.metadata?.user_id ?? null
   if (!userId) return // Can't attribute — skip
 
   // Resolve plan from price_id (authoritative)
@@ -262,11 +268,11 @@ async function handleSubscriptionUpsert(
   // Stripe SDK v22: current_period_start/end removed from Subscription type.
   // Use billing_cycle_anchor as a proxy for period tracking; invoice.paid events
   // will provide accurate period timestamps via handleInvoicePaid.
-  await db.from('subscriptions').upsert(
+  await supabase.from('subscriptions').upsert(
     {
       user_id: userId,
       plan: plan.id,
-      status: sub.status as string,
+      status: sub.status as 'active' | 'past_due' | 'canceled' | 'incomplete' | 'trialing',
       stripe_subscription_id: sub.id,
       stripe_customer_id: customerId,
       monthly_credit_allotment: plan.monthlyCredits,
@@ -282,23 +288,20 @@ async function handleSubscriptionDeleted(
   sub: Stripe.Subscription,
   supabase: ReturnType<typeof createServiceClient>
 ): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any
-
-  const { data: row } = await db
+  const { data: row } = await supabase
     .from('subscriptions')
     .select('user_id')
     .eq('stripe_subscription_id', sub.id)
     .maybeSingle()
 
-  await db
+  await supabase
     .from('subscriptions')
     .update({ status: 'canceled', updated_at: new Date().toISOString() })
     .eq('stripe_subscription_id', sub.id)
 
-  const userId = (row as { user_id: string } | null)?.user_id
+  const userId = row?.user_id
   if (userId) {
-    await db.rpc('zero_monthly_credits', { p_user_id: userId })
+    await supabase.rpc('zero_monthly_credits', { p_user_id: userId })
   }
 }
 
@@ -312,9 +315,7 @@ async function handleInvoicePaid(
     typeof parentSub === 'string' ? parentSub : (parentSub as Stripe.Subscription | undefined)?.id
   if (!subId) return
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any
-  const { data: subRow } = await db
+  const { data: subRow } = await supabase
     .from('subscriptions')
     .select('user_id, plan, status, monthly_credit_allotment, current_period_start')
     .eq('stripe_subscription_id', subId)
@@ -331,14 +332,26 @@ async function handleInvoicePaid(
   const priceId =
     typeof priceRef === 'string' ? priceRef : (priceRef as Stripe.Price | undefined)?.id
   const plan = priceId ? findPlanByPriceId(priceId) : null
-  const allotment = plan?.monthlyCredits ?? (subRow.monthly_credit_allotment as number | null)
+  const allotment = plan?.monthlyCredits ?? subRow.monthly_credit_allotment
+
+  // Guard: if allotment cannot be resolved, capture to Sentry and bail rather than
+  // calling grant_monthly_credits with null/0 (Fix I1).
+  if (!allotment || allotment <= 0) {
+    Sentry.captureException(
+      new Error(
+        `invoice.paid: cannot resolve allotment for subscription ${subId} — price ${priceId} not in env and subRow.monthly_credit_allotment is ${subRow.monthly_credit_allotment}`
+      ),
+      { extra: { sub_id: subId, price_id: priceId } }
+    )
+    return
+  }
 
   // Period start from invoice line item (billing-cycle accurate)
   const periodStart = lineItem?.period?.start
     ? new Date(lineItem.period.start * 1000).toISOString()
-    : ((subRow.current_period_start as string | null) ?? new Date().toISOString())
+    : (subRow.current_period_start ?? new Date().toISOString())
 
-  await db.rpc('grant_monthly_credits', {
+  await supabase.rpc('grant_monthly_credits', {
     p_user_id: subRow.user_id,
     p_subscription_id: subId,
     p_period_start: periodStart,
@@ -356,9 +369,7 @@ async function handleInvoicePaymentFailed(
     typeof parentSub === 'string' ? parentSub : (parentSub as Stripe.Subscription | undefined)?.id
   if (!subId) return
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any
-  await db
+  await supabase
     .from('subscriptions')
     .update({ status: 'past_due', updated_at: new Date().toISOString() })
     .eq('stripe_subscription_id', subId)
@@ -400,8 +411,7 @@ async function handleChargeClawback(
   // This is an approximation; exact allotment is bounded by actual sub plan.
   const creditsToClawback = Math.ceil(amountCents / 2.4)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any).rpc('claw_back_credits', {
+  await supabase.rpc('claw_back_credits', {
     p_user_id: profile.id,
     p_amount: creditsToClawback,
     p_bucket: bucket,
