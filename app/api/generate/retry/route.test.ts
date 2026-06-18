@@ -9,7 +9,9 @@ import type { NextRequest } from 'next/server'
  *   - 401 when unauthenticated
  *   - 400 when body fails Zod
  *   - 404 when row not visible to user (RLS-filtered SELECT)
- *   - 409 when row is in a non-retryable state
+ *   - 409 when row is terminal-failed (not retryable) — H-C1 / Risk #12
+ *   - 409 when attempts >= MAX_ATTEMPTS — unbounded paid generation loop
+ *   - 429 when per-user rate limit exceeded
  *   - 200 + service-role update to status='pending' + attempts++
  */
 
@@ -22,6 +24,7 @@ let genRow: {
   attempts: number
 } | null = null
 let updateResult: { error: { message: string } | null } = { error: null }
+let rateLimitSuccess = true
 
 const calls: {
   serviceUpdates: Array<{ table: string; payload: Record<string, unknown>; idEq: string }>
@@ -63,6 +66,12 @@ vi.mock('@/lib/supabase/server', () => ({
   createServiceClient: () => makeServiceClient(),
 }))
 
+vi.mock('@/lib/rate-limit', () => ({
+  generationUserLimiter: {
+    limit: vi.fn(async () => ({ success: rateLimitSuccess })),
+  },
+}))
+
 async function loadRoute() {
   vi.resetModules()
   return await import('./route')
@@ -83,6 +92,7 @@ describe('POST /api/generate/retry', () => {
     authUser = { id: 'user-1' }
     genRow = null
     updateResult = { error: null }
+    rateLimitSuccess = true
   })
 
   afterEach(() => {
@@ -123,6 +133,47 @@ describe('POST /api/generate/retry', () => {
     expect(res.status).toBe(409)
   })
 
+  // H-C1 / Risk #12: terminal-failed rows were already refunded; retrying
+  // them would be a free paid generation.
+  it('409 when generation is terminal failed (not retryable)', async () => {
+    genRow = { id: VALID_GEN, user_id: 'user-1', status: 'failed', trend_id: 't', attempts: 3 }
+    const { POST } = await loadRoute()
+    const res = await POST(makeReq({ generation_id: VALID_GEN }))
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.error).toMatch(/retryable/i)
+  })
+
+  // H-C1 / Risk #12: cap attempts to prevent unbounded paid generation loop.
+  it('409 when attempts >= MAX_ATTEMPTS', async () => {
+    genRow = {
+      id: VALID_GEN,
+      user_id: 'user-1',
+      status: 'failed_retryable',
+      trend_id: 't',
+      attempts: 3,
+    }
+    const { POST } = await loadRoute()
+    const res = await POST(makeReq({ generation_id: VALID_GEN }))
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.error).toMatch(/max attempts/i)
+  })
+
+  it('429 when user rate limit exceeded', async () => {
+    rateLimitSuccess = false
+    genRow = {
+      id: VALID_GEN,
+      user_id: 'user-1',
+      status: 'failed_retryable',
+      trend_id: 't',
+      attempts: 1,
+    }
+    const { POST } = await loadRoute()
+    const res = await POST(makeReq({ generation_id: VALID_GEN }))
+    expect(res.status).toBe(429)
+  })
+
   it('200 + service-role flips to pending and increments attempts', async () => {
     genRow = {
       id: VALID_GEN,
@@ -143,7 +194,13 @@ describe('POST /api/generate/retry', () => {
   })
 
   it('500 when service-role update fails', async () => {
-    genRow = { id: VALID_GEN, user_id: 'user-1', status: 'failed', trend_id: 't', attempts: 0 }
+    genRow = {
+      id: VALID_GEN,
+      user_id: 'user-1',
+      status: 'failed_retryable',
+      trend_id: 't',
+      attempts: 1,
+    }
     updateResult = { error: { message: 'db down' } }
     const { POST } = await loadRoute()
     const res = await POST(makeReq({ generation_id: VALID_GEN }))
