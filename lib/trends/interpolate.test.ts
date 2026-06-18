@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://testref.supabase.co')
+
 import { DEFAULT_TREND_INPUT, type TrendInput } from './input-schema'
 import { collectImageInputs, interpolatePrompt } from './interpolate'
+
+// Valid Supabase Storage URLs used by collectImageInputs tests
+const STORAGE = (name: string) =>
+  `https://testref.supabase.co/storage/v1/object/public/uploads/${name}`
 
 const couple: TrendInput = {
   fields: [
@@ -77,11 +84,11 @@ describe('collectImageInputs', () => {
   it('returns image URLs in field-declaration order', () => {
     expect(
       collectImageInputs(couple, {
-        partner_photo: 'p2',
-        user_photo: 'p1',
+        partner_photo: STORAGE('partner.jpg'),
+        user_photo: STORAGE('user.jpg'),
         caption: 'ignored',
       })
-    ).toEqual(['p1', 'p2'])
+    ).toEqual([STORAGE('user.jpg'), STORAGE('partner.jpg')])
   })
 
   it('flattens arrays from multi-image fields', () => {
@@ -97,7 +104,11 @@ describe('collectImageInputs', () => {
         },
       ],
     }
-    expect(collectImageInputs(multi, { family: ['a', 'b', 'c'] })).toEqual(['a', 'b', 'c'])
+    expect(
+      collectImageInputs(multi, {
+        family: [STORAGE('a.jpg'), STORAGE('b.jpg'), STORAGE('c.jpg')],
+      })
+    ).toEqual([STORAGE('a.jpg'), STORAGE('b.jpg'), STORAGE('c.jpg')])
   })
 
   it('throws on missing required image', () => {

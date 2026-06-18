@@ -12,16 +12,18 @@ import {
 import { TrendInputSchema } from '@/lib/trends/input-schema'
 import { getActiveTrendBySlug } from '@/lib/trends/repository'
 import { verifyTurnstile } from '@/lib/turnstile/verify'
+import { assertStorageUrl } from '@/lib/storage/validate-image-url'
 
 export const runtime = 'nodejs'
 
+const ValueSchema = z.union([z.string().max(5000), z.array(z.string().max(5000)).max(8)])
 const BodySchema = z.object({
-  trend_slug: z.string().min(1).max(120),
-  values: z.record(z.string(), z.union([z.string(), z.array(z.string())])),
+  trend_slug: z.string().min(1).max(100),
+  values: z.record(z.string().min(1).max(100), ValueSchema),
   /** Cloudflare Turnstile token from the client widget. */
-  turnstile_token: z.string().min(10),
+  turnstile_token: z.string().min(1),
   /** SHA-256-hashed FingerprintJS visitor id; client computes hash to avoid raw fingerprint reaching server. */
-  fingerprint_hash: z.string().regex(/^[0-9a-f]{64}$/),
+  fingerprint_hash: z.string().min(1).max(100),
 })
 
 async function sha256Hex(input: string): Promise<string> {
@@ -105,7 +107,21 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // 8. Insert anonymous_attempts row. UNIQUE (fingerprint_hash, ip_hash) blocks 2nd attempt lifetime.
+  // 8. SSRF guard: re-check image URLs at the API boundary so raw callers that
+  //    bypass collectImageInputs can't store arbitrary URLs in the DB.
+  for (const [key, val] of Object.entries(body.values)) {
+    const field = trend.input_schema?.fields?.find((f: { name: string }) => f.name === key)
+    if (field?.type === 'image') {
+      try {
+        const urls = Array.isArray(val) ? val : [val]
+        urls.forEach(assertStorageUrl)
+      } catch {
+        return NextResponse.json({ error: 'Invalid image URL' }, { status: 400 })
+      }
+    }
+  }
+
+  // 9. Insert anonymous_attempts row. UNIQUE (fingerprint_hash, ip_hash) blocks 2nd attempt lifetime.
   const ipHash = await sha256Hex(ip)
   const insertRow = {
     fingerprint_hash: body.fingerprint_hash,
