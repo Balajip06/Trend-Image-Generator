@@ -8,7 +8,7 @@
 //      URL=<edge-fn-url>, HTTP method=POST,
 //      header `Authorization: Bearer <service_role>`
 //   3. Function secrets: GEMINI_API_KEY, OPENAI_API_KEY, OPENAI_IMAGE_MODEL,
-//      SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (auto-injected by Supabase)
+//      SENTRY_DSN, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (auto-injected by Supabase)
 //
 // Failure model per amended plan §"Phase 3":
 //   - safety   → status='failed' (DB trigger refunds quota)
@@ -18,6 +18,54 @@
 
 // @ts-expect-error Deno-only import; not resolved by Node typecheck.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+// Lightweight Sentry error reporter for Deno runtime (cannot use @sentry/nextjs)
+// See H-M3: sentry.edge.config.ts uses Node SDK, incompatible with Deno.
+async function reportToSentry(error: unknown, context?: Record<string, unknown>): Promise<void> {
+  const dsn = Deno.env.get('SENTRY_DSN')
+  if (!dsn) return
+  try {
+    const url = new URL(dsn)
+    const projectId = url.pathname.replace('/', '')
+    const sentryKey = url.username
+    const sentryEndpoint = `https://${url.hostname}/api/${projectId}/envelope/`
+    const message = error instanceof Error ? error.message : String(error)
+    const stack = error instanceof Error ? error.stack : undefined
+    const envelope = [
+      JSON.stringify({ event_id: crypto.randomUUID().replace(/-/g, ''), dsn }),
+      JSON.stringify({ type: 'event' }),
+      JSON.stringify({
+        level: 'error',
+        platform: 'javascript',
+        timestamp: Date.now() / 1000,
+        exception: {
+          values: [
+            {
+              type: 'Error',
+              value: message,
+              stacktrace: stack
+                ? { frames: [{ filename: 'generate-image/index.ts', function: 'Edge Function' }] }
+                : undefined,
+            },
+          ],
+        },
+        extra: context,
+        environment: Deno.env.get('NODE_ENV') ?? 'production',
+      }),
+    ].join('\n')
+    await fetch(sentryEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-sentry-envelope',
+        'X-Sentry-Auth': `Sentry sentry_version=7,sentry_key=${sentryKey}`,
+      },
+      body: envelope,
+      signal: AbortSignal.timeout(3000),
+    })
+  } catch {
+    // best-effort — never block generation
+  }
+}
 
 declare const Deno: {
   env: { get(name: string): string | undefined }
@@ -126,6 +174,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ ok: true })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'unknown'
+    await reportToSentry(err, { generation_id: payload.record?.id })
     return jsonResponse({ error: message }, 500)
   } finally {
     clearTimeout(wallTimer)
@@ -173,11 +222,13 @@ async function process(supabase: ReturnType<typeof createClient>, gen: Generatio
     }
     // transient / timeout / invalid
     if (gen.attempts + 1 >= MAX_ATTEMPTS) {
-      await terminalFail(
-        supabase,
-        gen,
-        `terminal after ${MAX_ATTEMPTS} attempts: ${result.message}`
-      )
+      const terminalMsg = `terminal after ${MAX_ATTEMPTS} attempts: ${result.message}`
+      await terminalFail(supabase, gen, terminalMsg)
+      await reportToSentry(new Error(`generation terminal failure: ${result.message}`), {
+        generation_id: gen.id,
+        attempts: gen.attempts,
+        reason: result.reason,
+      })
     } else {
       await markRetryable(supabase, gen, result.message)
     }
@@ -196,6 +247,11 @@ async function process(supabase: ReturnType<typeof createClient>, gen: Generatio
   if (uploadError) {
     if (gen.attempts + 1 >= MAX_ATTEMPTS) {
       await terminalFail(supabase, gen, `upload terminal: ${uploadError.message}`)
+      await reportToSentry(new Error(`generation terminal failure: upload failed`), {
+        generation_id: gen.id,
+        attempts: gen.attempts,
+        reason: 'upload_terminal',
+      })
     } else {
       await markRetryable(supabase, gen, `upload failed: ${uploadError.message}`)
     }

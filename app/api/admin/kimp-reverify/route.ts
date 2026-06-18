@@ -22,6 +22,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { logAdminAction } from '@/lib/admin/audit'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { checkKimpStatus } from '@/lib/auth/kimp/status-client'
+import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -105,16 +106,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       results = await checkKimpStatus(subjects)
     } catch (err) {
       // Fail-safe: API down → abort, never mass-revoke (H-S7)
+      const errorMsg = err instanceof Error ? err.message : 'unknown'
       await logAdminAction({
         adminId,
         action: 'kimp_reverify_failed',
         targetTable: 'profiles',
         targetId: null,
         after: {
-          error: err instanceof Error ? err.message : 'unknown',
+          error: errorMsg,
           checked_so_far: checked,
         },
       })
+      trackServer('system', EVENTS.STATUS_API_FAILED, { checked, error: errorMsg })
+      await flushServer()
       return NextResponse.json({ error: 'status_api_unavailable' }, { status: 503 })
     }
 
@@ -171,6 +175,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
               reason: 'churn_inactive_stale',
             },
           })
+
+          trackServer(profile.id, EVENTS.UNLIMITED_REVOKED, { reason: 'churn' })
         }
       }
     }
@@ -220,6 +226,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           reason: 'allowlist_deactivated',
         },
       })
+
+      trackServer(profile.id, EVENTS.UNLIMITED_REVOKED, { reason: 'allowlist_deactivated' })
     }
   }
 
@@ -238,6 +246,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     },
   })
 
+  await flushServer()
   return NextResponse.json({ checked, active, revoked, errors })
 }
 

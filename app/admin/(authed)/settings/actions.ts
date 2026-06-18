@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { logAdminAction } from '@/lib/admin/audit'
 import { requireAdminRole } from '@/lib/admin/require-role'
 import { createServiceClient } from '@/lib/supabase/server'
+import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
 
 const ModelSchema = z.enum(['nano-banana', 'nano-banana-pro', 'gpt-image'])
 type AllowedModel = z.infer<typeof ModelSchema>
@@ -64,6 +65,13 @@ export async function setGlobalDefaultModel(formData: FormData): Promise<void> {
     before: { model: currentModel },
     after: { model: newModel, affected_trend_count: affectedSlugs.length },
   })
+
+  trackServer(userId, EVENTS.MODEL_PROVIDER_SWITCHED, {
+    from: currentModel,
+    to: newModel,
+    affected_trends: affectedSlugs.length,
+  })
+  await flushServer()
 
   revalidatePath('/admin/settings')
   revalidatePath('/admin/trends')

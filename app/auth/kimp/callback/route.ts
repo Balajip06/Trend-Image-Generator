@@ -3,6 +3,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose'
 import { z } from 'zod'
 import { resolveKimpEntitlement } from '@/lib/auth/kimp/resolve-entitlement'
 import { createServiceClient } from '@/lib/supabase/server'
+import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -66,11 +67,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   })
 
   if (!tokenRes.ok) {
+    trackServer('anonymous', EVENTS.SSO_FAILED, { provider: 'kimp360', step: 'token_exchange' })
+    await flushServer()
     return NextResponse.redirect(new URL('/login?error=kimp_token_failed', request.url))
   }
 
   const tokens = (await tokenRes.json()) as { access_token?: string; id_token?: string }
   if (!tokens.id_token) {
+    trackServer('anonymous', EVENTS.SSO_FAILED, { provider: 'kimp360', step: 'token_missing' })
+    await flushServer()
     return NextResponse.redirect(new URL('/login?error=kimp_token_failed', request.url))
   }
 
@@ -84,11 +89,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     })
     verifiedPayload = payload
   } catch {
+    trackServer('anonymous', EVENTS.SSO_FAILED, { provider: 'kimp360', step: 'jwks_verify' })
+    await flushServer()
     return NextResponse.redirect(new URL('/login?error=kimp_claims_invalid', request.url))
   }
 
   const claims = IdTokenClaimsSchema.safeParse(verifiedPayload)
   if (!claims.success) {
+    trackServer('anonymous', EVENTS.SSO_FAILED, { provider: 'kimp360', step: 'claims_schema' })
+    await flushServer()
     return NextResponse.redirect(new URL('/login?error=kimp_claims_invalid', request.url))
   }
 
@@ -101,6 +110,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   // Issue 2: Nonce check must be unconditional — undefined !== tx.nonce rejects missing nonce
   if (claimNonce !== tx.nonce) {
+    trackServer('anonymous', EVENTS.SSO_FAILED, { provider: 'kimp360', step: 'nonce_mismatch' })
+    await flushServer()
     return NextResponse.redirect(new URL('/login?error=kimp_nonce_mismatch', request.url))
   }
 
@@ -187,6 +198,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       p_client_id: (claims.data['kimp:client_id'] ?? null) as string,
       p_verified_at: new Date().toISOString(),
     })
+    trackServer(supabaseUserId, EVENTS.UNLIMITED_GRANTED, { grant_source: 'oidc' })
+    await flushServer()
   }
 
   // Clear PKCE cookie and redirect to the magic link action URL.
