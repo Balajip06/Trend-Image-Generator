@@ -1,15 +1,18 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import * as Sentry from '@sentry/nextjs'
 import Stripe from 'stripe'
 import { z } from 'zod'
 import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { findPack, isPackId, requirePackPriceId } from '@/lib/payments/packs'
+import { findPlan, isPlanId, requirePlanPriceId } from '@/lib/payments/plans'
 
 export const runtime = 'nodejs'
 
-const BodySchema = z.object({
-  pack_id: z.string().refine(isPackId, 'unknown pack_id'),
-})
+const BodySchema = z.union([
+  z.object({ pack_id: z.string().refine(isPackId, 'unknown pack_id') }),
+  z.object({ plan_id: z.string().refine(isPlanId, 'unknown plan_id') }),
+])
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY
@@ -34,10 +37,64 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+
+  // ── Subscription path ──────────────────────────────────────────────────────
+  if ('plan_id' in body) {
+    const plan = findPlan(body.plan_id)
+    if (!plan) return NextResponse.json({ error: 'Unknown plan' }, { status: 400 })
+
+    try {
+      const stripe = getStripe()
+
+      // Ensure the user has a Stripe customer record; create one if absent.
+      // We read via the session-scoped client, but write via service-role so
+      // the partial unique index on stripe_customer_id guards against races.
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('stripe_customer_id')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      let customerId = profile?.stripe_customer_id ?? null
+
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email ?? undefined,
+          metadata: { user_id: user.id },
+        })
+        customerId = customer.id
+
+        const service = createServiceClient()
+        await service
+          .from('profiles')
+          .update({ stripe_customer_id: customerId })
+          .eq('id', user.id)
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [{ price: requirePlanPriceId(plan), quantity: 1 }],
+        subscription_data: {
+          metadata: { user_id: user.id, plan_id: plan.id },
+        },
+        success_url: `${siteUrl}/me/settings?subscription=success`,
+        cancel_url: `${siteUrl}/me/settings?subscription=cancelled`,
+      })
+
+      return NextResponse.json({ checkout_url: session.url })
+    } catch (err: unknown) {
+      Sentry.captureException(err)
+      const message = err instanceof Error ? err.message : 'stripe error'
+      return NextResponse.json({ error: message }, { status: 500 })
+    }
+  }
+
+  // ── One-time pack path ─────────────────────────────────────────────────────
   const pack = findPack(body.pack_id)
   if (!pack) return NextResponse.json({ error: 'Unknown pack' }, { status: 400 })
-
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
   // First-purchase 20%-off coupon. Claim atomically via a service-role
   // UPDATE that sets `first_purchase_discount_used_at = now()` only if it
@@ -98,6 +155,7 @@ export async function POST(request: NextRequest) {
         .update({ first_purchase_discount_used_at: null })
         .eq('id', user.id)
     }
+    Sentry.captureException(err)
     const message = err instanceof Error ? err.message : 'stripe error'
     return NextResponse.json({ error: message }, { status: 500 })
   }
