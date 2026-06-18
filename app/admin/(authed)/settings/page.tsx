@@ -6,11 +6,7 @@ export const dynamic = 'force-dynamic'
 export default async function SettingsPage() {
   const service = createServiceClient()
 
-  // app_settings not yet reflected in generated types — escape hatch until pnpm supabase:types re-run
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const svc = service as any
-
-  const { data: setting } = await svc
+  const { data: setting } = await service
     .from('app_settings')
     .select('value')
     .eq('key', 'default_image_model')

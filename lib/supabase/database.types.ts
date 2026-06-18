@@ -170,6 +170,27 @@ export type Database = {
           },
         ]
       }
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       generations: {
         Row: {
           attempts: number
@@ -475,6 +496,7 @@ export type Database = {
           created_at: string
           eval_input_id: string
           id: string
+          model: string | null
           output_url: string | null
           prompt_version: number
           rated_by: string | null
@@ -485,6 +507,7 @@ export type Database = {
           created_at?: string
           eval_input_id: string
           id?: string
+          model?: string | null
           output_url?: string | null
           prompt_version: number
           rated_by?: string | null
@@ -495,6 +518,7 @@ export type Database = {
           created_at?: string
           eval_input_id?: string
           id?: string
+          model?: string | null
           output_url?: string | null
           prompt_version?: number
           rated_by?: string | null
