@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  Activity,
   Archive,
   ArrowLeftRight,
   BarChart3,
@@ -95,6 +96,11 @@ const NAV_GROUPS: readonly NavGroup[] = [
   {
     title: 'Operations',
     items: [
+      {
+        href: '/admin/generations',
+        label: 'Live monitor',
+        icon: <Activity className="size-4" />,
+      },
       {
         href: '/admin/trends',
         label: 'Trends',

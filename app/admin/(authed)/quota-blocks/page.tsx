@@ -1,5 +1,6 @@
 import { ShieldX } from 'lucide-react'
 import Link from 'next/link'
+import { AutoRefresh } from '@/lib/realtime/AutoRefresh'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -180,6 +181,7 @@ export default async function QuotaBlocksPage() {
         <code className="font-mono">consume_quota_on_generation_insert</code> trigger when a
         free-tier user with 5/week used + 0 credits attempts a generation.
       </p>
+      <AutoRefresh intervalMs={15_000} />
     </section>
   )
 }

@@ -14,6 +14,7 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import Link from 'next/link'
+import { AutoRefresh } from '@/lib/realtime/AutoRefresh'
 import { AdminTile } from '@/components/admin/AdminTile'
 import { BarChart, Delta, DonutChart } from '@/components/admin/Charts'
 import { KpiCard } from '@/components/admin/KpiCard'
@@ -389,6 +390,7 @@ export default async function AdminHome() {
           />
         </div>
       </div>
+      <AutoRefresh intervalMs={15_000} />
     </section>
   )
 }

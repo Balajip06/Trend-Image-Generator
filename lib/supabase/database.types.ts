@@ -67,6 +67,68 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_generations_feed: {
+        Row: {
+          attempts: number
+          completed_at: string | null
+          cost_usd: number
+          created_at: string
+          error_reason: string | null
+          generation_id: string
+          id: string
+          kimp_client_id: string | null
+          model_used: string | null
+          status: Database["public"]["Enums"]["generation_status"]
+          tier: Database["public"]["Enums"]["generation_tier"] | null
+          trend_id: string | null
+          trend_slug: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          completed_at?: string | null
+          cost_usd?: number
+          created_at: string
+          error_reason?: string | null
+          generation_id: string
+          id: string
+          kimp_client_id?: string | null
+          model_used?: string | null
+          status: Database["public"]["Enums"]["generation_status"]
+          tier?: Database["public"]["Enums"]["generation_tier"] | null
+          trend_id?: string | null
+          trend_slug?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          completed_at?: string | null
+          cost_usd?: number
+          created_at?: string
+          error_reason?: string | null
+          generation_id?: string
+          id?: string
+          kimp_client_id?: string | null
+          model_used?: string | null
+          status?: Database["public"]["Enums"]["generation_status"]
+          tier?: Database["public"]["Enums"]["generation_tier"] | null
+          trend_id?: string | null
+          trend_slug?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_generations_feed_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: true
+            referencedRelation: "generations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_marketing_spend: {
         Row: {
           channel: string
@@ -959,6 +1021,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin: { Args: never; Returns: boolean }
       purge_expired_anonymous: { Args: never; Returns: undefined }
       purge_expired_generations: { Args: never; Returns: undefined }
       purge_soft_deleted_profiles: { Args: never; Returns: undefined }
