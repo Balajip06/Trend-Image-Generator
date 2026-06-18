@@ -654,3 +654,81 @@ select polname, polqual::text
 
 The `polqual` should contain `<> 'eval'`. If it doesn't, the policy is
 the old wide-open version and eval outputs are still publicly readable.
+
+---
+
+## 3. Phase 5+ credentials (added post-launch)
+
+### New env vars from Phases 1–4
+
+Add these to Vercel and locally to `.env.local`:
+
+**Phase 1 — Dual provider:**
+- `OPENAI_API_KEY` — OpenAI platform key for gpt-image generation
+- `OPENAI_IMAGE_MODEL` — Model ID (default: `gpt-image-1`); override if using a newer model
+- `IMAGE_PROVIDER` — Optional env override (`gemini` or `openai`); defaults to per-trend setting
+
+**Phase 2 — KIMP360:**
+- `KIMP360_OIDC_ISSUER` — KIMP360 IdP issuer URL (e.g. `https://auth.kimp360.com`)
+- `KIMP360_OIDC_CLIENT_ID` — OAuth client ID
+- `KIMP360_OIDC_CLIENT_SECRET` — OAuth client secret (server-side only)
+- `KIMP360_STATUS_API_URL` — Server-to-server status endpoint (e.g. `https://api.kimp360.com`)
+- `KIMP360_STATUS_API_KEY` — HMAC signing key for status API
+- `CRON_SECRET` — Shared secret for Vercel Cron → `kimp-reverify` endpoint (generate with `openssl rand -hex 32`)
+- `NEXT_PUBLIC_KIMP_SSO_ENABLED` — Set to any truthy value to show the KIMP360 login button
+
+**Phase 3 — Stripe subscriptions:**
+- `STRIPE_PRICE_ID_SUB_STARTER` — Stripe price ID for the 50 credits/mo plan
+- `STRIPE_PRICE_ID_SUB_PRO` — Stripe price ID for the 200 credits/mo plan
+- `STRIPE_PRICE_ID_SUB_STUDIO` — Stripe price ID for the 600 credits/mo plan
+- (Existing pack price IDs and webhook secret unchanged)
+
+**Phase 5 — Edge Function Sentry:**
+- `SENTRY_DSN` — Already in Next.js env; must ALSO be added as a Supabase Edge Function secret:
+  ```bash
+  supabase secrets set SENTRY_DSN=https://...@sentry.io/...
+  ```
+
+### Stripe subscription setup
+
+1. Create 3 recurring products in Stripe Dashboard (or test mode):
+   - Starter: $4.99/mo, metadata: `plan_id=starter50`
+   - Pro: $14.99/mo, metadata: `plan_id=pro200`
+   - Studio: $39.99/mo, metadata: `plan_id=studio600`
+2. Add the price IDs to env vars above
+3. Enable these additional webhook events in Stripe Dashboard:
+   - `customer.subscription.created`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+   - `invoice.paid`
+   - `invoice.payment_failed`
+   - `charge.refunded`
+   - `charge.dispute.created`
+
+### Verifying KIMP360 churn cron
+
+```bash
+# Manual trigger (as admin):
+curl -X POST https://<your-domain>/api/admin/kimp-reverify \
+  -H "Authorization: Bearer <CRON_SECRET>"
+# Expected: {"checked":N,"active":N,"revoked":0,"errors":0}
+
+# Check audit log for the run:
+# Admin panel → Audit → filter action = kimp_reverify_complete
+```
+
+### Verification matrix additions (T15–T23)
+
+Run these after all credentials are wired:
+
+| Test | Expected |
+|------|----------|
+| T15 | Unlimited user hits 500/day cap → 429 on next generate |
+| T16 | POST `/api/auth/kimp/callback` with forged id_token → `kimp_claims_invalid` |
+| T17 | KIMP cron with inactive status + stale verified_at → `kimp_unlimited=false` |
+| T18 | Flip global model in settings → non-pinned trends go `is_active=false` |
+| T19 | OpenAI safety refusal → quota refunded, `tier_at_generation` correct |
+| T20 | `invoice.paid` replay (same subscription_id + period_start) → no double-grant |
+| T21 | Cancel subscription → `monthly_credits=0`, `purchased_credits` unchanged |
+| T22 | Non-admin browser subscribes to `admin_generations_feed` → empty result |
+| T23 | Credit-bucket migration: existing `credits_balance` → `purchased_credits` preserved |
