@@ -10,6 +10,7 @@ import {
 } from '@/lib/trends/interpolate'
 import { TrendInputSchema } from '@/lib/trends/input-schema'
 import { getActiveTrendBySlug } from '@/lib/trends/repository'
+import { assertStorageUrl } from '@/lib/storage/validate-image-url'
 
 export const runtime = 'nodejs'
 
@@ -130,8 +131,25 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // 8. Insert generation row. UNIQUE (user_id, idempotency_key) makes replay safe;
+  // 8. SSRF guard: assertStorageUrl is also called inside collectImageInputs, but
+  //    we re-check here so raw API calls that bypass collectImageInputs can't reach
+  //    the DB with arbitrary URLs.
+  for (const [key, val] of Object.entries(values)) {
+    const field = trend.input_schema?.fields?.find((f: { name: string }) => f.name === key)
+    if (field?.type === 'image') {
+      try {
+        const urls = Array.isArray(val) ? val : [val]
+        urls.forEach(assertStorageUrl)
+      } catch {
+        return NextResponse.json({ error: 'Invalid image URL' }, { status: 400 })
+      }
+    }
+  }
+
+  // 9. Insert generation row. UNIQUE (user_id, idempotency_key) makes replay safe;
   //    BEFORE-INSERT trigger consumes quota and raises on exhaustion.
+  //    tier_at_generation is required by the type but the BEFORE INSERT trigger
+  //    overwrites this value with the correct bucket — 'free' is a placeholder.
   const insertRow = {
     user_id: user.id,
     trend_id: trend.id,
@@ -139,6 +157,7 @@ export async function POST(request: NextRequest) {
     idempotency_key: idem.key,
     input_payload: { values, image_urls: _imageUrls },
     status: 'pending' as const,
+    tier_at_generation: 'free' as const,
   }
 
   const { data: inserted, error: insertError } = await supabase

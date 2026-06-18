@@ -1,9 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://testref.supabase.co')
+
 import { buildEvalValues } from './eval-values'
 import { interpolatePrompt, collectImageInputs } from './interpolate'
 import type { TrendInput } from './input-schema'
 
-const IMG = 'https://example.supabase.co/storage/v1/object/sign/uploads/sample.jpg'
+const IMG = 'https://testref.supabase.co/storage/v1/object/sign/uploads/sample.jpg'
 
 describe('buildEvalValues', () => {
   it('binds the single eval image URL to every image field', () => {

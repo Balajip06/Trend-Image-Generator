@@ -8,7 +8,7 @@
 
 export interface ExportProfile {
   email: string
-  credits_balance: number
+  credits_balance: number | null
   free_used_this_week: number
   bonus_credits_earned: number
   referral_code: string

@@ -1,4 +1,5 @@
 import type { TrendInput } from './input-schema'
+import { assertStorageUrl } from '@/lib/storage/validate-image-url'
 
 /**
  * Values supplied by the user at generation time, keyed by field name.
@@ -57,8 +58,10 @@ export function collectImageInputs(schema: TrendInput, values: TrendInputValues)
       continue
     }
     if (typeof raw === 'string') {
+      assertStorageUrl(raw)
       urls.push(raw)
     } else {
+      raw.forEach(assertStorageUrl)
       urls.push(...raw)
     }
   }

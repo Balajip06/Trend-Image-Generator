@@ -35,14 +35,15 @@ describe('profiles_self_update column lockdown', () => {
     expect(profile.is_vip).toBe(false)
   })
 
-  it('blocks user from self-incrementing credits_balance', async () => {
+  it('blocks user from self-incrementing purchased_credits', async () => {
     const user = await createTestUser({ credits: 0 })
 
     await expect(
       asUser(user.id, async (tx) => {
-        await tx`update public.profiles set credits_balance = 99 where id = ${user.id}`
+        // credits_balance is generated; the trigger locks purchased_credits and monthly_credits.
+        await tx`update public.profiles set purchased_credits = 99 where id = ${user.id}`
       })
-    ).rejects.toThrow(/credits_balance is locked|check/i)
+    ).rejects.toThrow(/purchased_credits is locked|check/i)
 
     const sql = getSql()
     const [profile] = await sql<{ credits_balance: number }[]>`
@@ -124,11 +125,15 @@ describe('profiles_self_update column lockdown', () => {
     const user = await createTestUser({ credits: 0 })
 
     const sql = getSql()
-    await sql`update public.profiles set credits_balance = 50 where id = ${user.id}`
+    // credits_balance is now a generated column (monthly_credits + purchased_credits).
+    // Service-role writes to the underlying bucket columns; the generated column reflects the sum.
+    await sql`update public.profiles set purchased_credits = 30, monthly_credits = 20 where id = ${user.id}`
 
-    const [profile] = await sql<{ credits_balance: number }[]>`
-      select credits_balance from public.profiles where id = ${user.id}
+    const [profile] = await sql<{ credits_balance: number; purchased_credits: number; monthly_credits: number }[]>`
+      select credits_balance, purchased_credits, monthly_credits from public.profiles where id = ${user.id}
     `
+    expect(profile.purchased_credits).toBe(30)
+    expect(profile.monthly_credits).toBe(20)
     expect(profile.credits_balance).toBe(50)
   })
 })

@@ -94,9 +94,12 @@ export async function createTestUser(args: {
   // handle_new_user trigger created the profile row; UPDATE it with the
   // test's desired starting state. Service-role bypasses RLS so we can
   // touch every column.
+  // NOTE: credits_balance is a generated column (monthly_credits + purchased_credits)
+  // and cannot be written directly. The `credits` arg seeds purchased_credits
+  // (non-expiring bucket), which is what all quota/refund tests expect.
   await sql.unsafe(
     `update public.profiles
-        set credits_balance = ${args.credits ?? 0},
+        set purchased_credits = ${args.credits ?? 0},
             free_used_this_week = ${args.freeUsed ?? 0},
             is_vip = ${args.isVip ? 'true' : 'false'},
             referred_by = ${args.referredBy ? `'${args.referredBy}'` : 'null'}

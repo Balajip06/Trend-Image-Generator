@@ -41,6 +41,10 @@ function createLimiter(
 // 20 generations / hour / IP — per amended plan §"Non-Negotiables"
 export const generationIpLimiter = createLimiter('rl:gen:ip', 20, '1 h')
 
+// Per-user rate limiter: 30/hr. Applied to ALL tiers including unlimited.
+// Defeats IP-rotation abuse on shared accounts (H-C1, Risk #1).
+export const generationUserLimiter = createLimiter('rl:gen:user', 30, '1 h')
+
 // 5 anonymous attempts / day / fingerprint — extra guard beyond DB unique
 export const anonymousFingerprintLimiter = createLimiter('rl:anon:fp', 5, '1 d')
 
