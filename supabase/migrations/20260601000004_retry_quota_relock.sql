@@ -20,8 +20,12 @@ declare
   v_kimp        boolean := false;
   v_vip         boolean := false;
 begin
-  -- Only fire on → pending transition from a terminal/retryable state.
-  if not (new.status = 'pending' and old.status in ('failed_retryable', 'failed')) then
+  -- Only fire on → pending transition from a 'failed' row (which was already
+  -- refunded). 'failed_retryable' rows still hold their original quota
+  -- deduction — re-consuming would double-charge. The app-layer retry route
+  -- only accepts 'failed_retryable', so this branch is defense-in-depth for
+  -- service-role callers who flip a 'failed' row back to 'pending'.
+  if not (new.status = 'pending' and old.status = 'failed') then
     return new;
   end if;
 

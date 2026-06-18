@@ -148,6 +148,8 @@ export async function POST(request: NextRequest) {
 
   // 9. Insert generation row. UNIQUE (user_id, idempotency_key) makes replay safe;
   //    BEFORE-INSERT trigger consumes quota and raises on exhaustion.
+  //    tier_at_generation is required by the type but the BEFORE INSERT trigger
+  //    overwrites this value with the correct bucket — 'free' is a placeholder.
   const insertRow = {
     user_id: user.id,
     trend_id: trend.id,
@@ -155,6 +157,7 @@ export async function POST(request: NextRequest) {
     idempotency_key: idem.key,
     input_payload: { values, image_urls: _imageUrls },
     status: 'pending' as const,
+    tier_at_generation: 'free' as const,
   }
 
   const { data: inserted, error: insertError } = await supabase

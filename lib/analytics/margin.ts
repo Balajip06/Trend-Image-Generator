@@ -162,7 +162,9 @@ export async function getMarginSummary(supabase: SupabaseClient): Promise<Margin
   const anonSpendUsd = anonAttempts.reduce((sum, a) => sum + Number(a.cost_usd ?? 0), 0)
   const weekSpendUsd = genSpendUsd + anonSpendUsd
   const weekGenerations = generations.length
-  const avgCostUsd = weekGenerations > 0 ? weekSpendUsd / weekGenerations : 0
+  // avgCostUsd is a per-authenticated-generation metric. Use genSpendUsd only
+  // (not the combined total) so anonymous spend does not inflate the average.
+  const avgCostUsd = weekGenerations > 0 ? genSpendUsd / weekGenerations : 0
 
   // Stripe `amount_total` is in cents on the checkout.session payload.
   const weekRevenueUsd = webhooks.reduce((sum, e) => sum + (e.payload?.amount_total ?? 0), 0) / 100

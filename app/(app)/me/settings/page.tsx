@@ -18,7 +18,7 @@ const BONUS_CAP = 50
 
 interface ProfileRow {
   email: string
-  credits_balance: number
+  credits_balance: number | null
   free_used_this_week: number
   referral_code: string
   bonus_credits_earned: number
@@ -114,8 +114,8 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
               />
               <QuotaMeter
                 label="Credits"
-                used={profile.credits_balance}
-                cap={Math.max(profile.credits_balance, 100)}
+                used={profile.credits_balance ?? 0}
+                cap={Math.max(profile.credits_balance ?? 0, 100)}
                 accent="cyan"
                 showAsBalance
               />
