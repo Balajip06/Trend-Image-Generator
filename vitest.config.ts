@@ -21,6 +21,7 @@ export default defineConfig({
       'playwright-report',
       'test-results',
       'tests/integration',
+      '.claude',
     ],
   },
   resolve: {
