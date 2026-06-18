@@ -116,11 +116,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (subjectRow) {
     existingUser = { id: subjectRow.id as string }
   } else {
-    // Fall back to email match only when email is verified (already guarded above)
-    const { data: listData } = await service.auth.admin.listUsers()
-    existingUser = listData?.users.find(
-      (u) => u.email?.toLowerCase() === email.toLowerCase()
-    )
+    // Fall back to email match only when email is verified (already guarded above).
+    // Query profiles by email instead of listUsers() to avoid the page-1 truncation
+    // bug (listUsers() defaults to 50 users; users beyond that would be missed,
+    // triggering a duplicate-email create error and permanent SSO lockout).
+    const { data: emailRow } = await service
+      .from('profiles')
+      .select('id')
+      .eq('email', email.toLowerCase())
+      .maybeSingle()
+    existingUser = emailRow ? { id: emailRow.id } : undefined
   }
 
   let supabaseUserId: string
@@ -156,6 +161,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const { data: sessionData, error: sessionError } = await service.auth.admin.generateLink({
     type: 'magiclink',
     email,
+    options: {
+      redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(tx.next)}`,
+    },
   })
   if (sessionError || !sessionData?.properties?.action_link) {
     return NextResponse.redirect(new URL('/login?error=kimp_session_failed', request.url))

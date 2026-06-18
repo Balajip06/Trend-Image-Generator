@@ -16,12 +16,6 @@ interface ResolveArgs {
   oidcStatus?: 'active' | 'inactive'
 }
 
-// Added by migration 20260603000001_profiles_kimp_columns.sql.
-// Types will reflect this table after pnpm supabase:types runs against the live DB.
-interface AllowlistRow {
-  is_active: boolean
-}
-
 /**
  * Resolve whether a user is an active KIMP360 client.
  * Order: OIDC claim → status API → allowlist → unverified.
@@ -47,15 +41,13 @@ export async function resolveKimpEntitlement({
     }
 
     // 3. Allowlist fallback (admin-managed, email-based).
-    // Cast required until generated types are regenerated post-migration.
     const service = createServiceClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (service as any)
+    const { data } = await service
       .from('kimp_client_allowlist')
       .select('is_active')
       .eq('email', email.toLowerCase())
       .eq('is_active', true)
-      .maybeSingle() as { data: AllowlistRow | null; error: unknown }
+      .maybeSingle()
 
     if (data?.is_active) return 'active'
 

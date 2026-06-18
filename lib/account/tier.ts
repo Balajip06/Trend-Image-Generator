@@ -7,23 +7,13 @@ import { createClient } from '@/lib/supabase/server'
 
 export type AccountTier = 'kimp' | 'standard' | 'free'
 
-// Columns added by migration 20260603000001_profiles_kimp_columns.sql.
-// Types will reflect them after pnpm supabase:types runs against the live DB.
-interface ProfileTierRow {
-  kimp_unlimited: boolean
-  purchased_credits: number
-  monthly_credits: number
-}
-
 export async function getAccountTier(userId: string): Promise<AccountTier> {
   const supabase = await createClient()
-  // Cast required until generated types are regenerated post-migration.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (supabase as any)
+  const { data } = await supabase
     .from('profiles')
     .select('kimp_unlimited, purchased_credits, monthly_credits')
     .eq('id', userId)
-    .maybeSingle() as { data: ProfileTierRow | null; error: unknown }
+    .maybeSingle()
 
   if (!data) return 'free'
   if (data.kimp_unlimited) return 'kimp'
