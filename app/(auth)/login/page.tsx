@@ -6,13 +6,25 @@ type SearchParams = Promise<{ next?: string; sent?: string; error?: string }>
 const ERROR_COPY: Record<string, string> = {
   invalid_email: 'Please enter a valid email.',
   password_too_short: 'Password must be at least 8 characters.',
-  wrong_password: 'Wrong password. Try again or create a new account with a different password.',
+  wrong_password: 'Wrong password. Try again or reset your password below.',
   signup_failed: 'Could not create your account. Try again.',
   bot_check_failed: 'Bot check failed. Refresh and try again.',
   oauth_failed: 'Google sign-in failed. Try again.',
   missing_code: 'Confirmation link expired. Try again.',
   exchange_failed: 'Could not finish sign-in. Try again.',
   tos_required: 'Please check the box to accept our terms + privacy policy before continuing.',
+  invalid_credentials: 'Email or password is incorrect. Try again.',
+  kimp_unavailable: 'KIMP360 sign-in is not available right now. Try Google or email.',
+  kimp_account_conflict:
+    'This KIMP360 account is linked to a different email. Contact support.',
+  kimp_email_unverified: 'Your KIMP360 email is not verified. Please verify it and try again.',
+  kimp_state_invalid: 'Sign-in state missing. Please try again.',
+  kimp_state_mismatch: 'Sign-in state mismatch. Please try again.',
+  kimp_token_failed: 'Could not exchange KIMP360 token. Try again.',
+  kimp_nonce_mismatch: 'Security check failed. Please try again.',
+  kimp_create_failed: 'Could not create your account via KIMP360. Try again.',
+  kimp_session_failed: 'Could not start your session. Try again.',
+  kimp_claims_invalid: 'KIMP360 returned incomplete profile data. Contact support.',
 }
 
 export default async function LoginPage({ searchParams }: { searchParams: SearchParams }) {

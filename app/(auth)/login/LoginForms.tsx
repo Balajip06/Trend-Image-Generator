@@ -8,7 +8,7 @@ import { GradientButton } from '@/components/brand/GradientButton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { signInWithEmail, signInWithGoogle } from './actions'
+import { signInWithEmail, signInWithGoogle, signInWithKimp } from './actions'
 
 interface LoginFormsProps {
   next: string
@@ -80,6 +80,21 @@ export function LoginForms({ next }: LoginFormsProps) {
         </button>
       </form>
 
+      {process.env.NEXT_PUBLIC_KIMP_SSO_ENABLED && (
+        <form action={signInWithKimp}>
+          <input type="hidden" name="next" value={next} />
+          <input type="hidden" name="tos_accepted" value={tosFieldValue} />
+          <button
+            type="submit"
+            disabled={!ready}
+            className="border-border bg-card hover:bg-muted flex h-12 w-full items-center justify-center gap-2 rounded-full border text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <KimpGlyph />
+            Continue with KIMP360
+          </button>
+        </form>
+      )}
+
       <div className="relative">
         <Separator />
         <span className="bg-card text-muted-foreground absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full px-3 text-[10px] font-medium tracking-widest uppercase">
@@ -110,7 +125,7 @@ export function LoginForms({ next }: LoginFormsProps) {
             type="password"
             name="password"
             required
-            placeholder="Min 8 characters"
+            placeholder="Your password"
             className="h-12 rounded-xl"
             autoComplete="current-password"
             minLength={8}
@@ -118,10 +133,27 @@ export function LoginForms({ next }: LoginFormsProps) {
         </div>
         <GradientButton type="submit" size="lg" disabled={!ready} className="w-full">
           <Mail className="size-4" />
-          Continue with email
+          Sign in with email
         </GradientButton>
+        <p className="text-muted-foreground text-center text-xs">
+          <Link
+            href="/login/forgot-password"
+            className="text-foreground underline-offset-2 hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </p>
       </form>
     </div>
+  )
+}
+
+function KimpGlyph() {
+  return (
+    <svg aria-hidden width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+      <rect width="18" height="18" rx="4" fill="#0057FF" />
+      <path d="M5 4h2v4.5L11 4h2.5L9 9l4.5 5H11L7 9.5V14H5V4z" fill="#fff" />
+    </svg>
   )
 }
 
