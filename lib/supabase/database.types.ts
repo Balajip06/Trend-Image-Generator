@@ -355,6 +355,38 @@ export type Database = {
           },
         ]
       }
+      monthly_credit_grants: {
+        Row: {
+          allotment: number
+          granted_at: string
+          period_start: string
+          stripe_subscription_id: string
+          user_id: string
+        }
+        Insert: {
+          allotment: number
+          granted_at?: string
+          period_start: string
+          stripe_subscription_id: string
+          user_id: string
+        }
+        Update: {
+          allotment?: number
+          granted_at?: string
+          period_start?: string
+          stripe_subscription_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_credit_grants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           acquisition_source: Json | null
@@ -547,6 +579,59 @@ export type Database = {
           {
             foreignKeyName: "referrals_referrer_id_fkey"
             columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          monthly_credit_allotment: number
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          status: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          monthly_credit_allotment: number
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          status: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          monthly_credit_allotment?: number
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          status?: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -836,6 +921,16 @@ export type Database = {
     }
     Functions: {
       auto_deactivate_cold_trends: { Args: never; Returns: undefined }
+      claw_back_credits: {
+        Args: {
+          p_amount: number
+          p_bucket: string
+          p_source: string
+          p_source_ref: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       email_to_hash: { Args: { p_email: string }; Returns: string }
       grant_credits: {
         Args: {
@@ -855,11 +950,21 @@ export type Database = {
         }
         Returns: undefined
       }
+      grant_monthly_credits: {
+        Args: {
+          p_allotment: number
+          p_period_start: string
+          p_subscription_id: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       purge_expired_anonymous: { Args: never; Returns: undefined }
       purge_expired_generations: { Args: never; Returns: undefined }
       purge_soft_deleted_profiles: { Args: never; Returns: undefined }
       reset_free_weekly: { Args: never; Returns: undefined }
       trend_discovery_heartbeat: { Args: never; Returns: undefined }
+      zero_monthly_credits: { Args: { p_user_id: string }; Returns: undefined }
     }
     Enums: {
       admin_role: "admin" | "editor"
@@ -873,6 +978,13 @@ export type Database = {
       generation_tier: "free" | "credit" | "vip" | "monthly" | "kimp"
       kimp_client_status: "active" | "inactive" | "unverified"
       referral_status: "pending" | "rewarded"
+      subscription_plan: "starter50" | "pro200" | "studio600"
+      subscription_status:
+        | "active"
+        | "past_due"
+        | "canceled"
+        | "incomplete"
+        | "trialing"
       suggestion_source: "auto" | "user"
       suggestion_status: "pending" | "approved" | "rejected"
       trend_aspect_ratio: "1:1" | "3:4" | "16:9" | "9:16"
@@ -1019,6 +1131,14 @@ export const Constants = {
       generation_tier: ["free", "credit", "vip", "monthly", "kimp"],
       kimp_client_status: ["active", "inactive", "unverified"],
       referral_status: ["pending", "rewarded"],
+      subscription_plan: ["starter50", "pro200", "studio600"],
+      subscription_status: [
+        "active",
+        "past_due",
+        "canceled",
+        "incomplete",
+        "trialing",
+      ],
       suggestion_source: ["auto", "user"],
       suggestion_status: ["pending", "approved", "rejected"],
       trend_aspect_ratio: ["1:1", "3:4", "16:9", "9:16"],

@@ -5,10 +5,10 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import type { Enums } from '@/lib/supabase/database.types'
 
-// Local types until database.types.ts is regenerated (Task 7)
-type SubscriptionPlan = 'starter50' | 'pro200' | 'studio600'
-type SubscriptionStatus = 'active' | 'past_due' | 'canceled' | 'incomplete' | 'trialing'
+type SubscriptionPlan = Enums<'subscription_plan'>
+type SubscriptionStatus = Enums<'subscription_status'>
 
 export interface SubscriptionRow {
   plan: SubscriptionPlan

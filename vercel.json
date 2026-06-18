@@ -9,7 +9,8 @@
     "app/api/me/export/route.ts": { "maxDuration": 60 },
     "app/api/download/[id]/route.ts": { "maxDuration": 30 },
     "app/api/admin/run-trend-discovery/route.ts": { "maxDuration": 60 },
-    "app/api/admin/kimp-reverify/route.ts": { "maxDuration": 60 }
+    "app/api/admin/kimp-reverify/route.ts": { "maxDuration": 60 },
+    "app/api/stripe/portal/route.ts": { "maxDuration": 30 }
   },
   "crons": [
     { "path": "/api/admin/run-trend-discovery", "schedule": "0 8 * * 1" },

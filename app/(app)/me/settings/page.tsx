@@ -77,8 +77,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
 
     if (!isKimp) {
       const service = createServiceClient()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: sub } = await (service as any)
+      const { data: sub } = await service
         .from('subscriptions')
         .select('plan, status, cancel_at_period_end, current_period_end, monthly_credit_allotment')
         .eq('user_id', user.id)
@@ -86,7 +85,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-      subscriptionRow = (sub as SubscriptionRow) ?? null
+      subscriptionRow = sub ?? null
     }
   }
 
