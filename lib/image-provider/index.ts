@@ -19,6 +19,7 @@
 import { generateImage as geminiGenerate } from './gemini'
 import { generateImage as openaiGenerate } from './openai'
 import type { GenerateImageArgs, GenerateImageResult, ImageProvider } from './types'
+import { MODEL_PROVIDER } from './types'
 
 export type {
   GenerateImageArgs,
@@ -30,14 +31,22 @@ export type {
   ImageProvider,
 } from './types'
 
-function resolveProvider(): ImageProvider {
-  const raw = process.env.IMAGE_PROVIDER?.toLowerCase()
-  if (raw === 'openai') return 'openai'
-  return 'gemini'
+export { MODEL_PROVIDER } from './types'
+
+/**
+ * Resolves provider for a model. MODEL_PROVIDER is the primary source of
+ * truth; IMAGE_PROVIDER env var acts as a backward-compat override for
+ * the default model in non-trend contexts.
+ */
+function resolveProvider(model: import('./types').ImageModel): ImageProvider {
+  const envOverride = process.env.IMAGE_PROVIDER?.toLowerCase()
+  if (envOverride === 'openai') return 'openai'
+  if (envOverride === 'gemini') return 'gemini'
+  return MODEL_PROVIDER[model] ?? 'gemini'
 }
 
 export async function generateImage(args: GenerateImageArgs): Promise<GenerateImageResult> {
-  const provider = resolveProvider()
+  const provider = resolveProvider(args.model)
   switch (provider) {
     case 'openai':
       return openaiGenerate(args)
