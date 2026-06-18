@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { createRemoteJWKSet, jwtVerify } from 'jose'
 import { z } from 'zod'
 import { resolveKimpEntitlement } from '@/lib/auth/kimp/resolve-entitlement'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -73,36 +74,55 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(new URL('/login?error=kimp_token_failed', request.url))
   }
 
-  // Decode id_token claims (signature validation is Supabase's job if using native OIDC;
-  // for hand-rolled path, trust HTTPS + client_secret bound token exchange)
-  const parts = tokens.id_token.split('.')
-  if (parts.length < 2) {
-    return NextResponse.redirect(new URL('/login?error=kimp_claims_invalid', request.url))
-  }
-  let rawClaims: unknown
+  // Verify id_token signature via JWKS before trusting any claims
+  let verifiedPayload: unknown
   try {
-    rawClaims = JSON.parse(Buffer.from(parts[1], 'base64url').toString())
+    const JWKS = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`))
+    const { payload } = await jwtVerify(tokens.id_token, JWKS, {
+      issuer,
+      audience: clientId,
+    })
+    verifiedPayload = payload
   } catch {
     return NextResponse.redirect(new URL('/login?error=kimp_claims_invalid', request.url))
   }
 
-  const claims = IdTokenClaimsSchema.safeParse(rawClaims)
+  const claims = IdTokenClaimsSchema.safeParse(verifiedPayload)
   if (!claims.success) {
     return NextResponse.redirect(new URL('/login?error=kimp_claims_invalid', request.url))
   }
 
   const { sub, email, nonce: claimNonce } = claims.data
-  // Verify nonce (replay protection)
-  if (claimNonce && claimNonce !== tx.nonce) {
+
+  // Issue 1: Require verified email before any user lookup or creation
+  if (!claims.data.email_verified) {
+    return NextResponse.redirect(new URL('/login?error=kimp_email_unverified', request.url))
+  }
+
+  // Issue 2: Nonce check must be unconditional — undefined !== tx.nonce rejects missing nonce
+  if (claimNonce !== tx.nonce) {
     return NextResponse.redirect(new URL('/login?error=kimp_nonce_mismatch', request.url))
   }
 
-  // Bridge into Supabase: look up existing user by email
+  // Bridge into Supabase: prefer matching by kimp_subject_id, fall back to email
   const service = createServiceClient()
-  const { data: listData } = await service.auth.admin.listUsers()
-  const existingUser = listData?.users.find(
-    (u) => u.email?.toLowerCase() === email.toLowerCase()
-  )
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: subjectRow } = await (service as any)
+    .from('profiles')
+    .select('id')
+    .eq('kimp_subject_id', sub)
+    .maybeSingle()
+
+  let existingUser: { id: string } | undefined
+  if (subjectRow) {
+    existingUser = { id: subjectRow.id as string }
+  } else {
+    // Fall back to email match only when email is verified (already guarded above)
+    const { data: listData } = await service.auth.admin.listUsers()
+    existingUser = listData?.users.find(
+      (u) => u.email?.toLowerCase() === email.toLowerCase()
+    )
+  }
 
   let supabaseUserId: string
 
