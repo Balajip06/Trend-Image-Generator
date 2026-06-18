@@ -16,8 +16,8 @@
 alter table public.trends
   add column if not exists model_pinned boolean not null default true;
 
--- New trends created via admin form will have model_pinned=false by default
--- (inherits global default). The form sends model_pinned explicitly.
+-- New trends created via admin form default to model_pinned=true (pinned to
+-- the explicitly selected model). The form sends model_pinned explicitly.
 
 -- 2. Add model column to trend_eval_runs
 alter table public.trend_eval_runs

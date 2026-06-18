@@ -99,6 +99,7 @@ export async function runEval(trendId: string): Promise<void> {
         trend_id: trendId,
         prompt_version: trend!.version,
         eval_input_id: input.id,
+        model: trend!.model,
       }
       const { data: created, error: insertErr } = await supabase
         .from('trend_eval_runs')
