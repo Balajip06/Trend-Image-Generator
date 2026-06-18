@@ -6,10 +6,12 @@ import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
 import { MOCK_PROFILE, MOCK_TRENDS_ENABLED } from '@/lib/dev/mock-data'
 import { CREDIT_PACKS } from '@/lib/payments/packs'
 import { buildReferralUrl } from '@/lib/referrals/links'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getAccountTier } from '@/lib/account/tier'
 import { CreditPacksClient } from './CreditPacksClient'
 import { DataExportButton } from './DataExportButton'
 import { ReferralCopyButton } from './ReferralCopyButton'
+import { type SubscriptionRow, SubscriptionClient } from './SubscriptionClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,13 +44,15 @@ async function softDeleteAccount(): Promise<void> {
 }
 
 interface SettingsPageProps {
-  searchParams: Promise<{ purchase?: string; pack?: string }>
+  searchParams: Promise<{ purchase?: string; pack?: string; subscription?: string }>
 }
 
 export default async function SettingsPage({ searchParams }: SettingsPageProps) {
-  const { purchase, pack } = await searchParams
+  const { purchase, pack, subscription } = await searchParams
 
   let profile: ProfileRow | null
+  let isKimp = false
+  let subscriptionRow: SubscriptionRow | null = null
 
   if (MOCK_TRENDS_ENABLED) {
     profile = MOCK_PROFILE
@@ -59,13 +63,31 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     } = await supabase.auth.getUser()
     if (!user) redirect('/login?next=/me/settings')
 
-    const { data: profileRow } = await supabase
-      .from('profiles')
-      .select('email, credits_balance, free_used_this_week, referral_code, bonus_credits_earned')
-      .eq('id', user.id)
-      .maybeSingle()
+    const [profileResult, tier] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('email, credits_balance, free_used_this_week, referral_code, bonus_credits_earned')
+        .eq('id', user.id)
+        .maybeSingle(),
+      getAccountTier(user.id),
+    ])
 
-    profile = profileRow ?? null
+    profile = profileResult.data ?? null
+    isKimp = tier === 'kimp'
+
+    if (!isKimp) {
+      const service = createServiceClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: sub } = await (service as any)
+        .from('subscriptions')
+        .select('plan, status, cancel_at_period_end, current_period_end, monthly_credit_allotment')
+        .eq('user_id', user.id)
+        .in('status', ['active', 'past_due', 'incomplete', 'trialing'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      subscriptionRow = (sub as SubscriptionRow) ?? null
+    }
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
@@ -99,6 +121,11 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
           Checkout cancelled — no charge made.
         </div>
       )}
+      {subscription === 'success' && (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
+          Subscription activated — monthly credits will arrive shortly.
+        </div>
+      )}
 
       {profile && (
         <>
@@ -128,22 +155,37 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             </div>
           </div>
 
-          {/* Buy credits */}
-          <div className="border-border/60 bg-card rounded-3xl border p-6 sm:p-8">
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-2xl font-extrabold tracking-tight">Buy credits</h2>
-              <Badge variant="outline" className="rounded-full text-xs">
-                <Sparkles className="size-3" /> No watermark on Pro
-              </Badge>
-            </div>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Credits never expire. While you have credits: no watermark, generations saved forever,
-              premium support.
-            </p>
-            <div className="mt-6">
-              <CreditPacksClient packs={packs} />
-            </div>
-          </div>
+          {!isKimp && (
+            <>
+              {/* Subscription plans */}
+              <div className="border-border/60 bg-card rounded-3xl border p-6 sm:p-8">
+                <h2 className="text-2xl font-extrabold tracking-tight">Subscription</h2>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Monthly credits, no watermark, and premium support while subscribed.
+                </p>
+                <div className="mt-6">
+                  <SubscriptionClient subscription={subscriptionRow} />
+                </div>
+              </div>
+
+              {/* Buy credits */}
+              <div className="border-border/60 bg-card rounded-3xl border p-6 sm:p-8">
+                <div className="flex items-baseline justify-between">
+                  <h2 className="text-2xl font-extrabold tracking-tight">Buy credits</h2>
+                  <Badge variant="outline" className="rounded-full text-xs">
+                    <Sparkles className="size-3" /> No watermark on Pro
+                  </Badge>
+                </div>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Credits never expire. While you have credits: no watermark, generations saved
+                  forever, premium support.
+                </p>
+                <div className="mt-6">
+                  <CreditPacksClient packs={packs} />
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Referral */}
           {referralUrl && (
