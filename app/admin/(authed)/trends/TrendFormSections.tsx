@@ -9,7 +9,8 @@ export interface TrendFormValues {
   title?: string
   description?: string | null
   prompt_template?: string
-  model?: 'nano-banana' | 'nano-banana-pro'
+  model?: 'nano-banana' | 'nano-banana-pro' | 'gpt-image'
+  model_pinned?: boolean
   aspect_ratio?: '1:1' | '3:4' | '16:9' | '9:16'
   display_order?: number
   thumbnail_url?: string | null
@@ -127,9 +128,22 @@ export function GenerationSection({ initial }: SectionProps) {
               defaultValue={initial.model ?? 'nano-banana-pro'}
               className={selectClasses}
             >
-              <option value="nano-banana-pro">nano-banana-pro</option>
-              <option value="nano-banana">nano-banana (quick)</option>
+              <option value="nano-banana-pro">nano-banana-pro (Gemini — quality)</option>
+              <option value="nano-banana">nano-banana (Gemini — fast)</option>
+              <option value="gpt-image">gpt-image (OpenAI)</option>
             </select>
+          </Field>
+          <Field label="Model source" htmlFor="model_pinned">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                id="model_pinned"
+                name="model_pinned"
+                value="true"
+                defaultChecked={initial.model_pinned ?? true}
+              />
+              Pin model (uncheck to follow global default)
+            </label>
           </Field>
           <Field label="Aspect ratio" htmlFor="aspect_ratio">
             <select

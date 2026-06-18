@@ -16,10 +16,11 @@
  */
 
 import { costForOutput } from '@/lib/gemini/cost'
-import type { GenerateImageArgs, GenerateImageResult, ImageModel } from './types'
+import type { GeminiModel } from '@/lib/gemini/cost'
+import type { GenerateImageArgs, GenerateImageResult } from './types'
 
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
-const MODEL_ID: Record<ImageModel, string> = {
+const MODEL_ID: Record<GeminiModel, string> = {
   'nano-banana': 'gemini-2.5-flash-image',
   'nano-banana-pro': 'gemini-3.0-pro-image',
 }
@@ -27,6 +28,8 @@ const MODEL_ID: Record<ImageModel, string> = {
 const MOCK_PNG_HEADER = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
 export async function generateImage(args: GenerateImageArgs): Promise<GenerateImageResult> {
+  // Only called for Gemini models (routed by index.ts). Cast is safe.
+  const geminiModel = args.model as GeminiModel
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
     // Mock-mode — return deterministic stub so the rest of the pipeline can be exercised.
@@ -34,11 +37,11 @@ export async function generateImage(args: GenerateImageArgs): Promise<GenerateIm
       ok: true,
       outputPng: MOCK_PNG_HEADER,
       costUsd: costForOutput(args.model),
-      modelUsed: `mock:${MODEL_ID[args.model]}`,
+      modelUsed: `mock:${MODEL_ID[geminiModel]}`,
     }
   }
 
-  const url = `${GEMINI_BASE_URL}/${MODEL_ID[args.model]}:generateContent?key=${apiKey}`
+  const url = `${GEMINI_BASE_URL}/${MODEL_ID[geminiModel]}:generateContent?key=${apiKey}`
   const imageParts = await Promise.all(args.imageUrls.map((u) => fetchAsInlineData(u)))
 
   const body = {
@@ -105,7 +108,7 @@ export async function generateImage(args: GenerateImageArgs): Promise<GenerateIm
       ok: true,
       outputPng,
       costUsd: costForOutput(args.model),
-      modelUsed: MODEL_ID[args.model],
+      modelUsed: MODEL_ID[geminiModel],
     }
   } catch (err: unknown) {
     if (err instanceof Error && err.name === 'AbortError') {
