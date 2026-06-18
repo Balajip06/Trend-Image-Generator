@@ -357,6 +357,9 @@ async function handleInvoicePaid(
     p_period_start: periodStart,
     p_allotment: allotment,
   })
+
+  trackServer(subRow.user_id, EVENTS.SUBSCRIPTION_RENEWED, { plan: subRow.plan, allotment })
+  await flushServer()
 }
 
 async function handleInvoicePaymentFailed(

@@ -26,6 +26,16 @@ export const EVENTS = {
   SIGNUP_COMPLETED: 'signup_completed',
   ACCOUNT_DELETED: 'account_deleted',
   DATA_EXPORTED: 'data_exported',
+  SUBSCRIPTION_STARTED: 'subscription_started',
+  SUBSCRIPTION_RENEWED: 'subscription_renewed',
+  SUBSCRIPTION_FAILED: 'subscription_failed',
+  SUBSCRIPTION_CANCELED: 'subscription_canceled',
+  UNLIMITED_GRANTED: 'unlimited_granted',
+  UNLIMITED_REVOKED: 'unlimited_revoked',
+  MODEL_PROVIDER_SWITCHED: 'model_provider_switched',
+  GENERATE_PROVIDER_FAILED: 'generate_provider_failed',
+  SSO_FAILED: 'sso_failed',
+  STATUS_API_FAILED: 'status_api_failed',
 } as const
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS]
@@ -38,7 +48,7 @@ export interface BasePayload {
 
 export interface GenerateClickedPayload extends BasePayload {
   trend_slug: string
-  model: 'nano-banana' | 'nano-banana-pro'
+  model: 'nano-banana' | 'nano-banana-pro' | 'gpt-image'
   is_anonymous: boolean
 }
 
@@ -86,6 +96,16 @@ export interface PayloadByEvent {
   [EVENTS.SIGNUP_COMPLETED]: BasePayload & { method: 'google' | 'magic_link'; referred: boolean }
   [EVENTS.ACCOUNT_DELETED]: BasePayload
   [EVENTS.DATA_EXPORTED]: BasePayload & { generation_count: number }
+  [EVENTS.SUBSCRIPTION_STARTED]: BasePayload & { plan: string; method: 'new' | 'upgrade' | 'downgrade' }
+  [EVENTS.SUBSCRIPTION_RENEWED]: BasePayload & { plan: string; allotment: number }
+  [EVENTS.SUBSCRIPTION_FAILED]: BasePayload & { plan: string; reason: string }
+  [EVENTS.SUBSCRIPTION_CANCELED]: BasePayload & { plan: string }
+  [EVENTS.UNLIMITED_GRANTED]: BasePayload & { grant_source: 'oidc' | 'status_api' | 'allowlist' }
+  [EVENTS.UNLIMITED_REVOKED]: BasePayload & { reason: 'churn' | 'allowlist_deactivated' }
+  [EVENTS.MODEL_PROVIDER_SWITCHED]: BasePayload & { from: string; to: string; affected_trends: number }
+  [EVENTS.GENERATE_PROVIDER_FAILED]: BasePayload & { provider: 'gemini' | 'openai'; reason: string; trend_slug: string }
+  [EVENTS.SSO_FAILED]: BasePayload & { provider: 'kimp360' | 'google'; step: string }
+  [EVENTS.STATUS_API_FAILED]: BasePayload & { checked: number; error: string }
 }
 
 /**
