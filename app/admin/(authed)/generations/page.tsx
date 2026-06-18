@@ -1,28 +1,16 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import type { Tables } from '@/lib/supabase/database.types'
 import { GenerationsMonitor } from './GenerationsMonitor'
 
 export const dynamic = 'force-dynamic'
 
-// Type for the untyped admin_generations_feed view (until pnpm supabase:types regenerates)
-export interface FeedRow {
-  id: string
-  user_id: string | null
-  trend_slug: string | null
-  status: string
-  model_used: string | null
-  attempts: number
-  cost_usd: number
-  created_at: string
-  completed_at: string | null
-}
+export type FeedRow = Tables<'admin_generations_feed'>
 
 export default async function GenerationsPage() {
   const service = createServiceClient()
 
   // Initial 100 rows from admin_generations_feed (authed gens).
-  // as any cast required until pnpm supabase:types regenerates with the view.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: feedRows } = await (service as any)
+  const { data: feedRows } = await service
     .from('admin_generations_feed')
     .select('*')
     .order('created_at', { ascending: false })
