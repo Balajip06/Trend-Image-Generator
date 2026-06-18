@@ -132,7 +132,7 @@ function mockDailySeries(days: number): MarginDailyPoint[] {
 export async function getMarginSummary(supabase: SupabaseClient): Promise<MarginSummary> {
   const weekStart = new Date(Date.now() - ONE_WEEK_MS).toISOString()
 
-  const [{ data: genData }, { data: webhookData }] = await Promise.all([
+  const [{ data: genData }, { data: webhookData }, { data: anonCostRows }] = await Promise.all([
     supabase
       .from('generations')
       .select('cost_usd, trend_id')
@@ -143,16 +143,24 @@ export async function getMarginSummary(supabase: SupabaseClient): Promise<Margin
       .select('payload')
       .eq('source', 'stripe')
       .gte('created_at', weekStart),
+    supabase
+      .from('anonymous_attempts')
+      .select('cost_usd')
+      .eq('status', 'completed')
+      .gte('created_at', weekStart),
   ])
 
   const generations = (genData as unknown as GenerationRow[] | null) ?? []
   const webhooks = (webhookData as unknown as WebhookEventRow[] | null) ?? []
+  const anonAttempts = (anonCostRows as unknown as Array<{ cost_usd: number | null }> | null) ?? []
 
-  if (generations.length === 0 && webhooks.length === 0) {
+  if (generations.length === 0 && webhooks.length === 0 && anonAttempts.length === 0) {
     return { ...MOCK_SUMMARY, isMock: true }
   }
 
-  const weekSpendUsd = generations.reduce((sum, g) => sum + Number(g.cost_usd ?? 0), 0)
+  const genSpendUsd = generations.reduce((sum, g) => sum + Number(g.cost_usd ?? 0), 0)
+  const anonSpendUsd = anonAttempts.reduce((sum, a) => sum + Number(a.cost_usd ?? 0), 0)
+  const weekSpendUsd = genSpendUsd + anonSpendUsd
   const weekGenerations = generations.length
   const avgCostUsd = weekGenerations > 0 ? weekSpendUsd / weekGenerations : 0
 
@@ -451,7 +459,7 @@ export async function getMarginDetail(
     }
   }
 
-  const [{ data: genRows }, { data: webhookRows }] = await Promise.all([
+  const [{ data: genRows }, { data: webhookRows }, { data: anonRows }] = await Promise.all([
     supabase
       .from('generations')
       .select('cost_usd, trend_id, created_at')
@@ -462,10 +470,16 @@ export async function getMarginDetail(
       .select('payload, created_at')
       .eq('source', 'stripe')
       .gte('created_at', priorStart.toISOString()),
+    supabase
+      .from('anonymous_attempts')
+      .select('cost_usd, created_at')
+      .eq('status', 'completed')
+      .gte('created_at', priorStart.toISOString()),
   ])
 
   const generations = (genRows as unknown as GenerationRow[] | null) ?? []
   const webhooks = (webhookRows as unknown as WebhookEventRowWithDate[] | null) ?? []
+  const anonAttempts = (anonRows as unknown as Array<{ cost_usd: number | null; created_at?: string }> | null) ?? []
 
   const daily = emptyDays(days)
   const byDate = new Map(daily.map((d) => [d.date, d]))
@@ -483,6 +497,19 @@ export async function getMarginDetail(
     } else if (day.getTime() >= priorStart.getTime()) {
       priorWeek.spendUsd += cost
       priorWeek.generations += 1
+    }
+  }
+
+  for (const a of anonAttempts) {
+    if (!a.created_at) continue
+    const day = new Date(a.created_at)
+    const key = startOfUtcDay(day).toISOString().slice(0, 10)
+    const bucket = byDate.get(key)
+    const cost = Number(a.cost_usd ?? 0)
+    if (bucket) {
+      bucket.spendUsd += cost
+    } else if (day.getTime() >= priorStart.getTime()) {
+      priorWeek.spendUsd += cost
     }
   }
 

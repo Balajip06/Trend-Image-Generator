@@ -646,7 +646,7 @@ export type Database = {
       admin_role: 'admin' | 'editor'
       eval_status: 'untested' | 'passed' | 'failed'
       generation_status: 'pending' | 'processing' | 'completed' | 'failed' | 'failed_retryable'
-      generation_tier: 'free' | 'credit' | 'vip'
+      generation_tier: 'free' | 'credit' | 'vip' | 'monthly' | 'kimp'
       referral_status: 'pending' | 'rewarded'
       suggestion_source: 'auto' | 'user'
       suggestion_status: 'pending' | 'approved' | 'rejected'
@@ -780,7 +780,7 @@ export const Constants = {
       admin_role: ['admin', 'editor'],
       eval_status: ['untested', 'passed', 'failed'],
       generation_status: ['pending', 'processing', 'completed', 'failed', 'failed_retryable'],
-      generation_tier: ['free', 'credit', 'vip'],
+      generation_tier: ['free', 'credit', 'vip', 'monthly', 'kimp'],
       referral_status: ['pending', 'rewarded'],
       suggestion_source: ['auto', 'user'],
       suggestion_status: ['pending', 'approved', 'rejected'],

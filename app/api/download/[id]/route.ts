@@ -30,7 +30,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // trigger. We never re-derive Pro-ness from live `profile.credits_balance`
   // — that read is non-transactional and would re-watermark paid downloads
   // once the user spent the credit (red-team C2).
-  const isPro = gen.tier_at_generation === 'credit' || gen.tier_at_generation === 'vip'
+  const isPro =
+    gen.tier_at_generation === 'credit' ||
+    gen.tier_at_generation === 'vip' ||
+    gen.tier_at_generation === 'monthly' ||
+    gen.tier_at_generation === 'kimp'
 
   // SSRF guard (red-team H3): `output_image_url` is read from the DB and
   // proxied via fetch(). Restrict the upstream host to the project's
