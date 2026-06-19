@@ -74,3 +74,9 @@ graphify-out/
 .env*
 
 .trigger
+# Local screenshots / debug images
+*.jpeg
+*.jpg
+studio-snapshot.md
+trend-image-app-plan.md
+.claude/worktrees/
