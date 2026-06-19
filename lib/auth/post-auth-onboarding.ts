@@ -4,7 +4,92 @@ import type { NextRequest } from 'next/server'
 import type { User, SupabaseClient } from '@supabase/supabase-js'
 import { EVENTS, flushServer, identifyServer, trackServer } from '@/lib/analytics/server'
 import { parseReferralFromCookie, REFERRAL_COOKIE_NAME } from '@/lib/referrals/links'
+import { createServiceClient } from '@/lib/supabase/server'
 import type { Database } from '@/lib/supabase/database.types'
+
+/**
+ * Auto-grant admin or premium access based on ADMIN_EMAILS / PREMIUM_EMAILS env vars.
+ * Only runs for Google-authenticated users — Google OAuth verifies email ownership,
+ * preventing squatters from claiming a privileged email via email/password signup.
+ * Best-effort: failures are breadcrumbed and never block the redirect.
+ */
+async function autoGrantPrivilegedAccess(user: User, sentryCategory: string): Promise<void> {
+  const provider = (user.app_metadata?.provider as string | undefined) ?? ''
+  if (provider !== 'google') return  // only grant via verified Google OAuth
+
+  const email = user.email?.toLowerCase()
+  if (!email) return
+
+  const adminEmails = (process.env.ADMIN_EMAILS ?? '')
+    .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
+  const premiumEmails = (process.env.PREMIUM_EMAILS ?? '')
+    .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
+
+  const isAdmin = adminEmails.includes(email)
+  const isPremium = premiumEmails.includes(email)
+  if (!isAdmin && !isPremium) return
+
+  try {
+    const service = createServiceClient()
+
+    // Grant admin access
+    if (isAdmin) {
+      const { data: existing } = await service
+        .from('admin_users')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (!existing) {
+        await service.from('admin_users').insert({ user_id: user.id, role: 'admin' })
+      }
+    }
+
+    // Grant premium (unlimited) access
+    if (isPremium) {
+      const { data: profile } = await service
+        .from('profiles')
+        .select('kimp_unlimited')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (profile && !profile.kimp_unlimited) {
+        // Ensure allowlist row exists (satisfies enforce_kimp_unlimited_proof trigger)
+        const { data: allowlistRow } = await service
+          .from('kimp_client_allowlist')
+          .select('id, is_active')
+          .eq('email', email)
+          .maybeSingle()
+
+        if (!allowlistRow) {
+          await service.from('kimp_client_allowlist').insert({
+            email,
+            is_active: true,
+            note: 'Auto-granted via PREMIUM_EMAILS env var on Google login',
+          })
+        } else if (!allowlistRow.is_active) {
+          await service.from('kimp_client_allowlist')
+            .update({ is_active: true })
+            .eq('id', allowlistRow.id)
+        }
+
+        // Grant unlimited — proof trigger checks allowlist row
+        await service.from('profiles').update({
+          kimp_unlimited: true,
+          kimp_client_status: 'active',
+          kimp_verified_at: new Date().toISOString(),
+        }).eq('id', user.id)
+      }
+    }
+  } catch (err: unknown) {
+    Sentry.addBreadcrumb({
+      category: sentryCategory,
+      level: 'warning',
+      message: 'autoGrantPrivilegedAccess failed',
+      data: { user_id: user.id, error: err instanceof Error ? err.message : String(err) },
+    })
+  }
+}
 
 // Window during which a profile is considered "newly created" — gate for
 // first-time-only stamping (acquisition_source, referrals, signup tracking).
@@ -93,6 +178,9 @@ export async function runPostAuthOnboarding({
       .update({ tos_accepted_at: new Date().toISOString() })
       .eq('id', user.id)
   }
+
+  // Auto-grant admin / premium access for Google-verified privileged emails
+  await autoGrantPrivilegedAccess(user, sentryCategory)
 
   // Stamp acquisition_source on first signup only (and only if not yet
   // recorded). UTM params live on the callback URL because the login

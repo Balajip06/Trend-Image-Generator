@@ -66,22 +66,19 @@ export function LoginForms({ next }: LoginFormsProps) {
         </div>
       )}
 
-      {/* Google auth — enable by setting NEXT_PUBLIC_GOOGLE_AUTH_ENABLED=1 in Vercel */}
-      {process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED && (
-        <form action={signInWithGoogle}>
-          <input type="hidden" name="next" value={next} />
-          <input type="hidden" name="turnstile_token" value={token} />
-          <input type="hidden" name="tos_accepted" value={tosFieldValue} />
-          <button
-            type="submit"
-            disabled={!ready}
-            className="border-border bg-card hover:bg-muted flex h-12 w-full items-center justify-center gap-2 rounded-full border text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <GoogleGlyph />
-            Continue with Google
-          </button>
-        </form>
-      )}
+      <form action={signInWithGoogle}>
+        <input type="hidden" name="next" value={next} />
+        <input type="hidden" name="turnstile_token" value={token} />
+        <input type="hidden" name="tos_accepted" value={tosFieldValue} />
+        <button
+          type="submit"
+          disabled={!ready}
+          className="border-border bg-card hover:bg-muted flex h-12 w-full items-center justify-center gap-2 rounded-full border text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <GoogleGlyph />
+          Continue with Google
+        </button>
+      </form>
 
       {process.env.NEXT_PUBLIC_KIMP_SSO_ENABLED && (
         <form action={signInWithKimp}>
