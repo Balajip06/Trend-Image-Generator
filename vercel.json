@@ -14,7 +14,6 @@
     "app/api/stripe/portal/route.ts": { "maxDuration": 30 }
   },
   "crons": [
-    { "path": "/api/admin/run-trend-discovery", "schedule": "0 8 * * 1" },
-    { "path": "/api/admin/kimp-reverify", "schedule": "30 3 * * *" }
+    { "path": "/api/admin/run-trend-discovery", "schedule": "0 8 * * 1" }
   ]
 }
