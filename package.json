@@ -59,7 +59,8 @@
     "stripe": "^22.1.1",
     "tailwind-merge": "^3.6.0",
     "web-push": "^3.6.7",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "@trigger.dev/sdk": "^3.3.17"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",

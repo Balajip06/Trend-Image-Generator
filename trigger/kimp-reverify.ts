@@ -67,7 +67,7 @@ async function writeAuditLog(
     action,
     target_table: 'profiles',
     target_id: targetId,
-    after,
+    after: after as import('@/lib/supabase/database.types').Json,
   })
 }
 

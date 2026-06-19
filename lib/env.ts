@@ -100,7 +100,14 @@ export function getServerEnv(): ServerEnv {
   // signup bot wall, leaving /api/generate-anonymous + /api/generate wide
   // open to unbounded abuse. Boot must crash before serving requests if
   // these are missing in a production deploy.
-  if (process.env.NODE_ENV === 'production' && process.env.CI !== 'true') {
+  // DISABLE_ABUSE_GUARD=true is an MVP escape hatch — removes the crash so the
+  // app can run before Upstash + Turnstile are wired up. Never set on a public
+  // deploy with real traffic.
+  if (
+    process.env.NODE_ENV === 'production' &&
+    process.env.CI !== 'true' &&
+    process.env.DISABLE_ABUSE_GUARD !== 'true'
+  ) {
     const required: Array<keyof ServerEnv> = [
       'UPSTASH_REDIS_REST_URL',
       'UPSTASH_REDIS_REST_TOKEN',
