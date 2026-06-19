@@ -72,3 +72,5 @@ graphify-out/
 
 .vercel
 .env*
+
+.trigger

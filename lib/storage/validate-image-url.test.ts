@@ -16,7 +16,9 @@ describe('assertStorageUrl', () => {
 
   it('accepts a valid public URL', () => {
     expect(() =>
-      assertStorageUrl('https://abcdef.supabase.co/storage/v1/object/public/uploads/user-1/photo.jpg')
+      assertStorageUrl(
+        'https://abcdef.supabase.co/storage/v1/object/public/uploads/user-1/photo.jpg'
+      )
     ).not.toThrow()
   })
 
@@ -27,9 +29,9 @@ describe('assertStorageUrl', () => {
   })
 
   it('rejects external host', () => {
-    expect(() =>
-      assertStorageUrl('https://evil.com/storage/v1/object/sign/uploads/x.jpg')
-    ).toThrow('invalid image URL')
+    expect(() => assertStorageUrl('https://evil.com/storage/v1/object/sign/uploads/x.jpg')).toThrow(
+      'invalid image URL'
+    )
   })
 
   it('rejects cloud metadata endpoint', () => {

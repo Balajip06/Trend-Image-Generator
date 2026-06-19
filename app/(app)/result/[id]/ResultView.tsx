@@ -133,11 +133,15 @@ export function ResultView({ initial, trend }: ResultViewProps) {
           try {
             const { data } = await supabase
               .from('generations')
-              .select('id, status, output_image_url, error_message, attempts, cost_usd, completed_at')
+              .select(
+                'id, status, output_image_url, error_message, attempts, cost_usd, completed_at'
+              )
               .eq('id', row.id)
               .maybeSingle()
             if (data) setRow((prev) => ({ ...prev, ...data }))
-          } catch { /* best-effort */ }
+          } catch {
+            /* best-effort */
+          }
         }
       })
 

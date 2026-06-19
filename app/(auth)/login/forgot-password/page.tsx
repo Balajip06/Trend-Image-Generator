@@ -27,11 +27,11 @@ export default function ForgotPasswordPage() {
           name="email"
           required
           placeholder="you@example.com"
-          className="h-12 rounded-xl border border-input bg-transparent px-3 text-sm"
+          className="border-input h-12 rounded-xl border bg-transparent px-3 text-sm"
         />
         <button
           type="submit"
-          className="h-12 rounded-full bg-primary text-sm font-semibold text-primary-foreground"
+          className="bg-primary text-primary-foreground h-12 rounded-full text-sm font-semibold"
         >
           Send reset link
         </button>

@@ -338,7 +338,8 @@ const SEEDS: Seed[] = [
   {
     slug: 'barbie-box',
     title: 'Barbie doll box',
-    description: 'You as a Barbie doll packaged in a glossy pink branded box — complete with career label.',
+    description:
+      'You as a Barbie doll packaged in a glossy pink branded box — complete with career label.',
     model: 'nano-banana-pro',
     aspect: '3:4',
     faq: [
@@ -348,14 +349,16 @@ const SEEDS: Seed[] = [
       },
       {
         question: 'Will it preserve my face?',
-        answer: 'Facial features are idealised in the Barbie doll style while keeping you recognisable.',
+        answer:
+          'Facial features are idealised in the Barbie doll style while keeping you recognisable.',
       },
     ],
   },
   {
     slug: 'vintage-magazine-cover',
     title: '70s magazine cover',
-    description: 'You on the cover of a glossy 1970s lifestyle magazine — bold typography, warm film grain.',
+    description:
+      'You on the cover of a glossy 1970s lifestyle magazine — bold typography, warm film grain.',
     model: 'nano-banana-pro',
     aspect: '3:4',
     faq: [
@@ -372,7 +375,8 @@ const SEEDS: Seed[] = [
   {
     slug: 'manga-panel',
     title: 'Manga panel',
-    description: 'You as a black-and-white manga panel — crisp ink lines, screen-tone shading, dramatic energy.',
+    description:
+      'You as a black-and-white manga panel — crisp ink lines, screen-tone shading, dramatic energy.',
     model: 'nano-banana-pro',
     aspect: '1:1',
     faq: [
@@ -389,7 +393,8 @@ const SEEDS: Seed[] = [
   {
     slug: 'ai-passport-photo',
     title: 'AI passport photo',
-    description: 'A hyper-realistic official-style ID portrait — neutral backdrop, perfect exposure, print-ready.',
+    description:
+      'A hyper-realistic official-style ID portrait — neutral backdrop, perfect exposure, print-ready.',
     model: 'nano-banana-pro',
     aspect: '1:1',
     faq: [

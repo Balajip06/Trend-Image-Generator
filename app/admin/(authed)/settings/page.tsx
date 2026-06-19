@@ -19,9 +19,7 @@ export default async function SettingsPage() {
     <div className="mx-auto max-w-2xl space-y-8 p-6">
       <div>
         <h1 className="text-xl font-semibold">Settings</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Global configuration for all trends.
-        </p>
+        <p className="text-muted-foreground mt-1 text-sm">Global configuration for all trends.</p>
       </div>
 
       <section className="space-y-4">

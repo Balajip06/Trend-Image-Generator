@@ -47,7 +47,9 @@ export function SubscriptionClient({ subscription }: SubscriptionClientProps) {
   if (!subscription) {
     return (
       <div className="flex flex-col gap-4">
-        <p className="text-muted-foreground text-sm">No active subscription. Choose a plan below.</p>
+        <p className="text-muted-foreground text-sm">
+          No active subscription. Choose a plan below.
+        </p>
         <div className="grid gap-3 sm:grid-cols-3">
           {(['starter50', 'pro200', 'studio600'] as const).map((id) => (
             <PlanCard key={id} planId={id} />
@@ -63,7 +65,7 @@ export function SubscriptionClient({ subscription }: SubscriptionClientProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex flex-wrap items-center gap-3">
         <Badge
           variant={subscription.status === 'active' ? 'default' : 'destructive'}
           className="rounded-full"
@@ -73,9 +75,7 @@ export function SubscriptionClient({ subscription }: SubscriptionClientProps) {
         <span className="text-sm font-medium">{PLAN_LABELS[subscription.plan]}</span>
       </div>
       {subscription.cancel_at_period_end && periodEnd && (
-        <p className="text-muted-foreground text-xs">
-          Cancels on {periodEnd} — credits stop then.
-        </p>
+        <p className="text-muted-foreground text-xs">Cancels on {periodEnd} — credits stop then.</p>
       )}
       {!subscription.cancel_at_period_end && periodEnd && (
         <p className="text-muted-foreground text-xs">
@@ -87,7 +87,7 @@ export function SubscriptionClient({ subscription }: SubscriptionClientProps) {
         size="sm"
         onClick={openPortal}
         disabled={loading}
-        className="w-fit rounded-full gap-2"
+        className="w-fit gap-2 rounded-full"
       >
         <ExternalLink className="size-3.5" />
         {loading ? 'Opening…' : 'Manage subscription'}

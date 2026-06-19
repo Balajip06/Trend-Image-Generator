@@ -66,10 +66,7 @@ export async function POST(request: NextRequest) {
         customerId = customer.id
 
         const service = createServiceClient()
-        await service
-          .from('profiles')
-          .update({ stripe_customer_id: customerId })
-          .eq('id', user.id)
+        await service.from('profiles').update({ stripe_customer_id: customerId }).eq('id', user.id)
       }
 
       const session = await stripe.checkout.sessions.create({

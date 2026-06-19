@@ -96,14 +96,25 @@ export interface PayloadByEvent {
   [EVENTS.SIGNUP_COMPLETED]: BasePayload & { method: 'google' | 'magic_link'; referred: boolean }
   [EVENTS.ACCOUNT_DELETED]: BasePayload
   [EVENTS.DATA_EXPORTED]: BasePayload & { generation_count: number }
-  [EVENTS.SUBSCRIPTION_STARTED]: BasePayload & { plan: string; method: 'new' | 'upgrade' | 'downgrade' }
+  [EVENTS.SUBSCRIPTION_STARTED]: BasePayload & {
+    plan: string
+    method: 'new' | 'upgrade' | 'downgrade'
+  }
   [EVENTS.SUBSCRIPTION_RENEWED]: BasePayload & { plan: string; allotment: number }
   [EVENTS.SUBSCRIPTION_FAILED]: BasePayload & { plan: string; reason: string }
   [EVENTS.SUBSCRIPTION_CANCELED]: BasePayload & { plan: string }
   [EVENTS.UNLIMITED_GRANTED]: BasePayload & { grant_source: 'oidc' | 'status_api' | 'allowlist' }
   [EVENTS.UNLIMITED_REVOKED]: BasePayload & { reason: 'churn' | 'allowlist_deactivated' }
-  [EVENTS.MODEL_PROVIDER_SWITCHED]: BasePayload & { from: string; to: string; affected_trends: number }
-  [EVENTS.GENERATE_PROVIDER_FAILED]: BasePayload & { provider: 'gemini' | 'openai'; reason: string; trend_slug: string }
+  [EVENTS.MODEL_PROVIDER_SWITCHED]: BasePayload & {
+    from: string
+    to: string
+    affected_trends: number
+  }
+  [EVENTS.GENERATE_PROVIDER_FAILED]: BasePayload & {
+    provider: 'gemini' | 'openai'
+    reason: string
+    trend_slug: string
+  }
   [EVENTS.SSO_FAILED]: BasePayload & { provider: 'kimp360' | 'google'; step: string }
   [EVENTS.STATUS_API_FAILED]: BasePayload & { checked: number; error: string }
 }

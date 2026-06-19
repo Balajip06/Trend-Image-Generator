@@ -481,7 +481,8 @@ export async function getMarginDetail(
 
   const generations = (genRows as unknown as GenerationRow[] | null) ?? []
   const webhooks = (webhookRows as unknown as WebhookEventRowWithDate[] | null) ?? []
-  const anonAttempts = (anonRows as unknown as Array<{ cost_usd: number | null; created_at?: string }> | null) ?? []
+  const anonAttempts =
+    (anonRows as unknown as Array<{ cost_usd: number | null; created_at?: string }> | null) ?? []
 
   const daily = emptyDays(days)
   const byDate = new Map(daily.map((d) => [d.date, d]))

@@ -23,11 +23,16 @@ export function AutoRefresh({ intervalMs = 30_000 }: AutoRefreshProps) {
     const start = () => {
       id = setInterval(() => router.refresh(), intervalMs)
     }
-    const stop = () => { if (id) { clearInterval(id); id = null } }
+    const stop = () => {
+      if (id) {
+        clearInterval(id)
+        id = null
+      }
+    }
 
     const onVisibility = () => {
       if (document.visibilityState === 'visible') {
-        router.refresh()  // immediate refresh on tab focus
+        router.refresh() // immediate refresh on tab focus
         start()
       } else {
         stop()

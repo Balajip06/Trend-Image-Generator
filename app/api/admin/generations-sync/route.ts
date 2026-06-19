@@ -7,11 +7,17 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   // Verify admin session
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 })
 
   const service = createServiceClient()
-  const { data: adminRow } = await service.from('admin_users').select('user_id').eq('user_id', user.id).maybeSingle()
+  const { data: adminRow } = await service
+    .from('admin_users')
+    .select('user_id')
+    .eq('user_id', user.id)
+    .maybeSingle()
   if (!adminRow) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
 
   const url = new URL(request.url)

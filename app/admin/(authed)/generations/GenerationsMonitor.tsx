@@ -163,9 +163,7 @@ function StatCard({
 }) {
   return (
     <div className="bg-card border-border/60 rounded-2xl border p-4">
-      <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
-        {label}
-      </p>
+      <p className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">{label}</p>
       <p className={`mt-1 text-2xl font-bold ${valueClass ?? ''}`}>{value}</p>
     </div>
   )

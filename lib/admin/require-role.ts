@@ -16,7 +16,7 @@ export type AdminRole = 'admin' | 'editor'
  * Role hierarchy: admin > editor. Minimum 'editor' accepts both; 'admin' rejects editors.
  */
 export async function requireAdminRole(
-  min: AdminRole = 'editor',
+  min: AdminRole = 'editor'
 ): Promise<{ userId: string; role: AdminRole }> {
   const supabase = await createClient()
   const {

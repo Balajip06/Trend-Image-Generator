@@ -77,10 +77,9 @@ export async function POST(request: NextRequest) {
     const message = err instanceof Error ? err.message : 'handler error'
     // Mark processed_at NULL stays so a retry can re-run; but unique constraint
     // means Stripe must resend with a new event_id. Log + 500 so Stripe retries.
-    Sentry.captureException(
-      err instanceof Error ? err : new Error(String(err)),
-      { extra: { event_id: event.id, event_type: event.type } }
-    )
+    Sentry.captureException(err instanceof Error ? err : new Error(String(err)), {
+      extra: { event_id: event.id, event_type: event.type },
+    })
     return NextResponse.json({ error: message }, { status: 500 })
   }
 
@@ -135,12 +134,7 @@ async function handleEvent(
       return
     case 'charge.refunded':
     case 'charge.dispute.created':
-      await handleChargeClawback(
-        event.data.object as Stripe.Charge,
-        event.type,
-        event.id,
-        supabase
-      )
+      await handleChargeClawback(event.data.object as Stripe.Charge, event.type, event.id, supabase)
       return
     default:
       // Breadcrumb unhandled events instead of silent no-op (H-O3)
@@ -171,11 +165,11 @@ async function handleCheckoutCompleted(
   // Credit grant happens via invoice.paid — do NOT grant here (H-C4).
   if (session.mode === 'subscription') {
     const customerId =
-      typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null
+      typeof session.customer === 'string' ? session.customer : (session.customer?.id ?? null)
     const subscriptionId =
       typeof session.subscription === 'string'
         ? session.subscription
-        : session.subscription?.id ?? null
+        : (session.subscription?.id ?? null)
 
     if (subscriptionId && customerId) {
       // Resolve plan from session metadata so plan + monthly_credit_allotment (NOT NULL)
@@ -195,7 +189,12 @@ async function handleCheckoutCompleted(
           stripe_customer_id: customerId,
           plan: plan.id,
           monthly_credit_allotment: plan.monthlyCredits,
-          status: (session.payment_status ?? 'unpaid') as 'active' | 'past_due' | 'canceled' | 'incomplete' | 'trialing',
+          status: (session.payment_status ?? 'unpaid') as
+            | 'active'
+            | 'past_due'
+            | 'canceled'
+            | 'incomplete'
+            | 'trialing',
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'stripe_subscription_id' }
