@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -566,45 +571,6 @@ export type Database = {
           },
         ]
       }
-      referral_rewards: {
-        Row: {
-          id: string
-          referee_email_hash: string
-          referrer_id: string | null
-          rewarded_at: string
-          source_referral_id: string | null
-        }
-        Insert: {
-          id?: string
-          referee_email_hash: string
-          referrer_id?: string | null
-          rewarded_at?: string
-          source_referral_id?: string | null
-        }
-        Update: {
-          id?: string
-          referee_email_hash?: string
-          referrer_id?: string | null
-          rewarded_at?: string
-          source_referral_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "referral_rewards_referrer_id_fkey"
-            columns: ["referrer_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "referral_rewards_source_referral_id_fkey"
-            columns: ["source_referral_id"]
-            isOneToOne: false
-            referencedRelation: "referrals"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       referrals: {
         Row: {
           created_at: string
@@ -993,7 +959,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      email_to_hash: { Args: { p_email: string }; Returns: string }
       grant_credits: {
         Args: {
           p_amount: number
@@ -1022,10 +987,6 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
-      purge_expired_anonymous: { Args: never; Returns: undefined }
-      purge_expired_generations: { Args: never; Returns: undefined }
-      purge_soft_deleted_profiles: { Args: never; Returns: undefined }
-      reset_free_weekly: { Args: never; Returns: undefined }
       trend_discovery_heartbeat: { Args: never; Returns: undefined }
       zero_monthly_credits: { Args: { p_user_id: string }; Returns: undefined }
     }
@@ -1209,4 +1170,3 @@ export const Constants = {
     },
   },
 } as const
-
