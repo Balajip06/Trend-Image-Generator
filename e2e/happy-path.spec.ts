@@ -33,7 +33,8 @@ test('happy path: home → trend → login → creations → settings → result
   await page.goto('/login')
   await expect(page.getByRole('heading', { name: /Sign in/i })).toBeVisible()
   await expect(page.getByRole('button', { name: /Continue with Google/i })).toBeVisible()
-  await expect(page.getByRole('button', { name: /Send magic link/i })).toBeVisible()
+  // Login is Google + email/password (magic-link was removed).
+  await expect(page.getByRole('button', { name: /Sign in with email/i })).toBeVisible()
 
   // 4. Studio (drawer-based — grid of trend cards, no empty-state card)
   await page.goto('/me/studio')
@@ -53,7 +54,9 @@ test('happy path: home → trend → login → creations → settings → result
   await page.goto('/me/settings')
   await expect(page.getByRole('heading', { name: /Settings/i })).toBeVisible()
   await expect(page.getByText(/Your quota/i)).toBeVisible()
-  await expect(page.getByText(/Buy credits/i)).toBeVisible()
+  // "Buy credits" when Stripe is configured; "Credits & plans" (coming soon)
+  // when it isn't (the CI/mock case has no STRIPE_SECRET_KEY).
+  await expect(page.getByText(/Buy credits|Credits & plans/i).first()).toBeVisible()
 
   // 7. Result (mock-completed)
   await page.goto('/result/mock-completed')
