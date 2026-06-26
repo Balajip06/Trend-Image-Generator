@@ -17,6 +17,20 @@ import { createClient } from '@/lib/supabase/client'
 
 export type RealtimeEvent = 'INSERT' | 'UPDATE' | 'DELETE' | '*'
 
+/** Connection state for a live indicator. */
+export type RealtimeStatus = 'connecting' | 'live' | 'reconnecting'
+
+export interface RealtimeResult<Row> {
+  rows: Row[]
+  /** Live subscription state (drives the LIVE/Connecting/Reconnecting chip). */
+  status: RealtimeStatus
+  /** Ids that arrived/updated via a live event in the last ~1.2s (for flash). */
+  flashIds: ReadonlySet<string>
+}
+
+/** How long a freshly-arrived row stays "flashing". */
+const FLASH_MS = 1200
+
 interface UseRealtimeTableOptions<Row extends { id: string; created_at?: string }> {
   table: string
   schema?: string
@@ -43,11 +57,32 @@ export function useRealtimeTable<Row extends { id: string; created_at?: string; 
   statusKey = 'status' as keyof Row,
   inFlightValues = ['pending', 'processing', 'failed_retryable'],
   terminalMaxAgeMs = 5 * 60 * 1000,
-}: UseRealtimeTableOptions<Row>): Row[] {
+}: UseRealtimeTableOptions<Row>): RealtimeResult<Row> {
   const [rows, setRows] = useState<Map<string, Row>>(
     () => new Map(initial.map((r) => [r.id, r]))
   )
+  const [status, setStatus] = useState<RealtimeStatus>('connecting')
+  const [flashIds, setFlashIds] = useState<ReadonlySet<string>>(() => new Set())
+  const mountedRef = useRef(true)
   const wasSubscribedRef = useRef(false)
+
+  // Mark a live-arriving row as freshly-changed for ~1.2s so the UI can flash it.
+  const flash = (id: string) => {
+    setFlashIds((prev) => {
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+    setTimeout(() => {
+      if (!mountedRef.current) return
+      setFlashIds((prev) => {
+        if (!prev.has(id)) return prev
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }, FLASH_MS)
+  }
   const highWaterRef = useRef<string | null>(
     initial.length > 0
       ? initial.reduce((max, r) => (r.created_at && r.created_at > max ? r.created_at : max), '')
@@ -86,6 +121,7 @@ export function useRealtimeTable<Row extends { id: string; created_at?: string; 
   }
 
   useEffect(() => {
+    mountedRef.current = true
     const supabase = createClient()
     const channelName = filter ? `rt-${table}-${filter}` : `rt-${table}`
 
@@ -98,6 +134,7 @@ export function useRealtimeTable<Row extends { id: string; created_at?: string; 
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const r = payload.new as Row
             upsert(r)
+            flash(r.id)
             if (r.created_at && (!highWaterRef.current || r.created_at > highWaterRef.current)) {
               highWaterRef.current = r.created_at
             }
@@ -106,24 +143,30 @@ export function useRealtimeTable<Row extends { id: string; created_at?: string; 
           }
         }
       )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          if (wasSubscribedRef.current) {
-            // Reconnect — backfill missed events (H-R3)
-            void reconcile()
-          } else {
-            // First subscribe — cover the RSC→SUBSCRIBED gap (H-R2)
-            wasSubscribedRef.current = true
-            void reconcile()
-          }
+      .subscribe((channelStatus) => {
+        if (channelStatus === 'SUBSCRIBED') {
+          setStatus('live')
+          // First subscribe covers the RSC→SUBSCRIBED gap (H-R2); a later one is
+          // a reconnect backfill (H-R3). Either way, reconcile.
+          wasSubscribedRef.current = true
+          void reconcile()
+        } else if (
+          channelStatus === 'CHANNEL_ERROR' ||
+          channelStatus === 'TIMED_OUT' ||
+          channelStatus === 'CLOSED'
+        ) {
+          setStatus(wasSubscribedRef.current ? 'reconnecting' : 'connecting')
         }
       })
 
-    return () => { void supabase.removeChannel(channel) }
+    return () => {
+      mountedRef.current = false
+      void supabase.removeChannel(channel)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [table, schema, event, filter, syncUrl])
 
-  return Array.from(rows.values())
+  return { rows: Array.from(rows.values()), status, flashIds }
 }
 
 function evict<Row extends { id: string; created_at?: string; [key: string]: unknown }>(

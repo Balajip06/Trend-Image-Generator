@@ -32,7 +32,6 @@ const STATIC_ROUTES: Array<{ name: string; path: string }> = [
   { name: 'admin-home', path: '/admin' },
   { name: 'admin-trends-list', path: '/admin/trends' },
   { name: 'admin-trend-new', path: '/admin/trends/new' },
-  { name: 'admin-suggestions', path: '/admin/suggestions' },
   { name: 'admin-audit', path: '/admin/audit' },
 ]
 

@@ -163,6 +163,82 @@ export async function rateEvalRun(
   revalidatePath(`/admin/trends/${trendId}/eval`)
 }
 
+/**
+ * One-click "Approve & Go Live" — the streamlined path. Marks every latest
+ * successful run (at the current prompt version) as passing, flips
+ * `eval_status='passed'`, and activates the trend in a single action. The DB
+ * eval-proof trigger is satisfied because we rate the runs `pass` first, and
+ * the eval-gate CHECK passes because we set `eval_status='passed'` together
+ * with `is_active=true`. Use this instead of the rate-each → mark → activate
+ * ceremony when the admin has eyeballed the outputs and they look right.
+ */
+export async function approveAndGoLive(trendId: string): Promise<void> {
+  const supabase = createServiceClient()
+
+  const { data: trend } = await supabase
+    .from('trends')
+    .select('id, version')
+    .eq('id', trendId)
+    .maybeSingle()
+  if (!trend) {
+    redirect(`/admin/trends/${trendId}/eval?error=trend_not_found`)
+  }
+
+  // Latest run per input at the current version that actually produced an image.
+  const { data: runRows } = await supabase
+    .from('trend_eval_runs')
+    .select('id, eval_input_id, output_url, created_at')
+    .eq('trend_id', trendId)
+    .eq('prompt_version', trend!.version)
+    .order('created_at', { ascending: false })
+  const latestByInput = new Map<string, { id: string; output_url: string | null }>()
+  for (const r of (runRows ?? []) as Array<{
+    id: string
+    eval_input_id: string
+    output_url: string | null
+  }>) {
+    if (!latestByInput.has(r.eval_input_id)) latestByInput.set(r.eval_input_id, r)
+  }
+  const successfulRunIds = [...latestByInput.values()]
+    .filter((r) => r.output_url)
+    .map((r) => r.id)
+
+  if (successfulRunIds.length === 0) {
+    redirect(
+      `/admin/trends/${trendId}/eval?error=${encodeURIComponent('Run a successful test before going live')}`
+    )
+  }
+
+  // Rate the reviewed runs pass → satisfies require_eval_proof_for_passed.
+  await supabase.from('trend_eval_runs').update({ admin_rating: 'pass' }).in('id', successfulRunIds)
+
+  // Flip eval + activation together (CHECK constraint + proof trigger both hold).
+  const { error } = await supabase
+    .from('trends')
+    .update({ eval_status: 'passed', is_active: true })
+    .eq('id', trendId)
+  if (error) {
+    redirect(`/admin/trends/${trendId}/eval?error=${encodeURIComponent(error.message)}`)
+  }
+
+  const authed = await createClient()
+  const {
+    data: { user },
+  } = await authed.auth.getUser()
+  await logAdminAction({
+    adminId: user?.id ?? null,
+    action: 'trend_approve_and_go_live',
+    targetTable: 'trends',
+    targetId: trendId,
+    after: { eval_status: 'passed', is_active: true },
+  })
+
+  revalidatePath(`/admin/trends/${trendId}/eval`)
+  revalidatePath('/admin/trends')
+  revalidatePath(`/admin/trends/${trendId}/edit`)
+  redirect(`/admin/trends/${trendId}/eval?live=1`)
+}
+
 export async function markTrendEval(
   trendId: string,
   status: 'passed' | 'failed' | 'untested'

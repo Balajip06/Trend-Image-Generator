@@ -13,8 +13,23 @@ import {
   type FAQ,
   type TrendInput,
 } from '@/lib/trends/input-schema'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
+
+/**
+ * Resolve the acting admin's id for the audit trail. Trend writes run on the
+ * service client (the `trends` table has RLS enabled with read-only public
+ * policies and no admin write policy, so the authed client cannot write), but
+ * the audit log still needs the real actor — read it from the authed session.
+ * /admin is gated to admins upstream in proxy.ts.
+ */
+async function adminActorId(): Promise<string | null> {
+  const authed = await createClient()
+  const {
+    data: { user },
+  } = await authed.auth.getUser()
+  return user?.id ?? null
+}
 
 const TrendUpsertSchema = z.object({
   slug: z
@@ -142,7 +157,7 @@ function readTrendForm(formData: FormData): z.infer<typeof TrendUpsertSchema> {
 }
 
 export async function createTrend(formData: FormData): Promise<void> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   let data
   try {
     data = readTrendForm(formData)
@@ -151,9 +166,7 @@ export async function createTrend(formData: FormData): Promise<void> {
     redirect(`/admin/trends/new?error=${encodeURIComponent(msg)}`)
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const actorId = await adminActorId()
   // input_schema and faq are validated via parseJsonField against Zod schemas
   // (TrendInputSchema, FAQSchema). They flow through TrendUpsertSchema as
   // `unknown`, so narrow back through the typed helpers before insert.
@@ -161,7 +174,7 @@ export async function createTrend(formData: FormData): Promise<void> {
     ...data,
     input_schema: trendInputToJson(data.input_schema as TrendInput),
     faq: faqToJson(data.faq as FAQ),
-    created_by: user?.id ?? null,
+    created_by: actorId,
     is_active: false, // drafts start inactive; activation requires eval_status='passed'
   }
 
@@ -175,7 +188,7 @@ export async function createTrend(formData: FormData): Promise<void> {
   }
   const id = (inserted as { id?: string } | null)?.id
   await logAdminAction({
-    adminId: user?.id ?? null,
+    adminId: actorId,
     action: 'create',
     targetTable: 'trends',
     targetId: id ?? null,
@@ -186,7 +199,7 @@ export async function createTrend(formData: FormData): Promise<void> {
 }
 
 export async function updateTrend(id: string, formData: FormData): Promise<void> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   let data
   try {
     data = readTrendForm(formData)
@@ -206,11 +219,9 @@ export async function updateTrend(id: string, formData: FormData): Promise<void>
   if (error) {
     redirect(`/admin/trends/${id}/edit?error=${encodeURIComponent(error.message)}`)
   }
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const actorId = await adminActorId()
   await logAdminAction({
-    adminId: user?.id ?? null,
+    adminId: actorId,
     action: 'update',
     targetTable: 'trends',
     targetId: id,
@@ -256,7 +267,7 @@ export async function cloneTrend(formData: FormData): Promise<void> {
     redirect('/admin/trends?error=invalid_id')
   }
   const sourceId = idParse.data
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data: src, error: readErr } = await supabase
     .from('trends')
@@ -288,9 +299,7 @@ export async function cloneTrend(formData: FormData): Promise<void> {
     candidate = `${base}-${suffix}`
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const actorId = await adminActorId()
 
   const insertRow = {
     slug: candidate,
@@ -319,7 +328,7 @@ export async function cloneTrend(formData: FormData): Promise<void> {
     eval_status: 'untested' as const,
     version: 1,
     cloned_from: source.id,
-    created_by: user?.id ?? null,
+    created_by: actorId,
   }
 
   const { data: inserted, error: insertErr } = await supabase
@@ -333,7 +342,7 @@ export async function cloneTrend(formData: FormData): Promise<void> {
   }
   const newId = (inserted as { id?: string } | null)?.id ?? null
   await logAdminAction({
-    adminId: user?.id ?? null,
+    adminId: actorId,
     action: 'clone',
     targetTable: 'trends',
     targetId: newId,
@@ -359,16 +368,14 @@ export async function toggleFeatured(formData: FormData): Promise<void> {
   const { id, featured } = parsed.data
   const nextValue = featured === '1'
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { error } = await supabase.from('trends').update({ is_featured: nextValue }).eq('id', id)
   if (error) {
     redirect(`/admin/trends?error=${encodeURIComponent(error.message)}`)
   }
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const actorId = await adminActorId()
   await logAdminAction({
-    adminId: user?.id ?? null,
+    adminId: actorId,
     action: nextValue ? 'feature' : 'unfeature',
     targetTable: 'trends',
     targetId: id,
@@ -397,7 +404,7 @@ export async function bumpOrder(formData: FormData): Promise<void> {
     redirect('/admin/trends?error=invalid_input')
   }
   const { id, direction } = parsed.data
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data: currentRow } = await supabase
     .from('trends')
@@ -449,11 +456,9 @@ export async function bumpOrder(formData: FormData): Promise<void> {
     redirect(`/admin/trends?error=${encodeURIComponent(e2.message)}`)
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const actorId = await adminActorId()
   await logAdminAction({
-    adminId: user?.id ?? null,
+    adminId: actorId,
     action: 'reorder',
     targetTable: 'trends',
     targetId: current.id,
@@ -465,17 +470,15 @@ export async function bumpOrder(formData: FormData): Promise<void> {
 }
 
 export async function toggleActive(id: string, nextValue: boolean): Promise<void> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const update = { is_active: nextValue }
   const { error } = await supabase.from('trends').update(update).eq('id', id)
   if (error) {
     redirect(`/admin/trends/${id}/edit?error=${encodeURIComponent(error.message)}`)
   }
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const actorId = await adminActorId()
   await logAdminAction({
-    adminId: user?.id ?? null,
+    adminId: actorId,
     action: nextValue ? 'activate' : 'deactivate',
     targetTable: 'trends',
     targetId: id,

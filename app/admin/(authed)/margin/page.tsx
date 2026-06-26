@@ -27,7 +27,8 @@ import type {
   TrendLeaderboardRow,
   UnitEconomicsResult,
 } from '@/lib/analytics/margin'
-import { createClient } from '@/lib/supabase/server'
+import { MOCKS_ALLOWED } from '@/lib/dev/mock-data'
+import { createServiceClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils/cn'
 
 export const dynamic = 'force-dynamic'
@@ -82,12 +83,12 @@ export default async function AdminMarginPage({ searchParams }: MarginPageProps)
   const range = parseRange(rangeRaw)
   const revenueRange = parseRevenueRange(revenueRangeRaw)
   const tab = parseTab(tabRaw)
-  // W2 parallel-run validation: lets the operator preview the demo-data layout
-  // even after real webhook_events exist. Informational only until real data
-  // lands; once it does, this is the toggle diligence buyers will use to
-  // compare live vs deterministic baseline. Flip back before sharing.
-  const forceMock = mockOverride === '1'
-  const supabase = await createClient()
+  // Demo-data toggle is a dev/preview affordance only — never in production,
+  // where empty tables must read as real zeros, not seed figures.
+  const forceMock = MOCKS_ALLOWED && mockOverride === '1'
+  // Service client: margin sums `generations` across ALL users; the authed client is
+  // bound by `generations_own_read` and would count only the admin's own rows.
+  const supabase = createServiceClient()
   const [margin, leaderboard, revenueCohorts, unitEconomics] = await Promise.all([
     getMarginDetail(supabase, 7, { forceMock }),
     getTrendLeaderboard(supabase, { days: range, limit: 20 }),
@@ -126,14 +127,14 @@ export default async function AdminMarginPage({ searchParams }: MarginPageProps)
             )}
           </div>
           <div className="flex items-center gap-3">
-            <DataSourceToggle forceMock={forceMock} range={range} />
+            {MOCKS_ALLOWED && <DataSourceToggle forceMock={forceMock} range={range} />}
             <p className="text-muted-foreground text-xs">UTC · refreshed on load</p>
           </div>
         </div>
         <p className="text-muted-foreground text-sm">
-          Stripe checkout revenue vs Gemini Nano Banana spend, plus a leaderboard of top-volume
-          trends. Switches to real numbers once both creds are live; until then this view runs on
-          deterministic demo data so the layout stays meaningful.
+          Gemini Nano Banana spend is live from <code className="font-mono text-xs">generations</code>.
+          Revenue stays at $0 until Stripe billing is wired (revenue is read from the Stripe webhook),
+          so net margin reflects spend only for now.
         </p>
       </header>
 
@@ -228,7 +229,7 @@ export default async function AdminMarginPage({ searchParams }: MarginPageProps)
                   }}
                   primaryLabel="Revenue"
                   primaryClassName="text-emerald-500"
-                  formatValue={(n) => `$${n.toFixed(0)}`}
+                  valueFormat="usd0"
                 />
               </CardContent>
             </Card>
@@ -668,7 +669,7 @@ function RevenueCohortsSection({ rows, range }: RevenueCohortsSectionProps) {
             }))}
             primaryLabel="Net revenue"
             primaryClassName="text-emerald-500"
-            formatValue={(n) => `$${n.toFixed(0)}`}
+            valueFormat="usd0"
           />
         </CardContent>
       </Card>

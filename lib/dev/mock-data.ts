@@ -17,6 +17,14 @@ import type { TrendInput } from '@/lib/trends/input-schema'
 
 export const MOCK_TRENDS_ENABLED = process.env.MOCK_TRENDS === 'true'
 
+/**
+ * Whether demo/mock fallbacks may stand in for empty real data. Allowed in any
+ * non-production environment so local + preview layouts read meaningfully, and
+ * NEVER in production — there, empty tables render honest empty states instead
+ * of seed numbers (otherwise every admin page shows the same demo figures).
+ */
+export const MOCKS_ALLOWED = process.env.NODE_ENV !== 'production'
+
 const ISO_NOW = '2026-05-28T12:00:00.000Z'
 // `activated_at` mix: first 3 mock trends are NEW (within 14 days of ISO_NOW),
 // rest are older. Drives the NEW-badge logic on the studio rail.

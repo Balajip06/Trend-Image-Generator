@@ -12,6 +12,7 @@
 
 import * as Sentry from '@sentry/nextjs'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { MOCKS_ALLOWED } from '@/lib/dev/mock-data'
 
 export interface MarginSummary {
   weekSpendUsd: number
@@ -154,7 +155,7 @@ export async function getMarginSummary(supabase: SupabaseClient): Promise<Margin
   const webhooks = (webhookData as unknown as WebhookEventRow[] | null) ?? []
   const anonAttempts = (anonCostRows as unknown as Array<{ cost_usd: number | null }> | null) ?? []
 
-  if (generations.length === 0 && webhooks.length === 0 && anonAttempts.length === 0) {
+  if (MOCKS_ALLOWED && generations.length === 0 && webhooks.length === 0 && anonAttempts.length === 0) {
     return { ...MOCK_SUMMARY, isMock: true }
   }
 
@@ -355,7 +356,7 @@ export async function getTrendLeaderboard(
     .gte('created_at', since)
   const generations = (genRows as unknown as GenerationLeaderboardRow[] | null) ?? []
 
-  if (generations.length === 0) {
+  if (MOCKS_ALLOWED && generations.length === 0) {
     return MOCK_LEADERBOARD.slice(0, limit)
   }
 
@@ -425,7 +426,7 @@ export async function getMarginDetail(
   // W2 parallel-run validation period. Returns the mock-shaped result without
   // touching the database — including the same prior-week multiplier we use
   // when real data is empty so the layout stays meaningful.
-  if (options?.forceMock) {
+  if (MOCKS_ALLOWED && options?.forceMock) {
     const priorMultiplier = 0.78
     return {
       ...MOCK_SUMMARY,
@@ -684,7 +685,7 @@ export async function getRevenueCohorts(
     const webhooks = (webhookRows as unknown as WebhookRevenueRow[] | null) ?? []
     const audits = (auditRows as unknown as AuditCreditGrantRow[] | null) ?? []
 
-    if (webhooks.length === 0) {
+    if (MOCKS_ALLOWED && webhooks.length === 0) {
       return mockRevenueCohorts(weeks)
     }
 
@@ -912,7 +913,7 @@ export async function getUnitEconomics(
     const revenue = (revenueRows as unknown as CohortRevenueRow[] | null) ?? []
     const generations = (generationRows as unknown as CohortGenerationRow[] | null) ?? []
 
-    if (spends.length === 0 && profiles.length === 0) {
+    if (MOCKS_ALLOWED && spends.length === 0 && profiles.length === 0) {
       return mockUnitEconomics(cohortWeeks)
     }
 

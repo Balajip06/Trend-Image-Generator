@@ -72,3 +72,8 @@ graphify-out/
 
 .vercel
 .env*
+
+# E2E status report — generated artifacts (regenerate: node scripts/build-status-report.mjs)
+e2e/status/shots/
+e2e/status/results/
+e2e/status/report.html

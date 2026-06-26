@@ -22,11 +22,13 @@ export function AdminTile({ href, icon, title, description, accent, badge }: Adm
   return (
     <Link
       href={href}
-      className="group border-border/60 bg-card hover:shadow-soft relative overflow-hidden rounded-2xl border p-5 transition-all hover:-translate-y-0.5"
+      className="group border-border/60 bg-card relative overflow-hidden rounded-2xl border p-5 transition-[transform,box-shadow] duration-[var(--duration-base)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-pop)]"
     >
-      <div className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${accent}`} />
+      <div
+        className={`absolute inset-x-0 top-0 h-0.5 origin-top bg-gradient-to-r transition-transform duration-[var(--duration-base)] group-hover:scale-y-[3] ${accent}`}
+      />
       <div className="flex items-start justify-between gap-3">
-        <div className="bg-muted text-foreground grid size-10 place-items-center rounded-xl">
+        <div className="bg-muted text-foreground grid size-10 place-items-center rounded-xl transition-transform duration-[var(--duration-base)] group-hover:scale-110">
           {icon}
         </div>
         {badge && (

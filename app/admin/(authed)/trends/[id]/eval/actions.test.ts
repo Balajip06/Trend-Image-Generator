@@ -168,8 +168,15 @@ function makeAddInputForm(overrides: Record<string, string> = {}): FormData {
   return fd
 }
 
+// collectImageInputs runs an SSRF guard (assertStorageUrl) that only accepts
+// URLs on the project's Supabase host in the `uploads` bucket. Eval test photos
+// are real uploads, so the fixtures must use a valid uploads URL.
+const SUPABASE_HOST = 'https://proj.supabase.co'
+const UPLOADS_URL = `${SUPABASE_HOST}/storage/v1/object/public/uploads/a.jpg`
+
 beforeEach(() => {
   vi.clearAllMocks()
+  process.env.NEXT_PUBLIC_SUPABASE_URL = SUPABASE_HOST
   mockSupabase = makeMockSupabase()
   mockGenerateImageImpl = async () => ({
     ok: true,
@@ -254,7 +261,7 @@ describe('runEval', () => {
   it('happy path: inserts run, calls Gemini, uploads PNG, redirects ?ran=1', async () => {
     mockSupabase = makeMockSupabase({
       inputsListResult: {
-        data: [{ id: 'input-1', image_url: 'https://e.com/a.jpg' }],
+        data: [{ id: 'input-1', image_url: UPLOADS_URL }],
         error: null,
       },
     })
@@ -264,7 +271,7 @@ describe('runEval', () => {
       expect.objectContaining({
         model: 'nano-banana',
         prompt: 'do thing',
-        imageUrls: ['https://e.com/a.jpg'],
+        imageUrls: [UPLOADS_URL],
       })
     )
     expect(mockSupabase._storageBucket.upload).toHaveBeenCalled()
@@ -277,7 +284,7 @@ describe('runEval', () => {
   it('Gemini error: writes admin_rating="error:<reason>" to the run', async () => {
     mockSupabase = makeMockSupabase({
       inputsListResult: {
-        data: [{ id: 'input-1', image_url: 'https://e.com/a.jpg' }],
+        data: [{ id: 'input-1', image_url: UPLOADS_URL }],
         error: null,
       },
     })
@@ -298,7 +305,7 @@ describe('runEval', () => {
   it('storage upload error short-circuits before the post-upload update', async () => {
     mockSupabase = makeMockSupabase({
       inputsListResult: {
-        data: [{ id: 'input-1', image_url: 'https://e.com/a.jpg' }],
+        data: [{ id: 'input-1', image_url: UPLOADS_URL }],
         error: null,
       },
       uploadResult: { error: { message: 'storage down' } },

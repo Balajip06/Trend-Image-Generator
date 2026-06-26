@@ -16,6 +16,7 @@
 
 import * as Sentry from '@sentry/nextjs'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { MOCKS_ALLOWED } from '@/lib/dev/mock-data'
 
 export interface ActiveUserCounts {
   dau: number
@@ -307,8 +308,8 @@ export async function getActiveUserCounts(supabase: SupabaseClient): Promise<Act
   const since60 = new Date(now - 60 * DAY_MS).toISOString()
   const rows = await fetchGenerationsSince(supabase, since60)
 
-  if (rows.length === 0) {
-    // MOCK PATH
+  if (MOCKS_ALLOWED && rows.length === 0) {
+    // MOCK PATH (dev/preview only — prod shows real zeros)
     return { ...MOCK_ACTIVE, isMock: true }
   }
 
@@ -339,8 +340,8 @@ export async function getDailyActiveSeries(
   const since = new Date(Date.now() - days * DAY_MS).toISOString()
   const rows = await fetchGenerationsSince(supabase, since)
 
-  if (rows.length === 0) {
-    // MOCK PATH
+  if (MOCKS_ALLOWED && rows.length === 0) {
+    // MOCK PATH (dev/preview only)
     return mockDailySeries(days)
   }
 
@@ -378,8 +379,8 @@ export async function getSignupSources(
   const since = new Date(Date.now() - days * DAY_MS).toISOString()
   const profiles = await fetchProfilesSince(supabase, since)
 
-  if (profiles.length === 0) {
-    // MOCK PATH
+  if (MOCKS_ALLOWED && profiles.length === 0) {
+    // MOCK PATH (dev/preview only)
     return MOCK_SOURCES
   }
 
@@ -409,8 +410,8 @@ export async function getFunnel(supabase: SupabaseClient, days: number): Promise
     fetchStripeWebhooksSince(supabase, since),
   ])
 
-  if (profiles.length === 0 && gens.length === 0 && webhooks.length === 0) {
-    // MOCK PATH
+  if (MOCKS_ALLOWED && profiles.length === 0 && gens.length === 0 && webhooks.length === 0) {
+    // MOCK PATH (dev/preview only)
     return mockFunnel()
   }
 
@@ -463,8 +464,8 @@ export async function getCohortRetention(
     fetchGenerationsSince(supabase, since),
   ])
 
-  if (profiles.length === 0 && gens.length === 0) {
-    // MOCK PATH
+  if (MOCKS_ALLOWED && profiles.length === 0 && gens.length === 0) {
+    // MOCK PATH (dev/preview only)
     return mockCohortRetention()
   }
 

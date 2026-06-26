@@ -8,8 +8,8 @@ import {
   type MockReferralEvent,
   type MockReferrer,
 } from '@/lib/dev/mock-referrals'
-import { MOCK_TRENDS_ENABLED } from '@/lib/dev/mock-data'
-import { createClient } from '@/lib/supabase/server'
+import { MOCK_TRENDS_ENABLED, MOCKS_ALLOWED } from '@/lib/dev/mock-data'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,7 +44,9 @@ async function loadData(): Promise<PageData> {
     }
   }
 
-  const supabase = await createClient()
+  // Service client: admins must see ALL referrals; the authed client is bound by
+  // `referrals_self_read` and would return only the admin's own referrals.
+  const supabase = createServiceClient()
   const { data: rawRows } = await supabase
     .from('referrals')
     .select(
@@ -55,11 +57,20 @@ async function loadData(): Promise<PageData> {
   const rows = (rawRows as unknown as ReferralJoinRow[] | null) ?? []
 
   if (rows.length === 0) {
+    if (MOCKS_ALLOWED) {
+      return {
+        totals: mockReferralTotals(),
+        topReferrers: [...MOCK_REFERRERS].sort((a, b) => b.referrals_total - a.referrals_total),
+        recentEvents: MOCK_REFERRAL_EVENTS,
+        isMock: true,
+      }
+    }
+    // Production: honest empty state, not seed numbers.
     return {
-      totals: mockReferralTotals(),
-      topReferrers: [...MOCK_REFERRERS].sort((a, b) => b.referrals_total - a.referrals_total),
-      recentEvents: MOCK_REFERRAL_EVENTS,
-      isMock: true,
+      totals: { total: 0, pending: 0, rewarded: 0, bonusCredited: 0 },
+      topReferrers: [],
+      recentEvents: [],
+      isMock: false,
     }
   }
 
@@ -204,6 +215,16 @@ export default async function AdminReferralsPage() {
               </tr>
             </thead>
             <tbody>
+              {topReferrers.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="text-muted-foreground px-4 py-10 text-center text-sm"
+                  >
+                    No referrals yet.
+                  </td>
+                </tr>
+              )}
               {topReferrers.map((r, idx) => (
                 <tr
                   key={r.id}
@@ -239,6 +260,11 @@ export default async function AdminReferralsPage() {
         </CardHeader>
         <CardContent className="px-0 py-0">
           <ul className="divide-border/60 divide-y">
+            {recentEvents.length === 0 && (
+              <li className="text-muted-foreground px-5 py-10 text-center text-sm">
+                No referral activity yet.
+              </li>
+            )}
             {recentEvents.map((e) => (
               <li key={e.id} className="flex items-center justify-between gap-4 px-5 py-3 text-sm">
                 <div className="min-w-0">

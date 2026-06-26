@@ -6,7 +6,6 @@ import {
   Eye,
   Flame,
   Gift,
-  Inbox,
   LifeBuoy,
   MousePointerClick,
   ShieldX,
@@ -27,47 +26,30 @@ import {
   getQuotaBlockedSummary,
 } from '@/lib/analytics/event-store'
 import { getMarginDetail } from '@/lib/analytics/margin'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
 interface DashboardCounts {
   trendsTotal: number
   trendsLive: number
-  pendingSuggestions: number
   trendSlugs: string[]
 }
 
 async function loadCounts(): Promise<DashboardCounts> {
-  // Service-role: trend_suggestions has RLS enabled with no SELECT policy
-  // (deny-all to the authed client), so the pending-suggestions count read
-  // by an authed client is always 0 even when the inbox has rows. Proxy.ts
-  // already gates /admin to admins; service-role is the correct read here.
+  // Service-role read: admins must see all trends (drafts included) for the counts,
+  // and proxy.ts already gates /admin to admins.
   const supabase = createServiceClient()
-  const [trendsRes, liveRes, suggRes] = await Promise.all([
+  const [trendsRes, liveRes] = await Promise.all([
     supabase.from('trends').select('id, slug'),
     supabase.from('trends').select('id', { count: 'exact', head: true }).eq('is_active', true),
-    supabase
-      .from('trend_suggestions')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending'),
   ])
   const trendRows = (trendsRes.data as { id: string; slug: string }[] | null) ?? []
   return {
     trendsTotal: trendRows.length,
     trendsLive: liveRes.count ?? 0,
-    pendingSuggestions: suggRes.count ?? 0,
     trendSlugs: trendRows.map((r) => r.slug),
   }
-}
-
-function formatNumber(n: number): string {
-  return new Intl.NumberFormat('en-US').format(n)
-}
-
-function ctrPct(impressions: number, clicks: number): string {
-  if (impressions === 0) return '—'
-  return `${((clicks / impressions) * 100).toFixed(1)}%`
 }
 
 function formatUsd(n: number): string {
@@ -81,7 +63,9 @@ export default async function AdminHome() {
     getPeriodTotals(counts.trendSlugs, 7),
     getQuotaBlockedSummary(24),
   ])
-  const supabase = await createClient()
+  // Service client: margin sums `generations` across all users (RLS `generations_own_read`
+  // would otherwise scope it to the admin's own rows).
+  const supabase = createServiceClient()
   const margin = await getMarginDetail(supabase, 7)
 
   const ctrCurrent =
@@ -116,7 +100,7 @@ export default async function AdminHome() {
         <KpiCard
           icon={<Eye className="size-4" />}
           label="Impressions"
-          value={formatNumber(period.current.impressions)}
+          value={period.current.impressions}
           delta={
             <Delta current={period.current.impressions} previous={period.previous.impressions} />
           }
@@ -127,7 +111,7 @@ export default async function AdminHome() {
         <KpiCard
           icon={<MousePointerClick className="size-4" />}
           label="Generate clicks"
-          value={formatNumber(period.current.clicks)}
+          value={period.current.clicks}
           delta={<Delta current={period.current.clicks} previous={period.previous.clicks} />}
           tone="text-[var(--brand-cyan)]"
           series={dailyEngagement.map((d) => ({ label: d.label, value: d.clicks }))}
@@ -136,14 +120,9 @@ export default async function AdminHome() {
         <KpiCard
           icon={<TrendingUp className="size-4" />}
           label="CTR"
-          value={ctrPct(period.current.impressions, period.current.clicks)}
-          delta={
-            <Delta
-              current={ctrCurrent}
-              previous={ctrPrevious}
-              format={(n) => `${Math.abs(n).toFixed(1)}%`}
-            />
-          }
+          value={ctrCurrent}
+          valueFormat="percent"
+          delta={<Delta current={ctrCurrent} previous={ctrPrevious} />}
           tone="text-pink-500"
           series={dailyEngagement.map((d) => ({
             label: d.label,
@@ -154,14 +133,9 @@ export default async function AdminHome() {
         <KpiCard
           icon={<Coins className="size-4" />}
           label="Net margin"
-          value={formatUsd(netUsd)}
-          delta={
-            <Delta
-              current={netUsd}
-              previous={priorNet}
-              format={(n) => `${Math.abs(n).toFixed(1)}%`}
-            />
-          }
+          value={netUsd}
+          valueFormat="usd"
+          delta={<Delta current={netUsd} previous={priorNet} />}
           tone="text-emerald-500"
           series={margin.daily.map((d) => ({
             label: d.label,
@@ -176,7 +150,7 @@ export default async function AdminHome() {
           <KpiCard
             icon={<ShieldX className="size-4" />}
             label="Quota blocks · 24h"
-            value={formatNumber(quotaBlocked.totalBlocks)}
+            value={quotaBlocked.totalBlocks}
             delta={
               <span className="text-muted-foreground font-mono text-xs tabular-nums">
                 {quotaBlocked.distinctSlugs} trends · ~{quotaBlocked.distinctUsersEstimated} users
@@ -291,23 +265,17 @@ export default async function AdminHome() {
             }}
             primaryLabel="Revenue"
             primaryClassName="text-emerald-500"
-            formatValue={(n) => `$${n.toFixed(0)}`}
+            valueFormat="usd0"
           />
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <StatCard
           icon={<Sparkles className="size-4" />}
           label="Trends"
           value={counts.trendsTotal}
           hint={`${counts.trendsLive} live`}
-        />
-        <StatCard
-          icon={<Inbox className="size-4" />}
-          label="Pending suggestions"
-          value={counts.pendingSuggestions}
-          hint={counts.pendingSuggestions > 0 ? 'Inbox needs review' : 'Inbox clear'}
         />
         <StatCard
           icon={<Flame className="size-4" />}
@@ -356,16 +324,6 @@ export default async function AdminHome() {
             title="Trends"
             description="Catalogue, eval, lifecycle."
             accent="from-[var(--brand-grad-1)] to-[var(--brand-grad-3)]"
-          />
-          <AdminTile
-            href="/admin/suggestions"
-            icon={<Inbox className="size-5" />}
-            title="Suggestions"
-            description="Auto + community inbox."
-            accent="from-[var(--brand-violet)] to-[var(--brand-cyan)]"
-            badge={
-              counts.pendingSuggestions > 0 ? `${counts.pendingSuggestions} pending` : undefined
-            }
           />
           <AdminTile
             href="/admin/referrals"
