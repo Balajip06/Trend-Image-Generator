@@ -11,20 +11,32 @@
  */
 
 const LINK_LOCAL_PREFIXES = [
-  '169.254.',   // AWS/GCP/Azure IMDS
-  '127.',        // loopback
-  '10.',         // RFC1918
-  '192.168.',    // RFC1918
-  '172.16.', '172.17.', '172.18.', '172.19.', '172.20.',
-  '172.21.', '172.22.', '172.23.', '172.24.', '172.25.',
-  '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.',
-  '::1', 'fc', 'fd',  // IPv6 loopback + ULA
+  '169.254.', // AWS/GCP/Azure IMDS
+  '127.', // loopback
+  '10.', // RFC1918
+  '192.168.', // RFC1918
+  '172.16.',
+  '172.17.',
+  '172.18.',
+  '172.19.',
+  '172.20.',
+  '172.21.',
+  '172.22.',
+  '172.23.',
+  '172.24.',
+  '172.25.',
+  '172.26.',
+  '172.27.',
+  '172.28.',
+  '172.29.',
+  '172.30.',
+  '172.31.',
+  '::1',
+  'fc',
+  'fd', // IPv6 loopback + ULA
 ]
 
-const BLOCKED_HOSTNAMES = [
-  'metadata.google.internal',
-  'localhost',
-]
+const BLOCKED_HOSTNAMES = ['metadata.google.internal', 'localhost']
 
 export function assertStorageUrl(url: string): void {
   let parsed: URL

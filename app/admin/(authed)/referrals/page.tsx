@@ -217,10 +217,7 @@ export default async function AdminReferralsPage() {
             <tbody>
               {topReferrers.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={5}
-                    className="text-muted-foreground px-4 py-10 text-center text-sm"
-                  >
+                  <td colSpan={5} className="text-muted-foreground px-4 py-10 text-center text-sm">
                     No referrals yet.
                   </td>
                 </tr>

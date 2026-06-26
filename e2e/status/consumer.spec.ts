@@ -69,9 +69,7 @@ test('trend card click', async ({ page }, testInfo) => {
     // Authed (mock) users get redirected to /me/studio?trend=... — accept either
     // landing on /trend/ OR the studio with a trend query param. Wait for the URL
     // to settle rather than reading a single (possibly pre-navigation) snapshot.
-    await page
-      .waitForURL(/(\/trend\/|\/me\/studio\?trend=)/, { timeout: 10_000 })
-      .catch(() => {})
+    await page.waitForURL(/(\/trend\/|\/me\/studio\?trend=)/, { timeout: 10_000 }).catch(() => {})
     const url = page.url()
     return /\/trend\//.test(url) || /\/me\/studio\?trend=/.test(url)
   })
@@ -94,9 +92,7 @@ test('trend detail', async ({ page }, testInfo) => {
   const route = '/trend/ghibli-portrait'
   await safeGoto(page, checks, route)
 
-  await check(checks, 'heading visible', async () =>
-    page.locator('h1, h2').first().isVisible()
-  )
+  await check(checks, 'heading visible', async () => page.locator('h1, h2').first().isVisible())
 
   // The real upload form renders a hidden <input type="file"> (sr-only) from
   // SchemaForm. setInputFiles works on hidden inputs. Single-image fields use
@@ -114,9 +110,7 @@ test('trend detail', async ({ page }, testInfo) => {
         .first()
         .isVisible()
         .catch(() => false)
-      const inputValue = await fileInput.evaluate(
-        (el) => (el as HTMLInputElement).value.length > 0
-      )
+      const inputValue = await fileInput.evaluate((el) => (el as HTMLInputElement).value.length > 0)
       return previewVisible || inputValue
     })
   }
@@ -139,7 +133,11 @@ test('studio', async ({ page }, testInfo) => {
   const route = '/me/studio'
   await safeGoto(page, checks, route)
   await check(checks, 'heading or trend grid visible', async () => {
-    const heading = await page.locator('h1, h2').first().isVisible().catch(() => false)
+    const heading = await page
+      .locator('h1, h2')
+      .first()
+      .isVisible()
+      .catch(() => false)
     const grid = await page
       .locator('a[href^="/trend/"]')
       .first()
@@ -181,17 +179,25 @@ test('settings', async ({ page }, testInfo) => {
   const route = '/me/settings'
   await safeGoto(page, checks, route)
 
-  await check(checks, '"Credits & plans" present', async () =>
-    (await page.getByText('Credits & plans').count()) > 0
+  await check(
+    checks,
+    '"Credits & plans" present',
+    async () => (await page.getByText('Credits & plans').count()) > 0
   )
-  await check(checks, '"Coming soon" present', async () =>
-    (await page.getByText('Coming soon').count()) > 0
+  await check(
+    checks,
+    '"Coming soon" present',
+    async () => (await page.getByText('Coming soon').count()) > 0
   )
-  await check(checks, '"Your quota" section present', async () =>
-    (await page.getByText('Your quota').count()) > 0
+  await check(
+    checks,
+    '"Your quota" section present',
+    async () => (await page.getByText('Your quota').count()) > 0
   )
-  await check(checks, 'referral / "Invite friends" block present', async () =>
-    (await page.getByText('Invite friends').count()) > 0
+  await check(
+    checks,
+    'referral / "Invite friends" block present',
+    async () => (await page.getByText('Invite friends').count()) > 0
   )
 
   const shot = await screenshot(page, 'consumer-settings')
@@ -229,9 +235,7 @@ for (const route of ['/pricing', '/terms', '/privacy']) {
     const consoleErrors = collectConsoleErrors(page)
     const checks: import('./harness').Check[] = []
     await safeGoto(page, checks, route)
-    await check(checks, 'heading visible', async () =>
-      page.locator('h1, h2').first().isVisible()
-    )
+    await check(checks, 'heading visible', async () => page.locator('h1, h2').first().isVisible())
     const shot = await screenshot(page, `consumer-${feature}`)
     record(testInfo, {
       group: 'Consumer',
@@ -256,9 +260,7 @@ for (const route of [
     const consoleErrors = collectConsoleErrors(page)
     const checks: import('./harness').Check[] = []
     await safeGoto(page, checks, route)
-    await check(checks, 'heading visible', async () =>
-      page.locator('h1, h2').first().isVisible()
-    )
+    await check(checks, 'heading visible', async () => page.locator('h1, h2').first().isVisible())
     const shot = await screenshot(page, `consumer-${feature}`)
     record(testInfo, {
       group: 'Consumer',

@@ -24,7 +24,7 @@ if (bucketErr && !bucketErr.message.includes('already exists')) {
   process.exit(1)
 }
 
-const files = readdirSync(THUMBS_DIR).filter(f => f.endsWith('.webp'))
+const files = readdirSync(THUMBS_DIR).filter((f) => f.endsWith('.webp'))
 const updates = []
 
 for (const file of files) {
@@ -41,7 +41,9 @@ for (const file of files) {
     continue
   }
 
-  const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(file)
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(BUCKET).getPublicUrl(file)
   updates.push({ slug, url: publicUrl })
   console.log(`✓ ${slug} → ${publicUrl}`)
 }

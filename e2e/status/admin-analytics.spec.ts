@@ -23,11 +23,7 @@ const GROUP = 'Admin analytics'
  * Wrapped so a navigation failure becomes a failed check instead of a throw.
  * Returns true when the page rendered with a <h1> heading visible.
  */
-async function gotoAndRender(
-  page: Page,
-  checks: Check[],
-  route: string
-): Promise<boolean> {
+async function gotoAndRender(page: Page, checks: Check[], route: string): Promise<boolean> {
   let status = 0
   await check(checks, `GET ${route} responds <400`, async () => {
     const res = await page.goto(route, { waitUntil: 'networkidle' })
@@ -85,8 +81,7 @@ test('Engagement dashboard renders with KPI cards', async ({ page }, testInfo) =
     checks,
     screenshot: shot,
     consoleErrors,
-    notes:
-      consoleErrors.length > 0 ? `console errors: ${consoleErrors.length}` : undefined,
+    notes: consoleErrors.length > 0 ? `console errors: ${consoleErrors.length}` : undefined,
   })
 })
 
@@ -111,8 +106,7 @@ test('Users analytics renders and all tabs switch', async ({ page }, testInfo) =
     checks,
     screenshot: shot,
     consoleErrors,
-    notes:
-      consoleErrors.length > 0 ? `console errors: ${consoleErrors.length}` : undefined,
+    notes: consoleErrors.length > 0 ? `console errors: ${consoleErrors.length}` : undefined,
   })
 })
 
@@ -124,7 +118,12 @@ test('Margin renders, tabs switch, and shows NO demo $89.95', async ({ page }, t
 
   await gotoAndRender(page, checks, route)
 
-  for (const label of ['Margin overview', 'Trend leaderboard', 'Revenue cohorts', 'Unit economics']) {
+  for (const label of [
+    'Margin overview',
+    'Trend leaderboard',
+    'Revenue cohorts',
+    'Unit economics',
+  ]) {
     await clickTab(page, checks, label)
   }
 
@@ -224,10 +223,7 @@ for (const { feature, route, note } of RENDER_ONLY) {
       checks,
       screenshot: shot,
       consoleErrors,
-      notes:
-        consoleErrors.length > 0
-          ? `${note} · console errors: ${consoleErrors.length}`
-          : note,
+      notes: consoleErrors.length > 0 ? `${note} · console errors: ${consoleErrors.length}` : note,
     })
   })
 }

@@ -36,7 +36,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   let tx: { codeVerifier: string; state: string; nonce: string; next: string }
   try {
-    tx = JSON.parse(txCookie) as { codeVerifier: string; state: string; nonce: string; next: string }
+    tx = JSON.parse(txCookie) as {
+      codeVerifier: string
+      state: string
+      nonce: string
+      next: string
+    }
   } catch {
     return NextResponse.redirect(new URL('/login?error=kimp_state_invalid', request.url))
   }

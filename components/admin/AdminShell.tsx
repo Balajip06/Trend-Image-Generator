@@ -252,7 +252,7 @@ function Sidebar({
                 />
                 <span>{group.title}</span>
                 {isCollapsed && groupCount > 0 && (
-                  <span className="bg-amber-400/20 ml-1 inline-flex min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-amber-700 tabular-nums dark:text-amber-300">
+                  <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-amber-400/20 px-1 text-[9px] font-bold text-amber-700 tabular-nums dark:text-amber-300">
                     {groupCount > 99 ? '99+' : groupCount}
                   </span>
                 )}

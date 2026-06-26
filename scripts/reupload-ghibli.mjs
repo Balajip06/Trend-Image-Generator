@@ -19,5 +19,8 @@ const { error } = await supabase.storage
   .from('thumbnails')
   .upload('ghibli-portrait.webp', data, { contentType: 'image/webp', upsert: true })
 
-if (error) { console.error('err:', error.message); process.exit(1) }
+if (error) {
+  console.error('err:', error.message)
+  process.exit(1)
+}
 console.log('uploaded ok')

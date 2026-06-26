@@ -47,7 +47,9 @@ interface UseRealtimeTableOptions<Row extends { id: string; created_at?: string 
   terminalMaxAgeMs?: number
 }
 
-export function useRealtimeTable<Row extends { id: string; created_at?: string; [key: string]: unknown }>({
+export function useRealtimeTable<
+  Row extends { id: string; created_at?: string; [key: string]: unknown },
+>({
   table,
   schema = 'public',
   event = '*',
@@ -58,9 +60,7 @@ export function useRealtimeTable<Row extends { id: string; created_at?: string; 
   inFlightValues = ['pending', 'processing', 'failed_retryable'],
   terminalMaxAgeMs = 5 * 60 * 1000,
 }: UseRealtimeTableOptions<Row>): RealtimeResult<Row> {
-  const [rows, setRows] = useState<Map<string, Row>>(
-    () => new Map(initial.map((r) => [r.id, r]))
-  )
+  const [rows, setRows] = useState<Map<string, Row>>(() => new Map(initial.map((r) => [r.id, r])))
   const [status, setStatus] = useState<RealtimeStatus>('connecting')
   const [flashIds, setFlashIds] = useState<ReadonlySet<string>>(() => new Set())
   const mountedRef = useRef(true)
@@ -97,7 +97,11 @@ export function useRealtimeTable<Row extends { id: string; created_at?: string; 
     })
 
   const remove = (id: string) =>
-    setRows((prev) => { const next = new Map(prev); next.delete(id); return next })
+    setRows((prev) => {
+      const next = new Map(prev)
+      next.delete(id)
+      return next
+    })
 
   const reconcile = async () => {
     if (!syncUrl) return
@@ -106,7 +110,7 @@ export function useRealtimeTable<Row extends { id: string; created_at?: string; 
       const url = cursor ? `${syncUrl}?since=${encodeURIComponent(cursor)}` : syncUrl
       const res = await fetch(url)
       if (!res.ok) return
-      const { rows: fresh } = await res.json() as { rows: Row[] }
+      const { rows: fresh } = (await res.json()) as { rows: Row[] }
       setRows((prev) => {
         const next = new Map(prev)
         for (const r of fresh) {
@@ -117,7 +121,9 @@ export function useRealtimeTable<Row extends { id: string; created_at?: string; 
         }
         return evict(next, statusKey, inFlightValues, terminalMaxAgeMs)
       })
-    } catch { /* silent — best-effort reconcile */ }
+    } catch {
+      /* silent — best-effort reconcile */
+    }
   }
 
   useEffect(() => {
@@ -163,7 +169,7 @@ export function useRealtimeTable<Row extends { id: string; created_at?: string; 
       mountedRef.current = false
       void supabase.removeChannel(channel)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [table, schema, event, filter, syncUrl])
 
   return { rows: Array.from(rows.values()), status, flashIds }
@@ -180,10 +186,11 @@ function evict<Row extends { id: string; created_at?: string; [key: string]: unk
     const status = row[statusKey] as string | undefined
     const isInFlight = !status || inFlightValues.includes(status)
     if (isInFlight) {
-      next.set(id, row)  // never evict in-flight
+      next.set(id, row) // never evict in-flight
     } else {
       const age = row.created_at ? Date.now() - new Date(row.created_at).getTime() : 0
-      if (age <= terminalMaxAgeMs + 60_000) {  // 1-min buffer over the cutoff
+      if (age <= terminalMaxAgeMs + 60_000) {
+        // 1-min buffer over the cutoff
         next.set(id, row)
       }
     }

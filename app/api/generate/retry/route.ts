@@ -69,10 +69,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (gen.attempts >= MAX_ATTEMPTS) {
-    return NextResponse.json(
-      { error: `Max attempts (${MAX_ATTEMPTS}) reached` },
-      { status: 409 }
-    )
+    return NextResponse.json({ error: `Max attempts (${MAX_ATTEMPTS}) reached` }, { status: 409 })
   }
 
   // Flip the row back to pending so the Edge Function picks it up

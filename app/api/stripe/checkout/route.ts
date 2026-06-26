@@ -36,7 +36,10 @@ export async function POST(request: NextRequest) {
   // leaky internal message. The UI renders a "billing coming soon" state.
   if (!isBillingConfigured()) {
     return NextResponse.json(
-      { error: 'Billing is not available yet. Please check back soon.', code: 'billing_unconfigured' },
+      {
+        error: 'Billing is not available yet. Please check back soon.',
+        code: 'billing_unconfigured',
+      },
       { status: 503 }
     )
   }
@@ -80,10 +83,7 @@ export async function POST(request: NextRequest) {
         customerId = customer.id
 
         const service = createServiceClient()
-        await service
-          .from('profiles')
-          .update({ stripe_customer_id: customerId })
-          .eq('id', user.id)
+        await service.from('profiles').update({ stripe_customer_id: customerId }).eq('id', user.id)
       }
 
       const session = await stripe.checkout.sessions.create({

@@ -37,7 +37,9 @@ async function checkKimpStatus(subjects: string[]): Promise<KimpStatusResult[]> 
   const { createHmac } = await import('node:crypto')
   const timestamp = Date.now().toString()
   const body = JSON.stringify({ subjects })
-  const signature = createHmac('sha256', apiKey).update(timestamp + body).digest('hex')
+  const signature = createHmac('sha256', apiKey)
+    .update(timestamp + body)
+    .digest('hex')
 
   const res = await fetch(`${apiUrl}/clients/status`, {
     method: 'POST',
@@ -51,7 +53,7 @@ async function checkKimpStatus(subjects: string[]): Promise<KimpStatusResult[]> 
   })
   if (!res.ok) throw new Error(`KIMP360 status API ${res.status}`)
 
-  const json = await res.json() as { results: KimpStatusResult[] }
+  const json = (await res.json()) as { results: KimpStatusResult[] }
   const requestedSet = new Set(subjects)
   return (json.results ?? []).filter((r) => requestedSet.has(r.sub))
 }
@@ -107,7 +109,9 @@ export const kimpReverifyTask = schedules.task({
       kimp_client_id: string | null
     }>
 
-    let checked = 0, active = 0, revoked = 0
+    let checked = 0,
+      active = 0,
+      revoked = 0
 
     for (let i = 0; i < linkedProfiles.length; i += CHUNK_SIZE) {
       const chunk = linkedProfiles.slice(i, i + CHUNK_SIZE)
@@ -213,7 +217,10 @@ export const kimpReverifyTask = schedules.task({
 
     // Summary
     await writeAuditLog(service, 'kimp_reverify_complete', null, {
-      checked, active, revoked, triggered_by: 'trigger.dev',
+      checked,
+      active,
+      revoked,
+      triggered_by: 'trigger.dev',
     })
 
     console.log(`Done: checked=${checked} active=${active} revoked=${revoked}`)

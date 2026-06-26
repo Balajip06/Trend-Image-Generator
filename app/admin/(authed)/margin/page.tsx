@@ -132,9 +132,10 @@ export default async function AdminMarginPage({ searchParams }: MarginPageProps)
           </div>
         </div>
         <p className="text-muted-foreground text-sm">
-          Gemini Nano Banana spend is live from <code className="font-mono text-xs">generations</code>.
-          Revenue stays at $0 until Stripe billing is wired (revenue is read from the Stripe webhook),
-          so net margin reflects spend only for now.
+          Gemini Nano Banana spend is live from{' '}
+          <code className="font-mono text-xs">generations</code>. Revenue stays at $0 until Stripe
+          billing is wired (revenue is read from the Stripe webhook), so net margin reflects spend
+          only for now.
         </p>
       </header>
 

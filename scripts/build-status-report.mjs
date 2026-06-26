@@ -20,8 +20,7 @@ const EXISTING = [
   {
     name: 'happy-path.spec.ts',
     status: 'fail',
-    note:
-      'STALE SPEC (pre-existing, unrelated to this work): asserts a "Send magic link" button on /login, but the login page moved to email/password + Google + KIMP360. Login itself renders fine — the assertion needs updating.',
+    note: 'STALE SPEC (pre-existing, unrelated to this work): asserts a "Send magic link" button on /login, but the login page moved to email/password + Google + KIMP360. Login itself renders fine — the assertion needs updating.',
   },
 ]
 
@@ -58,7 +57,10 @@ const PILL = {
 }
 
 function esc(s) {
-  return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+  return String(s ?? '').replace(
+    /[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]
+  )
 }
 
 function card(r) {
@@ -102,7 +104,10 @@ for (const g of Object.keys(byGroup)) byGroup[g].sort((a, b) => a.feature.locale
 const tally = { pass: 0, fail: 0, skip: 0, caveat: 0 }
 for (const r of results) tally[effectiveStatus(r)]++
 
-const groups = [...GROUP_ORDER.filter((g) => byGroup[g]), ...Object.keys(byGroup).filter((g) => !GROUP_ORDER.includes(g))]
+const groups = [
+  ...GROUP_ORDER.filter((g) => byGroup[g]),
+  ...Object.keys(byGroup).filter((g) => !GROUP_ORDER.includes(g)),
+]
 
 const sections = groups
   .map(
@@ -119,8 +124,7 @@ const REALTIME = [
   {
     name: 'Live data on load (all admin pages)',
     status: 'pass',
-    note:
-      'Inserted a generations row via service-role for a kimp-tier user (quota trigger no-op, nothing consumed, $0). The Live Monitor went 0→1 rows + in-flight 0→1 on reload, and back to 0 after delete. Every admin page is force-dynamic → fresh read from prod Supabase on every load/navigation. Confirms the generations → feed-trigger → monitor pipeline is live (and the realtime migration is applied in prod).',
+    note: 'Inserted a generations row via service-role for a kimp-tier user (quota trigger no-op, nothing consumed, $0). The Live Monitor went 0→1 rows + in-flight 0→1 on reload, and back to 0 after delete. Every admin page is force-dynamic → fresh read from prod Supabase on every load/navigation. Confirms the generations → feed-trigger → monitor pipeline is live (and the realtime migration is applied in prod).',
   },
   {
     name: 'Realtime websocket connection',
@@ -130,8 +134,7 @@ const REALTIME = [
   {
     name: 'Realtime push without reload',
     status: 'pass',
-    note:
-      'PROVEN ($0, no Gemini). Minted a throwaway admin (auth user + admin_users row), subscribed to the same postgres_changes channel the Live Monitor uses as that authenticated admin, then inserted a generations row (kimp-tier → quota no-op). Result: the INSERT event was DELIVERED to the authenticated admin subscriber (pushDeliveredToAdmin=true), while an anonymous subscriber received nothing (pushDeliveredToAnon=false). So push works end-to-end for a logged-in admin — and the earlier "no push" in the anonymous MOCK harness was purely the RLS gate (admin_generations_feed SELECT = is_admin()), not a broken feature. Throwaway admin + probe row fully deleted afterward.',
+    note: 'PROVEN ($0, no Gemini). Minted a throwaway admin (auth user + admin_users row), subscribed to the same postgres_changes channel the Live Monitor uses as that authenticated admin, then inserted a generations row (kimp-tier → quota no-op). Result: the INSERT event was DELIVERED to the authenticated admin subscriber (pushDeliveredToAdmin=true), while an anonymous subscriber received nothing (pushDeliveredToAnon=false). So push works end-to-end for a logged-in admin — and the earlier "no push" in the anonymous MOCK harness was purely the RLS gate (admin_generations_feed SELECT = is_admin()), not a broken feature. Throwaway admin + probe row fully deleted afterward.',
   },
   {
     name: 'Dashboard / quota-blocks auto-refresh',
@@ -286,4 +289,6 @@ const html = `<!doctype html>
 
 const out = join(ROOT, 'report.html')
 writeFileSync(out, html)
-console.log(`Wrote ${out} (${(Buffer.byteLength(html) / 1e6).toFixed(1)} MB) — ${results.length} features: ${JSON.stringify(tally)}`)
+console.log(
+  `Wrote ${out} (${(Buffer.byteLength(html) / 1e6).toFixed(1)} MB) — ${results.length} features: ${JSON.stringify(tally)}`
+)

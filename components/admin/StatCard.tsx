@@ -25,7 +25,14 @@ export interface StatCardProps {
  * Compact KPI tile without a sparkline. Numeric values count up on change; the
  * card lifts on hover. Sister to [`KpiCard`](./KpiCard.tsx).
  */
-export function StatCard({ icon, label, value, valueFormat = 'number', tone, hint }: StatCardProps) {
+export function StatCard({
+  icon,
+  label,
+  value,
+  valueFormat = 'number',
+  tone,
+  hint,
+}: StatCardProps) {
   return (
     <Card className="gap-2 py-5 transition-[transform,box-shadow] duration-[var(--duration-base)] hover:-translate-y-0.5 hover:shadow-[var(--shadow-pop)]">
       <CardHeader className="px-5">

@@ -40,7 +40,10 @@ export default async function GenerationsPage() {
         </header>
       </Reveal>
       <Reveal delay={80}>
-        <GenerationsMonitor initialFeed={(feedRows ?? []) as FeedRow[]} initialAnon={anonRows ?? []} />
+        <GenerationsMonitor
+          initialFeed={(feedRows ?? []) as FeedRow[]}
+          initialAnon={anonRows ?? []}
+        />
       </Reveal>
     </section>
   )

@@ -15,15 +15,19 @@ import type { Database } from '@/lib/supabase/database.types'
  */
 async function autoGrantPrivilegedAccess(user: User, sentryCategory: string): Promise<void> {
   const provider = (user.app_metadata?.provider as string | undefined) ?? ''
-  if (provider !== 'google') return  // only grant via verified Google OAuth
+  if (provider !== 'google') return // only grant via verified Google OAuth
 
   const email = user.email?.toLowerCase()
   if (!email) return
 
   const adminEmails = (process.env.ADMIN_EMAILS ?? '')
-    .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
   const premiumEmails = (process.env.PREMIUM_EMAILS ?? '')
-    .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
 
   const isAdmin = adminEmails.includes(email)
   const isPremium = premiumEmails.includes(email)
@@ -68,17 +72,21 @@ async function autoGrantPrivilegedAccess(user: User, sentryCategory: string): Pr
             note: 'Auto-granted via PREMIUM_EMAILS env var on Google login',
           })
         } else if (!allowlistRow.is_active) {
-          await service.from('kimp_client_allowlist')
+          await service
+            .from('kimp_client_allowlist')
             .update({ is_active: true })
             .eq('id', allowlistRow.id)
         }
 
         // Grant unlimited — proof trigger checks allowlist row
-        await service.from('profiles').update({
-          kimp_unlimited: true,
-          kimp_client_status: 'active',
-          kimp_verified_at: new Date().toISOString(),
-        }).eq('id', user.id)
+        await service
+          .from('profiles')
+          .update({
+            kimp_unlimited: true,
+            kimp_client_status: 'active',
+            kimp_verified_at: new Date().toISOString(),
+          })
+          .eq('id', user.id)
       }
     }
   } catch (err: unknown) {

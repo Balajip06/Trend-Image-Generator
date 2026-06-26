@@ -31,7 +31,9 @@ describe('openai generateImage', () => {
       ok: false,
       status: 400,
       text: async () =>
-        JSON.stringify({ error: { code: 'content_policy_violation', message: 'Policy violation' } }),
+        JSON.stringify({
+          error: { code: 'content_policy_violation', message: 'Policy violation' },
+        }),
     })
     const { generateImage } = await import('./openai')
     const result = await generateImage({

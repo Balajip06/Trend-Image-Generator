@@ -129,7 +129,9 @@ describe('profiles_self_update column lockdown', () => {
     // Service-role writes to the underlying bucket columns; the generated column reflects the sum.
     await sql`update public.profiles set purchased_credits = 30, monthly_credits = 20 where id = ${user.id}`
 
-    const [profile] = await sql<{ credits_balance: number; purchased_credits: number; monthly_credits: number }[]>`
+    const [profile] = await sql<
+      { credits_balance: number; purchased_credits: number; monthly_credits: number }[]
+    >`
       select credits_balance, purchased_credits, monthly_credits from public.profiles where id = ${user.id}
     `
     expect(profile.purchased_credits).toBe(30)

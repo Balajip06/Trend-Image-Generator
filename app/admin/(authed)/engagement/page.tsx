@@ -73,8 +73,8 @@ export default async function AdminEngagementPage() {
           </p>
         </div>
         <p className="text-muted-foreground text-sm">
-          Trend-page impressions, generate-button clicks, and click-through rate, aggregated from the{' '}
-          <code className="font-mono text-xs">trend_events</code> table (set{' '}
+          Trend-page impressions, generate-button clicks, and click-through rate, aggregated from
+          the <code className="font-mono text-xs">trend_events</code> table (set{' '}
           <code className="font-mono text-xs">TREND_EVENTS_BACKEND=supabase</code> in prod so counts
           persist across deploys).
         </p>

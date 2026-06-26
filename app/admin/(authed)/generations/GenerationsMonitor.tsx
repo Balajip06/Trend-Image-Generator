@@ -75,8 +75,16 @@ function mergeStatus(a: RealtimeStatus, b: RealtimeStatus): RealtimeStatus {
 
 const STATUS_META: Record<RealtimeStatus, { label: string; dot: string; text: string }> = {
   live: { label: 'Live', dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
-  connecting: { label: 'Connecting', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
-  reconnecting: { label: 'Reconnecting', dot: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400' },
+  connecting: {
+    label: 'Connecting',
+    dot: 'bg-amber-500',
+    text: 'text-amber-600 dark:text-amber-400',
+  },
+  reconnecting: {
+    label: 'Reconnecting',
+    dot: 'bg-rose-500',
+    text: 'text-rose-600 dark:text-rose-400',
+  },
 }
 
 function LiveChip({ status }: { status: RealtimeStatus }) {
@@ -85,7 +93,9 @@ function LiveChip({ status }: { status: RealtimeStatus }) {
     <span className={cn('inline-flex items-center gap-2 text-xs font-semibold', m.text)}>
       <span className="relative grid size-2.5 place-items-center">
         <span className={cn('absolute size-2.5 rounded-full', m.dot)} />
-        {status === 'live' && <span className={cn('live-ping absolute size-2.5 rounded-full', m.dot)} />}
+        {status === 'live' && (
+          <span className={cn('live-ping absolute size-2.5 rounded-full', m.dot)} />
+        )}
       </span>
       {m.label}
     </span>
@@ -114,7 +124,9 @@ export function GenerationsMonitor({
   const status = mergeStatus(feed.status, anon.status)
 
   const all: MonitorRow[] = [
-    ...feed.rows.map((r) => toMonitorRow(r as unknown as FeedRow, 'authed', feed.flashIds.has(r.id))),
+    ...feed.rows.map((r) =>
+      toMonitorRow(r as unknown as FeedRow, 'authed', feed.flashIds.has(r.id))
+    ),
     ...anon.rows.map((r) => toMonitorRow(r as unknown as AnonRow, 'anon', anon.flashIds.has(r.id))),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 

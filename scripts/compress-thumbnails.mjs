@@ -8,7 +8,7 @@ const TARGET_SIZE = 1024
 
 mkdirSync(DEST, { recursive: true })
 
-const files = readdirSync(SRC).filter(f => /\.(png|jpe?g|webp)$/i.test(f))
+const files = readdirSync(SRC).filter((f) => /\.(png|jpe?g|webp)$/i.test(f))
 
 for (const file of files) {
   const src = join(SRC, file)

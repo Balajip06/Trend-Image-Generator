@@ -36,7 +36,7 @@ export async function resolveKimpEntitlement({
     // 2. Status API (server-to-server, HMAC-signed)
     if (oidcSub && process.env.KIMP360_STATUS_API_URL) {
       const results = await checkKimpStatus([oidcSub])
-      const match = results.find(r => r.sub === oidcSub)
+      const match = results.find((r) => r.sub === oidcSub)
       if (match) return match.status
     }
 

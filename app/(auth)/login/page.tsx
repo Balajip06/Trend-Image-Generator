@@ -15,8 +15,7 @@ const ERROR_COPY: Record<string, string> = {
   tos_required: 'Please check the box to accept our terms + privacy policy before continuing.',
   invalid_credentials: 'Email or password is incorrect. Try again.',
   kimp_unavailable: 'KIMP360 sign-in is not available right now. Try Google or email.',
-  kimp_account_conflict:
-    'This KIMP360 account is linked to a different email. Contact support.',
+  kimp_account_conflict: 'This KIMP360 account is linked to a different email. Contact support.',
   kimp_email_unverified: 'Your KIMP360 email is not verified. Please verify it and try again.',
   kimp_state_invalid: 'Sign-in state missing. Please try again.',
   kimp_state_mismatch: 'Sign-in state mismatch. Please try again.',

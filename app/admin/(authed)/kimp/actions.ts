@@ -39,9 +39,7 @@ export async function addAllowlistEntry(formData: FormData): Promise<void> {
 
   if (error) {
     const msg =
-      error.code === '23505'
-        ? `${parsed.data.email} is already on the allowlist`
-        : error.message
+      error.code === '23505' ? `${parsed.data.email} is already on the allowlist` : error.message
     back(new URLSearchParams({ error: msg }))
   }
 

@@ -199,9 +199,7 @@ export async function approveAndGoLive(trendId: string): Promise<void> {
   }>) {
     if (!latestByInput.has(r.eval_input_id)) latestByInput.set(r.eval_input_id, r)
   }
-  const successfulRunIds = [...latestByInput.values()]
-    .filter((r) => r.output_url)
-    .map((r) => r.id)
+  const successfulRunIds = [...latestByInput.values()].filter((r) => r.output_url).map((r) => r.id)
 
   if (successfulRunIds.length === 0) {
     redirect(

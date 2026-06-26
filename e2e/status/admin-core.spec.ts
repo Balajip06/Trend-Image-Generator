@@ -22,9 +22,7 @@ test.describe('Admin core', () => {
     await page.goto('/admin')
     await expect(page.locator('h1')).toBeVisible()
 
-    await check(checks, 'h1 heading visible', async () =>
-      page.locator('h1').first().isVisible()
-    )
+    await check(checks, 'h1 heading visible', async () => page.locator('h1').first().isVisible())
     await check(checks, 'no "Pending suggestions" text', async () => {
       const count = await page.getByText('Pending suggestions', { exact: false }).count()
       return count === 0
@@ -243,9 +241,11 @@ test.describe('Admin core', () => {
     // Collect candidate trend ids from edit links. The "Approve & Go Live"
     // button only renders for INACTIVE trends (active ones show "Deactivate"),
     // so scan a few eval pages to find one that exposes the approve control.
-    const hrefs = await page.locator('a[href*="/admin/trends/"][href*="/edit"]').evaluateAll(
-      (els) => Array.from(new Set(els.map((e) => (e as HTMLAnchorElement).getAttribute('href') ?? '')))
-    )
+    const hrefs = await page
+      .locator('a[href*="/admin/trends/"][href*="/edit"]')
+      .evaluateAll((els) =>
+        Array.from(new Set(els.map((e) => (e as HTMLAnchorElement).getAttribute('href') ?? '')))
+      )
     const ids = hrefs
       .map((h) => h.match(/\/admin\/trends\/([^/]+)\/edit/)?.[1])
       .filter((x): x is string => Boolean(x))
@@ -293,11 +293,15 @@ test.describe('Admin core', () => {
     // Go-live control present. The approve button only shows for inactive
     // trends; an active trend shows "Deactivate" instead — either confirms the
     // go-live workflow rendered. DO NOT click either.
-    await check(checks, 'go-live control present (Approve & Go Live, or Deactivate if active)', async () => {
-      const approve = await page.getByRole('button', { name: /Approve.*Go Live/i }).count()
-      const deactivate = await page.getByRole('button', { name: /Deactivate/i }).count()
-      return approve > 0 || deactivate > 0
-    })
+    await check(
+      checks,
+      'go-live control present (Approve & Go Live, or Deactivate if active)',
+      async () => {
+        const approve = await page.getByRole('button', { name: /Approve.*Go Live/i }).count()
+        const deactivate = await page.getByRole('button', { name: /Deactivate/i }).count()
+        return approve > 0 || deactivate > 0
+      }
+    )
 
     const shot = await screenshot(page, 'admin-trend-eval')
     record(testInfo, {

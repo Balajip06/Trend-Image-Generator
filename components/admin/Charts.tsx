@@ -74,7 +74,8 @@ export function Sparkline({ data, className, compare, ariaLabel, height = 64 }: 
   function onMove(e: PointerEvent<HTMLDivElement>) {
     if (data.length === 0) return
     const rect = e.currentTarget.getBoundingClientRect()
-    const frac = rect.width === 0 ? 0 : Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+    const frac =
+      rect.width === 0 ? 0 : Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
     const i = Math.round(frac * (data.length - 1))
     setTip({
       i,
@@ -195,7 +196,8 @@ export function BarChart({
   function onMove(e: PointerEvent<HTMLDivElement>) {
     if (data.length === 0) return
     const rect = e.currentTarget.getBoundingClientRect()
-    const frac = rect.width === 0 ? 0 : Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+    const frac =
+      rect.width === 0 ? 0 : Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
     const idx = Math.floor((frac * width - padding.left) / slot)
     if (idx < 0 || idx >= data.length) {
       setTip(null)
@@ -234,7 +236,12 @@ export function BarChart({
             )}
           </ChartTooltip>
         )}
-        <svg role="img" aria-label={ariaLabel} viewBox={`0 0 ${width} ${height}`} className="h-44 w-full">
+        <svg
+          role="img"
+          aria-label={ariaLabel}
+          viewBox={`0 0 ${width} ${height}`}
+          className="h-44 w-full"
+        >
           {ticks.map((t, i) => {
             const y = padding.top + innerH - (max === 0 ? 0 : (t / max) * innerH)
             return (
@@ -248,7 +255,14 @@ export function BarChart({
                   strokeOpacity={0.08}
                   strokeDasharray="2 4"
                 />
-                <text x={padding.left - 6} y={y + 3} fontSize={9} textAnchor="end" fill="currentColor" fillOpacity={0.5}>
+                <text
+                  x={padding.left - 6}
+                  y={y + 3}
+                  fontSize={9}
+                  textAnchor="end"
+                  fill="currentColor"
+                  fillOpacity={0.5}
+                >
                   {fmt(t)}
                 </text>
               </g>
@@ -263,9 +277,17 @@ export function BarChart({
             const secValue = secondary ? Math.max(0, secondary.data[i]?.value ?? 0) : 0
             const secH = max === 0 ? 0 : (secValue / max) * innerH
             const active = hover === i
-            const grow = { transformBox: 'fill-box' as const, transformOrigin: 'bottom', animationDelay: `${i * 40}ms` }
+            const grow = {
+              transformBox: 'fill-box' as const,
+              transformOrigin: 'bottom',
+              animationDelay: `${i * 40}ms`,
+            }
             return (
-              <g key={`${p.label}-${i}`} opacity={hover == null || active ? 1 : 0.55} style={{ transition: 'opacity 150ms' }}>
+              <g
+                key={`${p.label}-${i}`}
+                opacity={hover == null || active ? 1 : 0.55}
+                style={{ transition: 'opacity 150ms' }}
+              >
                 <rect
                   x={cx}
                   y={padding.top + innerH - h}
@@ -286,7 +308,14 @@ export function BarChart({
                     style={grow}
                   />
                 )}
-                <text x={x + slot / 2} y={height - 8} fontSize={9} textAnchor="middle" fill="currentColor" fillOpacity={0.55}>
+                <text
+                  x={x + slot / 2}
+                  y={height - 8}
+                  fontSize={9}
+                  textAnchor="middle"
+                  fill="currentColor"
+                  fillOpacity={0.55}
+                >
                   {p.label}
                 </text>
               </g>
@@ -343,8 +372,21 @@ export function DonutChart({ data, ariaLabel, centerValue, centerLabel }: DonutC
 
   return (
     <div className="flex items-center gap-5">
-      <svg role="img" aria-label={ariaLabel} viewBox={`0 0 ${size} ${size}`} className="size-40 animate-pop-in">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="currentColor" strokeOpacity={0.08} strokeWidth={stroke} />
+      <svg
+        role="img"
+        aria-label={ariaLabel}
+        viewBox={`0 0 ${size} ${size}`}
+        className="animate-pop-in size-40"
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeOpacity={0.08}
+          strokeWidth={stroke}
+        />
         {total > 0 &&
           data.map((d, i) => {
             const v = Math.max(0, d.value)
@@ -374,10 +416,24 @@ export function DonutChart({ data, ariaLabel, centerValue, centerLabel }: DonutC
               />
             )
           })}
-        <text x={size / 2} y={size / 2 - 4} textAnchor="middle" fontSize={20} fontWeight={700} fill="currentColor">
+        <text
+          x={size / 2}
+          y={size / 2 - 4}
+          textAnchor="middle"
+          fontSize={20}
+          fontWeight={700}
+          fill="currentColor"
+        >
           {center.value}
         </text>
-        <text x={size / 2} y={size / 2 + 14} textAnchor="middle" fontSize={9} fill="currentColor" fillOpacity={0.6}>
+        <text
+          x={size / 2}
+          y={size / 2 + 14}
+          textAnchor="middle"
+          fontSize={9}
+          fill="currentColor"
+          fillOpacity={0.6}
+        >
           {center.label}
         </text>
       </svg>
@@ -385,7 +441,10 @@ export function DonutChart({ data, ariaLabel, centerValue, centerLabel }: DonutC
         {data.map((d, i) => (
           <li
             key={d.label}
-            className={cn('flex cursor-pointer items-center gap-2 transition-opacity', hover != null && hover !== i && 'opacity-50')}
+            className={cn(
+              'flex cursor-pointer items-center gap-2 transition-opacity',
+              hover != null && hover !== i && 'opacity-50'
+            )}
             onPointerEnter={() => setHover(i)}
             onPointerLeave={() => setHover(null)}
           >

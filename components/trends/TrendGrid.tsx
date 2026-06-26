@@ -152,7 +152,9 @@ export function TrendGrid({
                     <input type="hidden" name="trend_id" value={trend.id} />
                     <button
                       type="submit"
-                      aria-label={hasFavorite ? `Unfavourite ${trend.title}` : `Favourite ${trend.title}`}
+                      aria-label={
+                        hasFavorite ? `Unfavourite ${trend.title}` : `Favourite ${trend.title}`
+                      }
                       aria-pressed={hasFavorite}
                       className="border-border/60 bg-card/90 hover:bg-card grid size-7 place-items-center rounded-full border backdrop-blur-sm transition-colors"
                     >
