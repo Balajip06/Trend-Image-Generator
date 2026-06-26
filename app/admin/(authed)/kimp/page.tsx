@@ -134,10 +134,7 @@ export default async function AdminKimpPage() {
                           active
                         </Badge>
                       ) : (
-                        <Badge
-                          variant="outline"
-                          className="rounded-full px-2.5 py-0.5 text-[10px]"
-                        >
+                        <Badge variant="outline" className="rounded-full px-2.5 py-0.5 text-[10px]">
                           inactive
                         </Badge>
                       )}
@@ -155,8 +152,8 @@ export default async function AdminKimpPage() {
                           title="Deactivate allowlist entry?"
                           description={
                             <>
-                              <strong>{entry.email}</strong> will lose KIMP360 unlimited access.
-                              The nightly cron will revoke their profile on the next run.
+                              <strong>{entry.email}</strong> will lose KIMP360 unlimited access. The
+                              nightly cron will revoke their profile on the next run.
                             </>
                           }
                           confirmLabel="Yes, deactivate"

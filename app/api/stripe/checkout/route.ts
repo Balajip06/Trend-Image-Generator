@@ -20,12 +20,29 @@ function getStripe(): Stripe {
   return new Stripe(key)
 }
 
+/** Billing is live only once the Stripe secret is configured. */
+function isBillingConfigured(): boolean {
+  return Boolean(process.env.STRIPE_SECRET_KEY)
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+
+  // Billing not wired yet (no Stripe keys) — fail clean, never crash with a
+  // leaky internal message. The UI renders a "billing coming soon" state.
+  if (!isBillingConfigured()) {
+    return NextResponse.json(
+      {
+        error: 'Billing is not available yet. Please check back soon.',
+        code: 'billing_unconfigured',
+      },
+      { status: 503 }
+    )
+  }
 
   let body: z.infer<typeof BodySchema>
   try {
@@ -66,10 +83,7 @@ export async function POST(request: NextRequest) {
         customerId = customer.id
 
         const service = createServiceClient()
-        await service
-          .from('profiles')
-          .update({ stripe_customer_id: customerId })
-          .eq('id', user.id)
+        await service.from('profiles').update({ stripe_customer_id: customerId }).eq('id', user.id)
       }
 
       const session = await stripe.checkout.sessions.create({

@@ -110,10 +110,7 @@ export default async function StudioPage({ searchParams }: StudioPageProps) {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <nav
-          aria-label="Trend pages"
-          className="flex items-center justify-center gap-2 pt-2"
-        >
+        <nav aria-label="Trend pages" className="flex items-center justify-center gap-2 pt-2">
           <Link
             href={buildHref(rawQ, clampedPage - 1)}
             aria-disabled={clampedPage <= 1}

@@ -149,7 +149,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
       } else if (status === 'inactive') {
         // 14-day grace: only revoke if kimp_verified_at is stale (or never set)
-        const verifiedAt = profile.kimp_verified_at ? new Date(profile.kimp_verified_at).getTime() : 0
+        const verifiedAt = profile.kimp_verified_at
+          ? new Date(profile.kimp_verified_at).getTime()
+          : 0
         const stale = Date.now() - verifiedAt > GRACE_PERIOD_MS
 
         if (stale && profile.kimp_unlimited) {

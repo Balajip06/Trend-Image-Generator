@@ -1,3 +1,4 @@
+import { Reveal } from '@/components/admin/Reveal'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { Tables } from '@/lib/supabase/database.types'
 import { GenerationsMonitor } from './GenerationsMonitor'
@@ -24,17 +25,26 @@ export default async function GenerationsPage() {
     .limit(50)
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <header>
-        <h1 className="text-xl font-semibold">Live Generations</h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Real-time feed of all generation activity.
-        </p>
-      </header>
-      <GenerationsMonitor
-        initialFeed={(feedRows ?? []) as FeedRow[]}
-        initialAnon={anonRows ?? []}
-      />
-    </div>
+    <section className="flex flex-col gap-8">
+      <Reveal as="section">
+        <header className="flex flex-col gap-2">
+          <p className="text-muted-foreground text-xs font-semibold tracking-[0.2em] uppercase">
+            Operations
+          </p>
+          <h1 className="text-3xl font-extrabold tracking-tight">
+            <span className="text-gradient-hero">Live</span> monitor
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Real-time feed of every generation as it happens — authenticated + anonymous trials.
+          </p>
+        </header>
+      </Reveal>
+      <Reveal delay={80}>
+        <GenerationsMonitor
+          initialFeed={(feedRows ?? []) as FeedRow[]}
+          initialAnon={anonRows ?? []}
+        />
+      </Reveal>
+    </section>
   )
 }

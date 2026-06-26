@@ -440,10 +440,7 @@ async function callGemini(
  * OpenAI image generation (Deno).
  * See also: lib/image-provider/openai.ts (Node copy — keep failure taxonomy in sync)
  */
-async function callOpenAI(
-  prompt: string,
-  imageUrls: string[]
-): Promise<GeminiOk | GeminiFail> {
+async function callOpenAI(prompt: string, imageUrls: string[]): Promise<GeminiOk | GeminiFail> {
   const apiKey = Deno.env.get('OPENAI_API_KEY')
   const modelId = Deno.env.get('OPENAI_IMAGE_MODEL') ?? 'gpt-image-1'
 

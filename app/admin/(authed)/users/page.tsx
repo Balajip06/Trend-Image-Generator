@@ -29,7 +29,7 @@ import {
   type SignupSourceRow,
   type CohortRetentionRow,
 } from '@/lib/analytics/active-users'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils/cn'
 
 export const dynamic = 'force-dynamic'
@@ -66,7 +66,9 @@ export default async function AdminUsersPage({ searchParams }: UsersPageProps) {
   const tab = parseTab(tabRaw)
   const range = parseRange(rangeRaw)
 
-  const supabase = await createClient()
+  // Service client: DAU/WAU/MAU + funnel read `profiles`/`generations` across ALL users;
+  // the authed client is bound by `profiles_self_read` and would count only the admin.
+  const supabase = createServiceClient()
   const [counts, dailySeries, sources, funnel, cohorts, cacByChannel] = await Promise.all([
     getActiveUserCounts(supabase),
     getDailyActiveSeries(supabase, 30),
@@ -111,9 +113,9 @@ export default async function AdminUsersPage({ searchParams }: UsersPageProps) {
         </div>
         <p className="text-muted-foreground text-sm">
           DAU/WAU/MAU, signup-source attribution, free→paid funnel, and weekly cohort retention.
-          Switches to live numbers once profiles + generations + Stripe webhooks all have flow;
-          until then it runs on deterministic demo data so the layout reads meaningfully in
-          diligence.
+          Live from <code className="font-mono text-xs">profiles</code> +{' '}
+          <code className="font-mono text-xs">generations</code>. The paid steps of the funnel stay
+          empty until Stripe billing is wired.
         </p>
       </header>
 

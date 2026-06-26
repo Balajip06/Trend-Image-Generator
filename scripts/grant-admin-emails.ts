@@ -33,7 +33,10 @@ if (!rawEmails.trim()) {
   process.exit(1)
 }
 
-const emails = rawEmails.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
+const emails = rawEmails
+  .split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean)
 console.log(`Granting admin access to ${emails.length} email(s):`, emails)
 
 const supabase = createClient(url, key, { auth: { persistSession: false } })

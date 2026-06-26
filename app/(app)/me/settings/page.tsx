@@ -100,6 +100,10 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     perCreditCents: p.perCreditCents,
   }))
 
+  // Billing goes live only once Stripe is configured. Until then, show a
+  // "coming soon" card rather than buy buttons that would 503 on click.
+  const billingEnabled = Boolean(process.env.STRIPE_SECRET_KEY)
+
   return (
     <section className="flex flex-col gap-10">
       <header className="flex flex-col gap-2">
@@ -154,7 +158,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
             </div>
           </div>
 
-          {!isKimp && (
+          {!isKimp && billingEnabled && (
             <>
               {/* Subscription plans */}
               <div className="border-border/60 bg-card rounded-3xl border p-6 sm:p-8">
@@ -184,6 +188,22 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                 </div>
               </div>
             </>
+          )}
+
+          {!isKimp && !billingEnabled && (
+            <div className="border-border/60 bg-card rounded-3xl border p-6 sm:p-8">
+              <div className="flex items-baseline justify-between">
+                <h2 className="text-2xl font-extrabold tracking-tight">Credits &amp; plans</h2>
+                <Badge variant="outline" className="rounded-full text-xs">
+                  Coming soon
+                </Badge>
+              </div>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Paid credits and subscriptions are launching shortly. For now, enjoy your{' '}
+                {FREE_QUOTA_WEEKLY} free generations each week — and invite friends below for bonus
+                credits.
+              </p>
+            </div>
           )}
 
           {/* Referral */}

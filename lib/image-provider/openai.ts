@@ -86,7 +86,12 @@ export async function generateImage(args: GenerateImageArgs): Promise<GenerateIm
       const text = await res.text()
       // Safety / content policy rejection
       if (res.status === 400 && text.includes('content_policy_violation')) {
-        return { ok: false, costUsd: 0, reason: 'safety', message: `OpenAI policy: ${text.slice(0, 200)}` }
+        return {
+          ok: false,
+          costUsd: 0,
+          reason: 'safety',
+          message: `OpenAI policy: ${text.slice(0, 200)}`,
+        }
       }
       const transient = res.status === 429 || res.status >= 500
       return {

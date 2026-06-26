@@ -230,7 +230,7 @@ describe('signInWithKimp', () => {
     } catch (err) {
       // next='/' normalises to /me/studio
       expect(lastRedirectUrl(err)).toBe(
-        `/api/auth/kimp/initiate?next=${encodeURIComponent('/me/studio')}`,
+        `/api/auth/kimp/initiate?next=${encodeURIComponent('/me/studio')}`
       )
       return
     }

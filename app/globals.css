@@ -279,6 +279,72 @@
       transform: translateY(-10px);
     }
   }
+
+  /* --- Dashboard motion system (premium, restrained) --- */
+
+  /* Bars grow from the baseline. Element must set transform-origin: bottom. */
+  .animate-bar-grow {
+    animation: bar-grow var(--duration-slow) var(--ease-out-soft) both;
+  }
+  /* SVG line/segment draw-in. Element must set pathLength="1" + stroke-dasharray="1". */
+  .animate-draw-line {
+    animation: draw-line var(--duration-slow) var(--ease-out-soft) both;
+  }
+  /* One-shot tint overlay for newly-arrived live rows (opacity-only = compositor-safe). */
+  .animate-row-flash {
+    animation: row-flash 1200ms var(--ease-out-soft) both;
+  }
+  /* Brief background highlight for a newly-arrived live table row. */
+  .animate-row-flash-bg {
+    animation: row-flash-bg 1400ms var(--ease-out-soft) both;
+  }
+  /* Expanding ring behind a live status dot. */
+  .live-ping {
+    animation: live-ping 1800ms cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  @keyframes bar-grow {
+    0% {
+      transform: scaleY(0);
+    }
+    100% {
+      transform: scaleY(1);
+    }
+  }
+  @keyframes draw-line {
+    0% {
+      stroke-dashoffset: 1;
+    }
+    100% {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes row-flash {
+    0% {
+      opacity: 0.55;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+  @keyframes row-flash-bg {
+    0% {
+      background-color: color-mix(in oklab, var(--brand-grad-1) 18%, transparent);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+  @keyframes live-ping {
+    0% {
+      transform: scale(1);
+      opacity: 0.55;
+    }
+    100% {
+      transform: scale(2.4);
+      opacity: 0;
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

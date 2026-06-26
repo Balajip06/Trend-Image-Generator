@@ -33,6 +33,9 @@ beforeEach(() => {
   themeState.resolvedTheme = 'light'
   themeState.setTheme = vi.fn()
   navState.pathname = '/admin'
+  // Collapsed-group state persists to localStorage; clear it so each test starts
+  // with all groups open (otherwise a collapse test leaks into later tests).
+  window.localStorage.clear()
 })
 
 afterEach(() => {
@@ -40,16 +43,16 @@ afterEach(() => {
 })
 
 describe('AdminShell', () => {
-  it('renders the "Admin console" label and an INTERNAL badge', () => {
+  it('renders the "Admin console" label and an INTERNAL marker', () => {
     render(
       <AdminShell {...DEFAULT_PROPS}>
         <p>child</p>
       </AdminShell>
     )
     // The label exists in both the sidebar and the mobile header — both render
-    // in jsdom because lg:hidden is CSS-only. Either match is fine.
+    // in jsdom because md:hidden is CSS-only. Either match is fine.
     expect(screen.getAllByText('Admin console').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('internal').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/internal/i).length).toBeGreaterThan(0)
   })
 
   it('renders the brand Logo with the "Admin home" aria-label on its wrapping link', () => {
@@ -78,10 +81,7 @@ describe('AdminShell', () => {
     )
     expect(screen.getByRole('link', { name: /^Margin$/ })).toHaveAttribute('href', '/admin/margin')
     expect(screen.getByRole('link', { name: /^Trends$/ })).toHaveAttribute('href', '/admin/trends')
-    expect(screen.getByRole('link', { name: /^Suggestions$/ })).toHaveAttribute(
-      'href',
-      '/admin/suggestions'
-    )
+    expect(screen.queryByRole('link', { name: /^Suggestions$/ })).toBeNull()
     expect(screen.getByRole('link', { name: /^Referrals$/ })).toHaveAttribute(
       'href',
       '/admin/referrals'
@@ -148,6 +148,38 @@ describe('AdminShell', () => {
     )
     const trends = screen.getByRole('link', { name: /^Trends$/ })
     expect(trends).toHaveAttribute('aria-current', 'page')
+  })
+
+  describe('collapsible groups', () => {
+    it('collapses a group and hides its items when its header is clicked', () => {
+      render(
+        <AdminShell {...DEFAULT_PROPS}>
+          <p>child</p>
+        </AdminShell>
+      )
+      // Trends lives in the "Catalogue" group and is visible by default.
+      expect(screen.getByRole('link', { name: /^Trends$/ })).toBeInTheDocument()
+      const header = screen.getByRole('button', { name: /Catalogue/i })
+      expect(header).toHaveAttribute('aria-expanded', 'true')
+      fireEvent.click(header)
+      expect(header).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByRole('link', { name: /^Trends$/ })).toBeNull()
+    })
+  })
+
+  describe('count badges', () => {
+    it('renders a badge for a non-zero count and omits it for zero', () => {
+      render(
+        <AdminShell {...DEFAULT_PROPS} counts={{ trendsUntested: 3, generationsActive: 0 }}>
+          <p>child</p>
+        </AdminShell>
+      )
+      const trends = screen.getByRole('link', { name: /^Trends/ })
+      expect(trends.textContent).toContain('3')
+      // generationsActive is 0 → Live monitor shows no numeric badge.
+      const monitor = screen.getByRole('link', { name: /^Live monitor/ })
+      expect(monitor.textContent).not.toMatch(/\d/)
+    })
   })
 
   describe('mobile drawer', () => {

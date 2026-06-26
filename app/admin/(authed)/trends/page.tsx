@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { getCountsBatch } from '@/lib/analytics/event-store'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { bumpOrder, cloneTrend, toggleFeatured } from './actions'
 
 function fmt(n: number): string {
@@ -37,7 +37,10 @@ function formatSchedule(goesLiveAt: string | null): string {
 
 export default async function AdminTrendsList({ searchParams }: AdminTrendsListProps) {
   await searchParams // consumed client-side by FlashToasts
-  const supabase = await createClient()
+  // Service client: admins must see ALL trends (drafts/inactive included). The authed
+  // client is bound by the `trends_public_read` RLS policy (active-only), which would
+  // hide drafts from the admin list. Admin gate is enforced upstream in proxy.ts.
+  const supabase = createServiceClient()
   // Featured first (DESC NULLS LAST), then explicit display_order ASC.
   const { data: rows } = await supabase
     .from('trends')

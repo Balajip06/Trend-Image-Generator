@@ -73,11 +73,16 @@ export function TrendDrawer({ trend, open, onOpenChange, freeUsedThisWeek }: Tre
         {displayTrend ? (
           <>
             <DialogHeader className="mb-4 pr-12">
-              <DialogTitle id="trend-drawer-title" className="text-2xl font-extrabold tracking-tight">
+              <DialogTitle
+                id="trend-drawer-title"
+                className="text-2xl font-extrabold tracking-tight"
+              >
                 {displayTrend.title}
               </DialogTitle>
               {displayTrend.description && (
-                <DialogDescription id="trend-drawer-desc">{displayTrend.description}</DialogDescription>
+                <DialogDescription id="trend-drawer-desc">
+                  {displayTrend.description}
+                </DialogDescription>
               )}
             </DialogHeader>
             <TrendRunner trend={displayTrend} freeUsedThisWeek={freeUsedThisWeek} />

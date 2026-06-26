@@ -55,13 +55,19 @@ export async function generateMetadata({ params }: TrendPageProps): Promise<Meta
       title,
       description,
       type: 'website',
-      images: (trend.sample_after_url ?? trend.thumbnail_url) ? [{ url: (trend.sample_after_url ?? trend.thumbnail_url)! }] : undefined,
+      images:
+        (trend.sample_after_url ?? trend.thumbnail_url)
+          ? [{ url: (trend.sample_after_url ?? trend.thumbnail_url)! }]
+          : undefined,
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: (trend.sample_after_url ?? trend.thumbnail_url) ? [(trend.sample_after_url ?? trend.thumbnail_url)!] : undefined,
+      images:
+        (trend.sample_after_url ?? trend.thumbnail_url)
+          ? [(trend.sample_after_url ?? trend.thumbnail_url)!]
+          : undefined,
     },
   }
 }

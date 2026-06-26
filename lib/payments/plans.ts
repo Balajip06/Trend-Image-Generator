@@ -11,7 +11,7 @@ export interface SubscriptionPlan {
   label: string
   monthlyCredits: number
   priceIdEnv: string
-  priceCentsMonthly: number  // for display only
+  priceCentsMonthly: number // for display only
 }
 
 export const SUBSCRIPTION_PLANS: ReadonlyArray<SubscriptionPlan> = [
@@ -60,6 +60,7 @@ export function findPlanByPriceId(priceId: string): SubscriptionPlan | null {
 
 export function requirePlanPriceId(plan: SubscriptionPlan): string {
   const id = process.env[plan.priceIdEnv]
-  if (!id) throw new Error(`${plan.priceIdEnv} is not set — create the Stripe price for "${plan.label}"`)
+  if (!id)
+    throw new Error(`${plan.priceIdEnv} is not set — create the Stripe price for "${plan.label}"`)
   return id
 }

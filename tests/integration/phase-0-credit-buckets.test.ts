@@ -38,7 +38,9 @@ describe('Phase 0: credit bucket schema', () => {
         and column_name  = 'credits_balance'
     `
     expect(row.is_generated).toBe('ALWAYS')
-    expect(row.generation_expression).toMatch(/monthly_credits.*purchased_credits|purchased_credits.*monthly_credits/)
+    expect(row.generation_expression).toMatch(
+      /monthly_credits.*purchased_credits|purchased_credits.*monthly_credits/
+    )
   })
 
   it('credits_balance equals monthly_credits + purchased_credits', async () => {
@@ -52,11 +54,13 @@ describe('Phase 0: credit bucket schema', () => {
         where id = '${user.id}'`
     )
 
-    const [profile] = await sql<{
-      monthly_credits: number
-      purchased_credits: number
-      credits_balance: number
-    }[]>`
+    const [profile] = await sql<
+      {
+        monthly_credits: number
+        purchased_credits: number
+        credits_balance: number
+      }[]
+    >`
       select monthly_credits, purchased_credits, credits_balance
       from public.profiles
       where id = ${user.id}
@@ -87,11 +91,13 @@ describe('Phase 0: grant_credits RPC', () => {
       )
     `
 
-    const [profile] = await sql<{
-      purchased_credits: number
-      monthly_credits: number
-      credits_balance: number
-    }[]>`
+    const [profile] = await sql<
+      {
+        purchased_credits: number
+        monthly_credits: number
+        credits_balance: number
+      }[]
+    >`
       select purchased_credits, monthly_credits, credits_balance
       from public.profiles
       where id = ${user.id}
@@ -164,11 +170,13 @@ describe('Phase 0: lockdown — new credit columns are self-write-blocked', () =
       where id = ${user.id}
     `
 
-    const [profile] = await sql<{
-      monthly_credits: number
-      purchased_credits: number
-      credits_balance: number
-    }[]>`
+    const [profile] = await sql<
+      {
+        monthly_credits: number
+        purchased_credits: number
+        credits_balance: number
+      }[]
+    >`
       select monthly_credits, purchased_credits, credits_balance
       from public.profiles where id = ${user.id}
     `
@@ -264,16 +272,12 @@ describe('Phase 0: retry trigger — failed_retryable does not re-consume quota'
     )
 
     // Restore 1 credit so we can detect if the retry trigger re-deducts it.
-    await sql.unsafe(
-      `update public.profiles set purchased_credits = 1 where id = '${user.id}'`
-    )
+    await sql.unsafe(`update public.profiles set purchased_credits = 1 where id = '${user.id}'`)
 
     // Transition failed_retryable → pending (the retry path).
     // The fixed trigger guard (old.status = 'failed' only) must NOT re-consume
     // for failed_retryable — the original deduction is still held.
-    await sql.unsafe(
-      `update public.generations set status = 'pending' where id = '${genId}'`
-    )
+    await sql.unsafe(`update public.generations set status = 'pending' where id = '${genId}'`)
 
     const [after] = await sql<{ purchased_credits: number }[]>`
       select purchased_credits from public.profiles where id = ${user.id}

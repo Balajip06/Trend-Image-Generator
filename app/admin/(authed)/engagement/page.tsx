@@ -4,7 +4,7 @@ import { BarChart, Delta, Sparkline } from '@/components/admin/Charts'
 import { KpiCard } from '@/components/admin/KpiCard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { getCountsBatch, getDailySeries, getPeriodTotals } from '@/lib/analytics/event-store'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +18,8 @@ function ctrPct(impressions: number, clicks: number): string {
 }
 
 export default async function AdminEngagementPage() {
-  const supabase = await createClient()
+  // Service client so engagement covers every trend, not just RLS-visible active ones.
+  const supabase = createServiceClient()
   const { data: rows } = await supabase
     .from('trends')
     .select('id, slug, title, is_active')
@@ -72,9 +73,10 @@ export default async function AdminEngagementPage() {
           </p>
         </div>
         <p className="text-muted-foreground text-sm">
-          Trend-page impressions, generate-button clicks, and click-through rate. Numbers come from
-          the in-memory event store today and will flip to Supabase aggregates once{' '}
-          <code className="font-mono text-xs">trend_events</code> ships.
+          Trend-page impressions, generate-button clicks, and click-through rate, aggregated from
+          the <code className="font-mono text-xs">trend_events</code> table (set{' '}
+          <code className="font-mono text-xs">TREND_EVENTS_BACKEND=supabase</code> in prod so counts
+          persist across deploys).
         </p>
       </header>
 

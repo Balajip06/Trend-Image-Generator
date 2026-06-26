@@ -30,7 +30,9 @@ export async function checkKimpStatus(subjects: string[]): Promise<KimpStatusRes
 
   const timestamp = Date.now().toString()
   const body = JSON.stringify({ subjects })
-  const signature = createHmac('sha256', apiKey).update(timestamp + body).digest('hex')
+  const signature = createHmac('sha256', apiKey)
+    .update(timestamp + body)
+    .digest('hex')
 
   const res = await fetch(`${apiUrl}/clients/status`, {
     method: 'POST',
@@ -44,13 +46,16 @@ export async function checkKimpStatus(subjects: string[]): Promise<KimpStatusRes
   })
 
   if (!res.ok) {
-    throw new Error(`KIMP360 status API ${res.status}: ${await res.text().then(t => t.slice(0, 200))}`)
+    throw new Error(
+      `KIMP360 status API ${res.status}: ${await res.text().then((t) => t.slice(0, 200))}`
+    )
   }
 
   const parsed = StatusResultSchema.safeParse(await res.json())
-  if (!parsed.success) throw new Error(`KIMP360 status API invalid response: ${parsed.error.message}`)
+  if (!parsed.success)
+    throw new Error(`KIMP360 status API invalid response: ${parsed.error.message}`)
 
   // Intersect: only return results for subjects we requested (H-S7: drop extras)
   const requestedSet = new Set(subjects)
-  return parsed.data.results.filter(r => requestedSet.has(r.sub))
+  return parsed.data.results.filter((r) => requestedSet.has(r.sub))
 }

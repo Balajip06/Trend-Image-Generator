@@ -33,7 +33,10 @@ if (!rawEmails.trim()) {
   process.exit(1)
 }
 
-const emails = rawEmails.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
+const emails = rawEmails
+  .split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean)
 console.log(`Granting premium access to ${emails.length} email(s):`, emails)
 
 const supabase = createClient(url, key, { auth: { persistSession: false } })
@@ -50,10 +53,7 @@ for (const email of emails) {
 
   if (existing) {
     if (!existing.is_active) {
-      await supabase
-        .from('kimp_client_allowlist')
-        .update({ is_active: true })
-        .eq('id', existing.id)
+      await supabase.from('kimp_client_allowlist').update({ is_active: true }).eq('id', existing.id)
       console.log(`  ✓ Re-activated in kimp_client_allowlist`)
     } else {
       console.log(`  ✓ Already in kimp_client_allowlist`)
@@ -99,7 +99,9 @@ for (const email of emails) {
 
   if (updateError) {
     console.error(`  ✗ Profile update failed:`, updateError.message)
-    console.error(`    (If you see "check_violation", the allowlist insert may not have committed yet — re-run the script)`)
+    console.error(
+      `    (If you see "check_violation", the allowlist insert may not have committed yet — re-run the script)`
+    )
   } else {
     console.log(`  ✓ kimp_unlimited=true set on profile ${profile.id}`)
   }

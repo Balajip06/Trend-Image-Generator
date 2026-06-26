@@ -1,16 +1,23 @@
-import { ArrowRight, Check, ImageOff, Play, Plus, Trash2, X } from 'lucide-react'
+import { Check, ImageOff, Play, Power, Rocket, Trash2, X } from 'lucide-react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { FlashToasts } from '@/components/admin/FlashToasts'
 import { ActiveBadge, EvalBadge } from '@/components/admin/StatusBadges'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { createServiceClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils/cn'
-import { addEvalInput, markTrendEval, rateEvalRun, removeEvalInput, runEval } from './actions'
+import { EvalUploadForm } from './EvalUploadForm'
+import { toggleActive } from '../../actions'
+import {
+  addEvalInput,
+  approveAndGoLive,
+  markTrendEval,
+  rateEvalRun,
+  removeEvalInput,
+  runEval,
+} from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +39,7 @@ interface EvalPageProps {
     removed?: string
     ran?: string
     marked?: string
+    live?: string
   }>
 }
 
@@ -74,9 +82,9 @@ export default async function EvalPage({ params, searchParams }: EvalPageProps) 
   const rated = Object.values(latestRuns).filter(
     (r) => r.admin_rating === 'pass' || r.admin_rating === 'fail'
   )
-  const allRated = inputs.length > 0 && rated.length === inputs.length
-  const anyFail = rated.some((r) => r.admin_rating === 'fail')
   const hasResults = inputs.length > 0 && Object.keys(latestRuns).length > 0
+  // At least one reference produced an image at the current version → eligible to go live.
+  const hasSuccessfulResults = Object.values(latestRuns).some((r) => r.output_url)
 
   async function boundAdd(formData: FormData): Promise<void> {
     'use server'
@@ -86,13 +94,17 @@ export default async function EvalPage({ params, searchParams }: EvalPageProps) 
     'use server'
     await runEval(id)
   }
-  async function boundMarkPassed(): Promise<void> {
-    'use server'
-    await markTrendEval(id, 'passed')
-  }
   async function boundMarkFailed(): Promise<void> {
     'use server'
     await markTrendEval(id, 'failed')
+  }
+  async function boundApprove(): Promise<void> {
+    'use server'
+    await approveAndGoLive(id)
+  }
+  async function boundDeactivate(): Promise<void> {
+    'use server'
+    await toggleActive(id, false)
   }
 
   return (
@@ -109,6 +121,7 @@ export default async function EvalPage({ params, searchParams }: EvalPageProps) 
             message: 'Trend eval marked passed. Activate from Edit page.',
           },
           { key: 'marked-failed', level: 'success', message: 'Trend eval marked failed.' },
+          { key: 'live', level: 'success', message: 'Trend approved and live for customers. 🎉' },
         ]}
       />
 
@@ -142,7 +155,7 @@ export default async function EvalPage({ params, searchParams }: EvalPageProps) 
                 <StepDot n={1} /> Reference photos
               </CardTitle>
               <CardDescription>
-                Public image URLs covering the demographics, lighting, and ages this trend must
+                Upload test photos covering the demographics, lighting, and ages this trend must
                 handle.
               </CardDescription>
             </div>
@@ -152,46 +165,7 @@ export default async function EvalPage({ params, searchParams }: EvalPageProps) 
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <form action={boundAdd} className="grid gap-3 sm:grid-cols-[1fr_2fr_1fr_auto]">
-            <div className="flex flex-col gap-1.5">
-              <Label
-                htmlFor="ref-label"
-                className="text-muted-foreground text-[11px] tracking-wide uppercase"
-              >
-                Label
-              </Label>
-              <Input
-                id="ref-label"
-                name="label"
-                required
-                maxLength={80}
-                placeholder="child / glasses / dark"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label
-                htmlFor="ref-url"
-                className="text-muted-foreground text-[11px] tracking-wide uppercase"
-              >
-                Image URL
-              </Label>
-              <Input id="ref-url" name="image_url" required type="url" placeholder="https://…" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label
-                htmlFor="ref-tag"
-                className="text-muted-foreground text-[11px] tracking-wide uppercase"
-              >
-                Tag
-              </Label>
-              <Input id="ref-tag" name="demographic_tag" maxLength={40} placeholder="optional" />
-            </div>
-            <div className="flex flex-col justify-end">
-              <Button type="submit" size="default">
-                <Plus className="size-4" /> Add
-              </Button>
-            </div>
-          </form>
+          <EvalUploadForm addAction={boundAdd} />
 
           {inputs.length > 0 && (
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -349,46 +323,53 @@ export default async function EvalPage({ params, searchParams }: EvalPageProps) 
         </Card>
       )}
 
-      {/* Step 4: mark */}
+      {/* Step 4: go live */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <StepDot n={4} /> Mark trend
+            <StepDot n={4} /> Go live
           </CardTitle>
           <CardDescription>
-            {allRated
-              ? anyFail
-                ? 'At least one reference failed — mark trend failed.'
-                : 'All references passed — mark trend passed to enable activation.'
-              : `Rate all ${inputs.length} reference(s) before marking the trend.`}
+            {trend.is_active
+              ? 'This trend is live and visible to customers.'
+              : hasSuccessfulResults
+                ? 'Outputs look right? One click marks the test passed and activates the trend — customers see it immediately.'
+                : 'Run a test above and review the outputs before going live.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Separator className="mb-4" />
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-muted-foreground text-xs">
-              {allRated && !anyFail && (
-                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                  <ArrowRight className="size-3.5" /> Next: activate on the Edit page.
-                </span>
-              )}
+              Editing the prompt or model later re-bumps the version → resets eval and
+              auto-deactivates, so you’ll re-test before it can go live again.
             </p>
-            <div className="flex gap-2">
-              <form action={boundMarkPassed}>
-                <Button
-                  type="submit"
-                  size="default"
-                  disabled={!allRated || anyFail}
-                  className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-                >
-                  <Check className="size-4" /> Mark passed
-                </Button>
-              </form>
-              <form action={boundMarkFailed}>
-                <Button type="submit" variant="destructive" size="default" disabled={!allRated}>
-                  <X className="size-4" /> Mark failed
-                </Button>
-              </form>
+            <div className="flex flex-wrap gap-2">
+              {trend.is_active ? (
+                <form action={boundDeactivate}>
+                  <Button type="submit" variant="outline" size="default">
+                    <Power className="size-4" /> Deactivate
+                  </Button>
+                </form>
+              ) : (
+                <>
+                  <form action={boundMarkFailed}>
+                    <Button type="submit" variant="outline" size="default" disabled={!hasResults}>
+                      <X className="size-4" /> Reject
+                    </Button>
+                  </form>
+                  <form action={boundApprove}>
+                    <Button
+                      type="submit"
+                      size="lg"
+                      disabled={!hasSuccessfulResults}
+                      className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      <Rocket className="size-4" /> Approve &amp; Go Live
+                    </Button>
+                  </form>
+                </>
+              )}
             </div>
           </div>
         </CardContent>

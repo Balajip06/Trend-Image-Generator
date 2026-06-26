@@ -664,11 +664,13 @@ the old wide-open version and eval outputs are still publicly readable.
 Add these to Vercel and locally to `.env.local`:
 
 **Phase 1 — Dual provider:**
+
 - `OPENAI_API_KEY` — OpenAI platform key for gpt-image generation
 - `OPENAI_IMAGE_MODEL` — Model ID (default: `gpt-image-1`); override if using a newer model
 - `IMAGE_PROVIDER` — Optional env override (`gemini` or `openai`); defaults to per-trend setting
 
 **Phase 2 — KIMP360:**
+
 - `KIMP360_OIDC_ISSUER` — KIMP360 IdP issuer URL (e.g. `https://auth.kimp360.com`)
 - `KIMP360_OIDC_CLIENT_ID` — OAuth client ID
 - `KIMP360_OIDC_CLIENT_SECRET` — OAuth client secret (server-side only)
@@ -678,12 +680,14 @@ Add these to Vercel and locally to `.env.local`:
 - `NEXT_PUBLIC_KIMP_SSO_ENABLED` — Set to any truthy value to show the KIMP360 login button
 
 **Phase 3 — Stripe subscriptions:**
+
 - `STRIPE_PRICE_ID_SUB_STARTER` — Stripe price ID for the 50 credits/mo plan
 - `STRIPE_PRICE_ID_SUB_PRO` — Stripe price ID for the 200 credits/mo plan
 - `STRIPE_PRICE_ID_SUB_STUDIO` — Stripe price ID for the 600 credits/mo plan
 - (Existing pack price IDs and webhook secret unchanged)
 
 **Phase 5 — Edge Function Sentry:**
+
 - `SENTRY_DSN` — Already in Next.js env; must ALSO be added as a Supabase Edge Function secret:
   ```bash
   supabase secrets set SENTRY_DSN=https://...@sentry.io/...
@@ -721,14 +725,14 @@ curl -X POST https://<your-domain>/api/admin/kimp-reverify \
 
 Run these after all credentials are wired:
 
-| Test | Expected |
-|------|----------|
-| T15 | Unlimited user hits 500/day cap → 429 on next generate |
-| T16 | POST `/api/auth/kimp/callback` with forged id_token → `kimp_claims_invalid` |
-| T17 | KIMP cron with inactive status + stale verified_at → `kimp_unlimited=false` |
-| T18 | Flip global model in settings → non-pinned trends go `is_active=false` |
-| T19 | OpenAI safety refusal → quota refunded, `tier_at_generation` correct |
-| T20 | `invoice.paid` replay (same subscription_id + period_start) → no double-grant |
-| T21 | Cancel subscription → `monthly_credits=0`, `purchased_credits` unchanged |
-| T22 | Non-admin browser subscribes to `admin_generations_feed` → empty result |
-| T23 | Credit-bucket migration: existing `credits_balance` → `purchased_credits` preserved |
+| Test | Expected                                                                            |
+| ---- | ----------------------------------------------------------------------------------- |
+| T15  | Unlimited user hits 500/day cap → 429 on next generate                              |
+| T16  | POST `/api/auth/kimp/callback` with forged id_token → `kimp_claims_invalid`         |
+| T17  | KIMP cron with inactive status + stale verified_at → `kimp_unlimited=false`         |
+| T18  | Flip global model in settings → non-pinned trends go `is_active=false`              |
+| T19  | OpenAI safety refusal → quota refunded, `tier_at_generation` correct                |
+| T20  | `invoice.paid` replay (same subscription_id + period_start) → no double-grant       |
+| T21  | Cancel subscription → `monthly_credits=0`, `purchased_credits` unchanged            |
+| T22  | Non-admin browser subscribes to `admin_generations_feed` → empty result             |
+| T23  | Credit-bucket migration: existing `credits_balance` → `purchased_credits` preserved |

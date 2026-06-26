@@ -80,6 +80,20 @@ jobs:
       # migration from supabase/migrations/ in order.
       - run: supabase start -x studio,inbucket,imgproxy,edge-runtime,realtime
       - run: supabase db reset
+      # Ensure the anon/authenticated roles hold the table privileges the RLS
+      # integration suite exercises. Supabase's default-privilege grants don't
+      # reliably apply under `db reset` in CI, which surfaced as "permission
+      # denied for table profiles" *before* the column-lockdown trigger could
+      # raise its "<col> is locked" message. Granting here is idempotent and
+      # CI-only (prod grants come from Supabase Cloud).
+      - name: Grant public-schema privileges to anon/authenticated
+        run: |
+          docker exec supabase_db_Trend_Image_generator psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "
+            grant usage on schema public to anon, authenticated;
+            grant select, insert, update, delete on all tables in schema public to anon, authenticated;
+            grant usage, select on all sequences in schema public to anon, authenticated;
+            grant execute on all functions in schema public to anon, authenticated;
+          "
       - run: pnpm test:integration
         env:
           INTEGRATION_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:54322/postgres
