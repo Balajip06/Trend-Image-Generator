@@ -3,6 +3,7 @@
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
+import { isEmailAllowedToLogin } from '@/lib/auth/login-allowlist'
 import { safeNextPath } from '@/lib/auth/safe-next-path'
 import { createClient } from '@/lib/supabase/server'
 import { verifyTurnstile } from '@/lib/turnstile/verify'
@@ -41,6 +42,10 @@ export async function signInWithEmail(formData: FormData): Promise<void> {
     const pwFailed = parsed.error.issues.some((i) => i.path[0] === 'password')
     if (pwFailed) redirect('/login?error=password_too_short')
     redirect('/login?error=invalid_email')
+  }
+
+  if (!isEmailAllowedToLogin(parsed.data.email)) {
+    redirect('/login?error=invalid_credentials')
   }
 
   const ok = await verifyTurnstile(parsed.data.turnstile_token ?? '', await clientIp())

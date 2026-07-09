@@ -5,7 +5,7 @@ import { ConfirmDestructiveButton } from '@/components/admin/ConfirmDestructiveB
 import { FlashToasts } from '@/components/admin/FlashToasts'
 import { ActiveBadge, EvalBadge } from '@/components/admin/StatusBadges'
 import { Button } from '@/components/ui/button'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { toggleActive, updateTrend } from '../../actions'
 import { TrendForm } from '../../TrendForm'
 
@@ -26,7 +26,10 @@ export default async function EditTrendPage({ params, searchParams }: EditTrendP
   const { id } = await params
   await searchParams // consumed by FlashToasts client-side
 
-  const supabase = await createClient()
+  // Service-role read: `trends_public_read` RLS only allows is_active=true rows,
+  // so drafts/clones (is_active=false) 404 for admins under the session client.
+  // proxy.ts already gates /admin to admins.
+  const supabase = createServiceClient()
   const { data: row } = await supabase
     .from('trends')
     .select(

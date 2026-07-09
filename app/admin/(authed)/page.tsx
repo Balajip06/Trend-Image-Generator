@@ -20,11 +20,8 @@ import { KpiCard } from '@/components/admin/KpiCard'
 import { StatCard } from '@/components/admin/StatCard'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  getDailySeries,
-  getPeriodTotals,
-  getQuotaBlockedSummary,
-} from '@/lib/analytics/event-store'
+import { getDailySeries, getQuotaBlockedSummary } from '@/lib/analytics/event-store'
+import type { Counts } from '@/lib/analytics/event-store'
 import { getMarginDetail } from '@/lib/analytics/margin'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -56,17 +53,35 @@ function formatUsd(n: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
 }
 
+function sumCounts(rows: readonly { impressions: number; clicks: number }[]): Counts {
+  return rows.reduce(
+    (acc, p) => ({
+      impressions: acc.impressions + p.impressions,
+      clicks: acc.clicks + p.clicks,
+    }),
+    { impressions: 0, clicks: 0 }
+  )
+}
+
 export default async function AdminHome() {
   const counts = await loadCounts()
-  const [dailyEngagement, period, quotaBlocked] = await Promise.all([
-    getDailySeries(counts.trendSlugs, 7),
-    getPeriodTotals(counts.trendSlugs, 7),
-    getQuotaBlockedSummary(24),
-  ])
   // Service client: margin sums `generations` across all users (RLS `generations_own_read`
   // would otherwise scope it to the admin's own rows).
   const supabase = createServiceClient()
-  const margin = await getMarginDetail(supabase, 7)
+  // Single 14-day series covers both the 7-day chart (second half) and the
+  // current-vs-previous period totals (both halves) — one query instead of two
+  // overlapping ones. margin has no dependency on `counts`, so it joins this
+  // batch instead of running as a separate sequential await.
+  const [fourteenDaySeries, quotaBlocked, margin] = await Promise.all([
+    getDailySeries(counts.trendSlugs, 14),
+    getQuotaBlockedSummary(24),
+    getMarginDetail(supabase, 7),
+  ])
+  const dailyEngagement = fourteenDaySeries.slice(7)
+  const period = {
+    current: sumCounts(dailyEngagement),
+    previous: sumCounts(fourteenDaySeries.slice(0, 7)),
+  }
 
   const ctrCurrent =
     period.current.impressions === 0

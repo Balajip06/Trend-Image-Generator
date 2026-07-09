@@ -61,6 +61,10 @@ const ServerEnvSchema = z.object({
   NEXT_PUBLIC_FOUNDER_THREADS_URL: z.string().url().optional(),
   // Dev-only: enable in-memory fixtures (string enum, not boolean — call sites do `=== 'true'`)
   MOCK_TRENDS: z.enum(['true', 'false']).optional(),
+  // Closed-testing gate: comma-separated emails. When set, ALL login paths
+  // (password, Google OAuth, KIMP SSO, admin) reject any email not in this
+  // list before calling Supabase auth. Unset = open to everyone (normal launch state).
+  LOGIN_ALLOWLIST_EMAILS: z.string().min(1).optional(),
 })
 
 export type ServerEnv = z.infer<typeof ServerEnvSchema>

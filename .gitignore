@@ -19,6 +19,10 @@
 /.playwright-mcp/
 /terms-page-verify.png
 *-verify.png
+# Ad-hoc manual QA screenshots dropped at repo root during dev sessions
+/*.jpeg
+/*.jpg
+/*.png
 
 # next.js
 /.next/
@@ -69,6 +73,7 @@ graphify-out/
 
 # Scratch
 .claude/draft/
+.claude/worktrees/
 
 .vercel
 .env*

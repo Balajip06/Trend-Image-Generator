@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { isEmailAllowedToLogin } from '@/lib/auth/login-allowlist'
 import { safeNextPath } from '@/lib/auth/safe-next-path'
 import { createClient } from '@/lib/supabase/server'
 
@@ -28,6 +29,9 @@ export async function signInWithPassword(formData: FormData): Promise<void> {
   }
   if (password.length < 8) {
     redirect(`/admin/login?error=password_too_short&next=${encodeURIComponent(next)}`)
+  }
+  if (!isEmailAllowedToLogin(email)) {
+    redirect(`/admin/login?error=invalid_credentials&next=${encodeURIComponent(next)}`)
   }
 
   const supabase = await createClient()

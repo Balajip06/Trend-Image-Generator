@@ -22,8 +22,13 @@ export const MOCK_TRENDS_ENABLED = process.env.MOCK_TRENDS === 'true'
  * non-production environment so local + preview layouts read meaningfully, and
  * NEVER in production — there, empty tables render honest empty states instead
  * of seed numbers (otherwise every admin page shows the same demo figures).
+ *
+ * Set DISABLE_DEMO_FALLBACK=true locally to force honest empty states even in
+ * dev — useful while verifying the admin dashboard against real (possibly
+ * still-empty) Supabase tables instead of seed figures.
  */
-export const MOCKS_ALLOWED = process.env.NODE_ENV !== 'production'
+export const MOCKS_ALLOWED =
+  process.env.NODE_ENV !== 'production' && process.env.DISABLE_DEMO_FALLBACK !== 'true'
 
 const ISO_NOW = '2026-05-28T12:00:00.000Z'
 // `activated_at` mix: first 3 mock trends are NEW (within 14 days of ISO_NOW),

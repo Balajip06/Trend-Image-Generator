@@ -4,6 +4,7 @@
 // a shared subscription so providers can react when consent flips at runtime.
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { GradientButton } from '@/components/brand/GradientButton'
 import { Button } from '@/components/ui/button'
@@ -43,6 +44,7 @@ export function useConsentState(): ConsentState {
 }
 
 export function CookieBanner() {
+  const pathname = usePathname()
   const consent = useConsentState()
   // 300ms mount delay avoids a hydration-time flash + lets above-the-fold
   // content paint first. Once the user picks (or already picked previously),
@@ -55,6 +57,9 @@ export function CookieBanner() {
     return () => window.clearTimeout(timer)
   }, [])
 
+  // Admins are internal testers, not consumers — skip the consent prompt for
+  // their own product's analytics. GDPR gate still applies on every public page.
+  if (pathname?.startsWith('/admin')) return null
   if (consent !== 'unknown' || !delayPassed) return null
 
   const accept = () => {

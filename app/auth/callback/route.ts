@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { isEmailAllowedToLogin } from '@/lib/auth/login-allowlist'
 import { safeNextPath } from '@/lib/auth/safe-next-path'
 import { runPostAuthOnboarding } from '@/lib/auth/post-auth-onboarding'
 import { REFERRAL_COOKIE_NAME } from '@/lib/referrals/links'
@@ -29,6 +30,11 @@ export async function GET(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
+  if (user?.email && !isEmailAllowedToLogin(user.email)) {
+    await supabase.auth.signOut()
+    return NextResponse.redirect(new URL('/login?error=invalid_credentials', request.url))
+  }
 
   let consumedReferralCookie = false
   if (user) {

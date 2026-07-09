@@ -28,7 +28,7 @@ export async function setGlobalDefaultModel(formData: FormData): Promise<void> {
     .maybeSingle()
 
   const currentModel =
-    (current?.value as string | undefined)?.replace(/"/g, '') ?? 'nano-banana-pro'
+    (current?.value as string | undefined)?.replace(/"/g, '') ?? 'gpt-image'
   if (currentModel === newModel) return // No change
 
   // 2. Find live non-pinned trends that will be affected

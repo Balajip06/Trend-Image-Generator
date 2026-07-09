@@ -13,7 +13,7 @@ export default async function SettingsPage() {
     .maybeSingle()
 
   const currentModel =
-    (setting?.value as string | undefined)?.replace(/"/g, '') ?? 'nano-banana-pro'
+    (setting?.value as string | undefined)?.replace(/"/g, '') ?? 'gpt-image'
 
   return (
     <div className="mx-auto max-w-2xl space-y-8 p-6">

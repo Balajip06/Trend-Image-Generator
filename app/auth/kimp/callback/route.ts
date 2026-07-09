@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
 import { z } from 'zod'
 import { resolveKimpEntitlement } from '@/lib/auth/kimp/resolve-entitlement'
+import { isEmailAllowedToLogin } from '@/lib/auth/login-allowlist'
 import { createServiceClient } from '@/lib/supabase/server'
 import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
 
@@ -111,6 +112,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // Issue 1: Require verified email before any user lookup or creation
   if (!claims.data.email_verified) {
     return NextResponse.redirect(new URL('/login?error=kimp_email_unverified', request.url))
+  }
+
+  if (!isEmailAllowedToLogin(email)) {
+    return NextResponse.redirect(new URL('/login?error=invalid_credentials', request.url))
   }
 
   // Issue 2: Nonce check must be unconditional — undefined !== tx.nonce rejects missing nonce
