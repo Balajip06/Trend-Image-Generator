@@ -14,7 +14,12 @@ export type GeminiModel = 'nano-banana' | 'nano-banana-pro'
 const COST_USD_PER_IMAGE: Record<ImageModel, number> = {
   'nano-banana': 0.0039, // v1 — fast/cheap
   'nano-banana-pro': 0.024, // Pro — quality default
-  // OpenAI gpt-image medium-quality; update when pricing changes
+  // PLACEHOLDER — carried over from gpt-image-1 pricing, not confirmed for
+  // gpt-image-2 (now the default model in openai.ts / generate-image Edge
+  // Function). A single 1024x1536 test call used 8146 output image tokens,
+  // roughly 2x a typical gpt-image-1 call at similar resolution — this rate
+  // is likely an underestimate. Replace with the real per-image cost from
+  // OpenAI billing before trusting margin dashboards.
   // See also: supabase/functions/generate-image/index.ts COST_USD (Deno copy)
   'gpt-image': 0.04,
 }

@@ -1,5 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import { setGlobalDefaultModel } from './actions'
+import { setBannerTrend, setGlobalDefaultModel } from './actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,6 +14,19 @@ export default async function SettingsPage() {
 
   const currentModel =
     (setting?.value as string | undefined)?.replace(/"/g, '') ?? 'gpt-image'
+
+  const { data: bannerSetting } = await service
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'banner_trend_id')
+    .maybeSingle()
+  const currentBannerTrendId = (bannerSetting?.value as string | null) ?? null
+
+  const { data: activeTrends } = await service
+    .from('trends')
+    .select('id, title, slug')
+    .eq('is_active', true)
+    .order('display_order', { ascending: true })
 
   return (
     <div className="mx-auto max-w-2xl space-y-8 p-6">
@@ -55,6 +68,39 @@ export default async function SettingsPage() {
               )}
             </label>
           ))}
+
+          <button
+            type="submit"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 mt-2 inline-flex h-9 items-center rounded-md px-4 text-sm font-medium"
+          >
+            Save
+          </button>
+        </form>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-base font-medium">Homepage Banner Trend</h2>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Pins a specific trend as the homepage hero banner, overriding the normal
+            display-order sort. Leave on &ldquo;No override&rdquo; to use the lowest display-order
+            active trend automatically.
+          </p>
+        </div>
+
+        <form action={setBannerTrend} className="space-y-3">
+          <select
+            name="trend_id"
+            defaultValue={currentBannerTrendId ?? ''}
+            className="border-input h-9 w-full max-w-sm rounded-md border bg-transparent px-3 text-sm"
+          >
+            <option value="">No override (use display order)</option>
+            {(activeTrends ?? []).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.title} (/{t.slug})
+              </option>
+            ))}
+          </select>
 
           <button
             type="submit"

@@ -92,7 +92,7 @@ export default async function EditTrendPage({ params, searchParams }: EditTrendP
         <div className="flex items-center gap-2">
           <Button asChild variant="outline" size="sm">
             <Link href={`/admin/trends/${trend.id}/eval`}>
-              <ClipboardCheck className="size-4" /> Eval
+              <ClipboardCheck className="size-4" /> Test Preview
             </Link>
           </Button>
           <Button asChild variant="ghost" size="sm">

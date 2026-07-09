@@ -10,6 +10,11 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils/cn'
 import { EvalUploadForm } from './EvalUploadForm'
 import { toggleActive } from '../../actions'
+
+// runEval's server action can take 170s for gpt-image-2 image-edit calls —
+// Vercel's default function duration is well under that. Server Actions
+// inherit the duration of the page that invokes them.
+export const maxDuration = 180
 import {
   addEvalInput,
   approveAndGoLive,
@@ -128,7 +133,7 @@ export default async function EvalPage({ params, searchParams }: EvalPageProps) 
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-muted-foreground text-xs font-semibold tracking-[0.2em] uppercase">
-            Eval workflow
+            Test preview workflow
           </p>
           <h1 className="text-3xl font-extrabold tracking-tight">{trend.title}</h1>
           <div className="text-muted-foreground mt-2 flex flex-wrap items-center gap-2 text-xs">

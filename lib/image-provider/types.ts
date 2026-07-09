@@ -34,7 +34,7 @@ export interface GenerateImageArgs {
   prompt: string
   /** Image URLs (Supabase Storage public/signed) passed as multimodal context. */
   imageUrls: string[]
-  /** Hard wall-clock budget; default 90s (Supabase Edge wall is 150s). */
+  /** Hard wall-clock budget; default 130s (Supabase Edge wall is 150s). */
   timeoutMs?: number
 }
 

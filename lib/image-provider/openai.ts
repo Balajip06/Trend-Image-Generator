@@ -3,10 +3,11 @@
  *
  * Uses /v1/images/edits when imageUrls.length > 0 (identity-preserving,
  * multimodal), otherwise /v1/images/generations (text-only).
- * Response: b64_json → PNG Uint8Array.
+ * gpt-image-1 always returns b64_json — no `response_format` param (removed;
+ * OpenAI rejects it with 400 unknown_parameter for this model).
  *
  * Failure taxonomy mirrors gemini.ts exactly:
- *   safety   → HTTP 400 with content_policy_violation code
+ *   safety   → HTTP 400 with code "moderation_blocked"
  *   transient → HTTP 429 or 5xx
  *   timeout  → AbortError
  *   invalid  → other 4xx or malformed response
@@ -25,7 +26,7 @@ const MOCK_PNG_HEADER = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a
 
 export async function generateImage(args: GenerateImageArgs): Promise<GenerateImageResult> {
   const apiKey = process.env.OPENAI_API_KEY
-  const modelId = process.env.OPENAI_IMAGE_MODEL ?? 'gpt-image-1'
+  const modelId = process.env.OPENAI_IMAGE_MODEL ?? 'gpt-image-2'
 
   if (!apiKey) {
     return {
@@ -37,7 +38,10 @@ export async function generateImage(args: GenerateImageArgs): Promise<GenerateIm
   }
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), args.timeoutMs ?? 90_000)
+  // gpt-image-2 has been observed taking 90s+ for a single call — see also
+  // supabase/functions/generate-image/index.ts GEMINI_TIMEOUT_MS (Deno copy,
+  // shared timeout for both providers, kept in sync).
+  const timeout = setTimeout(() => controller.abort(), args.timeoutMs ?? 130_000)
 
   try {
     let res: Response
@@ -48,11 +52,16 @@ export async function generateImage(args: GenerateImageArgs): Promise<GenerateIm
       form.append('model', modelId)
       form.append('prompt', args.prompt)
       form.append('n', '1')
-      form.append('response_format', 'b64_json')
 
-      // Fetch each image URL and append as form parts
+      // Fetch each image URL and append as form parts. Wired to the same
+      // abort signal as the OpenAI call — without this, a hung/stalled fetch
+      // here blocks forever with no timeout at all (the AbortController
+      // below only ever covered the OpenAI POST, not this upstream fetch).
       for (let i = 0; i < args.imageUrls.length; i++) {
-        const imgRes = await fetch(args.imageUrls[i], { redirect: 'error' })
+        const imgRes = await fetch(args.imageUrls[i], {
+          redirect: 'error',
+          signal: controller.signal,
+        })
         if (!imgRes.ok) throw new Error(`Image fetch failed: ${imgRes.status} ${args.imageUrls[i]}`)
         const blob = await imgRes.blob()
         form.append(`image${i === 0 ? '' : `[${i}]`}`, blob, `image${i}.png`)
@@ -76,7 +85,6 @@ export async function generateImage(args: GenerateImageArgs): Promise<GenerateIm
           model: modelId,
           prompt: args.prompt,
           n: 1,
-          response_format: 'b64_json',
         }),
         signal: controller.signal,
       })
@@ -84,8 +92,9 @@ export async function generateImage(args: GenerateImageArgs): Promise<GenerateIm
 
     if (!res.ok) {
       const text = await res.text()
-      // Safety / content policy rejection
-      if (res.status === 400 && text.includes('content_policy_violation')) {
+      // Safety / moderation rejection — gpt-image-1 uses code "moderation_blocked",
+      // not the older "content_policy_violation" used by DALL·E.
+      if (res.status === 400 && text.includes('moderation_blocked')) {
         return {
           ok: false,
           costUsd: 0,

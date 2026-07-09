@@ -42,27 +42,36 @@ export async function generateImage(args: GenerateImageArgs): Promise<GenerateIm
   }
 
   const url = `${GEMINI_BASE_URL}/${MODEL_ID[geminiModel]}:generateContent?key=${apiKey}`
-  const imageParts = await Promise.all(args.imageUrls.map((u) => fetchAsInlineData(u)))
-
-  const body = {
-    contents: [
-      {
-        role: 'user',
-        parts: [{ text: args.prompt }, ...imageParts],
-      },
-    ],
-    safetySettings: [
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-    ],
-  }
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), args.timeoutMs ?? 90_000)
+  // Matches openai.ts's default — raised alongside it for consistency across
+  // providers (see also: supabase/functions/generate-image/index.ts GEMINI_TIMEOUT_MS).
+  // Created before the image fetches below so they share the same timeout —
+  // without this, a hung/stalled image fetch blocks forever with no timeout
+  // at all (previously the controller was created after this step, covering
+  // only the Gemini API call and not the upstream image fetch).
+  const timeout = setTimeout(() => controller.abort(), args.timeoutMs ?? 130_000)
 
   try {
+    const imageParts = await Promise.all(
+      args.imageUrls.map((u) => fetchAsInlineData(u, controller.signal))
+    )
+
+    const body = {
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: args.prompt }, ...imageParts],
+        },
+      ],
+      safetySettings: [
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+      ],
+    }
+
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -132,9 +141,10 @@ interface GeminiResponse {
 }
 
 async function fetchAsInlineData(
-  url: string
+  url: string,
+  signal: AbortSignal
 ): Promise<{ inlineData: { mimeType: string; data: string } }> {
-  const res = await fetch(url)
+  const res = await fetch(url, { signal })
   if (!res.ok) throw new Error(`Image fetch failed: ${res.status} ${url}`)
   const mimeType = res.headers.get('content-type') ?? 'image/jpeg'
   const buf = new Uint8Array(await res.arrayBuffer())

@@ -21,12 +21,25 @@ function fmt(n: number): string {
 
 export default async function HomePage() {
   const trends = await listActiveTrends()
-  const heroTrend = trends[0]
-  const restTrends = trends.slice(1)
-  // Service-role client is safe here — getSocialProof only reads aggregate
-  // counts and never returns row-level data. Avoids reading auth cookies,
-  // which would otherwise force `/` from ISR to fully-dynamic.
-  const proof = await getSocialProof(createServiceClient())
+  // Service-role client is safe here — getSocialProof + the banner-trend
+  // lookup only read aggregate/config data, never row-level user data.
+  // Avoids reading auth cookies, which would otherwise force `/` from ISR
+  // to fully-dynamic.
+  const service = createServiceClient()
+  const proof = await getSocialProof(service)
+
+  const { data: bannerSetting } = await service
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'banner_trend_id')
+    .maybeSingle()
+  const bannerTrendId = (bannerSetting?.value as string | null) ?? null
+  const bannerIdx = bannerTrendId ? trends.findIndex((t) => t.id === bannerTrendId) : -1
+
+  // Admin-pinned banner trend takes priority over display_order if it's
+  // still active; otherwise fall back to the normal lowest-display_order trend.
+  const heroTrend = bannerIdx >= 0 ? trends[bannerIdx] : trends[0]
+  const restTrends = bannerIdx >= 0 ? trends.filter((_, i) => i !== bannerIdx) : trends.slice(1)
 
   return (
     <div className="relative">

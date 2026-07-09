@@ -78,7 +78,7 @@ export function IdentitySection({ initial }: SectionProps) {
             id="slug"
             name="slug"
             required
-            pattern="^[a-z][a-z0-9-]*$"
+            pattern="^[a-z][a-z0-9\-]*$"
             maxLength={120}
             defaultValue={initial.slug ?? ''}
           />

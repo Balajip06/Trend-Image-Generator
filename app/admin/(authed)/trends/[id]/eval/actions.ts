@@ -8,7 +8,7 @@ import { generateImage } from '@/lib/image-provider'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { buildEvalValues } from '@/lib/trends/eval-values'
 import { TrendInputSchema, type TrendInput } from '@/lib/trends/input-schema'
-import { collectImageInputs, interpolatePrompt } from '@/lib/trends/interpolate'
+import { collectImageInputs, interpolatePrompt, REALISM_SUFFIX } from '@/lib/trends/interpolate'
 
 const InputCreateSchema = z.object({
   label: z.string().min(1).max(80),
@@ -113,7 +113,7 @@ export async function runEval(trendId: string): Promise<void> {
       let imageUrls: string[]
       try {
         const values = buildEvalValues(schema, input.image_url)
-        prompt = interpolatePrompt(trend!.prompt_template, schema, values)
+        prompt = interpolatePrompt(trend!.prompt_template, schema, values) + REALISM_SUFFIX
         imageUrls = collectImageInputs(schema, values)
       } catch (err: unknown) {
         const reason = err instanceof Error ? err.message : 'interpolation_failed'
@@ -129,9 +129,17 @@ export async function runEval(trendId: string): Promise<void> {
         model: trend!.model,
         prompt,
         imageUrls,
+        // Eval runs as a plain Next.js server action, not the Supabase Edge
+        // Function — no 150s platform wall-clock applies here. gpt-image-2
+        // has been observed taking 93-134s+ for image-edit calls; give this
+        // admin-only path more headroom than the production default.
+        timeoutMs: 170_000,
       })
       if (!result.ok) {
-        const update = { output_url: null, admin_rating: `error:${result.reason}` }
+        const update = {
+          output_url: null,
+          admin_rating: `error:${result.reason}:${result.message.slice(0, 150)}`,
+        }
         await supabase.from('trend_eval_runs').update(update).eq('id', runId)
         return
       }

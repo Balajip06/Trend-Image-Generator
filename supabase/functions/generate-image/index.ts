@@ -112,10 +112,16 @@ interface WebhookPayload {
 }
 
 const MAX_ATTEMPTS = 3
-const GEMINI_TIMEOUT_MS = 90_000
-const WALL_TIMEOUT_MS = 110_000
+// Shared by both providers (misleading name, kept for git-blame continuity —
+// used at both callGemini and callOpenAI call sites below). gpt-image-2 has
+// been observed taking 90s+ for a single call; Supabase Edge Functions have
+// a hard 150s wall-clock ceiling, so 130s here + 140s wall leaves 10s margin.
+const GEMINI_TIMEOUT_MS = 130_000
+const WALL_TIMEOUT_MS = 140_000
 
 // See also: lib/gemini/cost.ts COST_USD_PER_IMAGE (Node copy — keep in sync)
+// gpt-image rate is a PLACEHOLDER carried over from gpt-image-1 pricing, not
+// confirmed for gpt-image-2 (now the default) — likely an underestimate.
 const COST_USD: Record<EdgeImageModel, number> = {
   'nano-banana': 0.0039,
   'nano-banana-pro': 0.024,
@@ -208,7 +214,7 @@ async function process(supabase: ReturnType<typeof createClient>, gen: Generatio
   }
 
   // 3. Build prompt + collect image URLs.
-  const prompt = interpolate(trendData.prompt_template, gen.input_payload.values)
+  const prompt = interpolate(trendData.prompt_template, gen.input_payload.values) + REALISM_SUFFIX
   const imageUrls =
     gen.input_payload.image_urls ?? collectImagesFromValues(gen.input_payload.values)
 
@@ -269,7 +275,7 @@ async function process(supabase: ReturnType<typeof createClient>, gen: Generatio
       cost_usd: COST_USD[trendData.model],
       model_used:
         trendData.model === 'gpt-image'
-          ? (Deno.env.get('OPENAI_IMAGE_MODEL') ?? 'gpt-image-1')
+          ? (Deno.env.get('OPENAI_IMAGE_MODEL') ?? 'gpt-image-2')
           : GEMINI_MODEL_ID[trendData.model as 'nano-banana' | 'nano-banana-pro'],
       completed_at: new Date().toISOString(),
     })
@@ -326,6 +332,16 @@ async function markRetryable(
 
 // ---- Helpers (inlined for Deno standalone) ----
 
+// Appended to every interpolated prompt, both providers. Trend-authored
+// prompt_template text stays focused on scene/style; this keeps every trend
+// from independently having to spell out texture realism.
+// See also: lib/trends/interpolate.ts REALISM_SUFFIX (Node copy — keep in sync)
+const REALISM_SUFFIX =
+  ' Photorealistic skin with visible pores and natural texture, individual ' +
+  'hair strands and eyebrow hairs, natural asymmetric eyelashes, realistic ' +
+  'teeth with natural color and alignment. Avoid airbrushed, plastic, or ' +
+  'over-smoothed CGI skin — this is a real photograph, not a digital painting.'
+
 function interpolate(template: string, values: Record<string, string | string[]>): string {
   return template.replace(/\{\{\s*([a-z][a-z0-9_]*)\s*\}\}/g, (_, name: string) => {
     const v = values[name]
@@ -363,31 +379,27 @@ async function callGemini(
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_ID[model]}:generateContent?key=${apiKey}`
 
-  let imageParts: Array<{ inlineData: { mimeType: string; data: string } }>
-  try {
-    imageParts = await Promise.all(imageUrls.map(fetchAsInlineData))
-  } catch (err) {
-    return {
-      ok: false,
-      reason: 'invalid',
-      message: err instanceof Error ? err.message : 'image fetch failed',
-    }
-  }
-
-  const body = {
-    contents: [{ role: 'user', parts: [{ text: prompt }, ...imageParts] }],
-    safetySettings: [
-      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-    ],
-  }
-
+  // Controller created before the image fetches below so they share the
+  // same timeout — without this, a hung/stalled image fetch blocks forever
+  // with no timeout at all.
   const controller = new AbortController()
   const t = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS)
 
   try {
+    const imageParts = await Promise.all(
+      imageUrls.map((u) => fetchAsInlineData(u, controller.signal))
+    )
+
+    const body = {
+      contents: [{ role: 'user', parts: [{ text: prompt }, ...imageParts] }],
+      safetySettings: [
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+      ],
+    }
+
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -442,7 +454,7 @@ async function callGemini(
  */
 async function callOpenAI(prompt: string, imageUrls: string[]): Promise<GeminiOk | GeminiFail> {
   const apiKey = Deno.env.get('OPENAI_API_KEY')
-  const modelId = Deno.env.get('OPENAI_IMAGE_MODEL') ?? 'gpt-image-1'
+  const modelId = Deno.env.get('OPENAI_IMAGE_MODEL') ?? 'gpt-image-2'
 
   if (!apiKey) return { ok: false, reason: 'invalid', message: 'OPENAI_API_KEY missing' }
 
@@ -460,10 +472,11 @@ async function callOpenAI(prompt: string, imageUrls: string[]): Promise<GeminiOk
       form.append('model', modelId)
       form.append('prompt', prompt)
       form.append('n', '1')
-      form.append('response_format', 'b64_json')
 
+      // Wired to the same abort signal as the OpenAI call below — without
+      // this, a hung/stalled fetch here blocks forever with no timeout.
       for (let i = 0; i < imageUrls.length; i++) {
-        const rawRes = await fetch(imageUrls[i])
+        const rawRes = await fetch(imageUrls[i], { signal: controller.signal })
         if (!rawRes.ok) throw new Error(`image fetch ${rawRes.status}: ${imageUrls[i]}`)
         const blob = await rawRes.blob()
         form.append(i === 0 ? 'image' : `image[${i}]`, blob, `image${i}.png`)
@@ -480,14 +493,14 @@ async function callOpenAI(prompt: string, imageUrls: string[]): Promise<GeminiOk
       res = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ model: modelId, prompt, n: 1, response_format: 'b64_json' }),
+        body: JSON.stringify({ model: modelId, prompt, n: 1 }),
         signal: controller.signal,
       })
     }
 
     if (!res.ok) {
       const text = await res.text()
-      if (res.status === 400 && text.includes('content_policy_violation')) {
+      if (res.status === 400 && text.includes('moderation_blocked')) {
         return { ok: false, reason: 'safety', message: `OpenAI policy: ${text.slice(0, 200)}` }
       }
       const transient = res.status === 429 || res.status >= 500
@@ -530,9 +543,10 @@ async function callProvider(
 }
 
 async function fetchAsInlineData(
-  url: string
+  url: string,
+  signal: AbortSignal
 ): Promise<{ inlineData: { mimeType: string; data: string } }> {
-  const res = await fetch(url)
+  const res = await fetch(url, { signal })
   if (!res.ok) throw new Error(`image fetch ${res.status}: ${url}`)
   const mimeType = res.headers.get('content-type') ?? 'image/jpeg'
   const bytes = new Uint8Array(await res.arrayBuffer())

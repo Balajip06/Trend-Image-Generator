@@ -77,3 +77,43 @@ export async function setGlobalDefaultModel(formData: FormData): Promise<void> {
   revalidatePath('/admin/settings')
   revalidatePath('/admin/trends')
 }
+
+export async function setBannerTrend(formData: FormData): Promise<void> {
+  const { userId } = await requireAdminRole('editor')
+
+  const raw = formData.get('trend_id')
+  const parsed = z.union([z.string().uuid(), z.literal('')]).safeParse(raw)
+  if (!parsed.success) return
+  const newTrendId = parsed.data === '' ? null : parsed.data
+
+  const service = createServiceClient()
+
+  const { data: current } = await service
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'banner_trend_id')
+    .maybeSingle()
+  const currentTrendId = (current?.value as string | null) ?? null
+  if (currentTrendId === newTrendId) return
+
+  await service
+    .from('app_settings')
+    .update({
+      value: newTrendId,
+      updated_by: userId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('key', 'banner_trend_id')
+
+  await logAdminAction({
+    adminId: userId,
+    action: 'banner_trend_changed',
+    targetTable: 'app_settings',
+    targetId: 'banner_trend_id',
+    before: { trend_id: currentTrendId },
+    after: { trend_id: newTrendId },
+  })
+
+  revalidatePath('/admin/settings')
+  revalidatePath('/')
+}

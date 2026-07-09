@@ -270,10 +270,13 @@ describe('runEval', () => {
     expect(generateImage).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'nano-banana',
-        prompt: 'do thing',
+        prompt: expect.stringContaining('do thing'),
         imageUrls: [UPLOADS_URL],
       })
     )
+    const sentPrompt = (generateImage as ReturnType<typeof vi.fn>).mock.calls[0][0]
+      .prompt as string
+    expect(sentPrompt).toContain('visible pores')
     expect(mockSupabase._storageBucket.upload).toHaveBeenCalled()
     const uploadCalls = mockSupabase._storageBucket.upload.mock.calls as unknown as Array<
       [string, unknown, unknown]

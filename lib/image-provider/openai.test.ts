@@ -32,7 +32,7 @@ describe('openai generateImage', () => {
       status: 400,
       text: async () =>
         JSON.stringify({
-          error: { code: 'content_policy_violation', message: 'Policy violation' },
+          error: { code: 'moderation_blocked', message: 'Policy violation' },
         }),
     })
     const { generateImage } = await import('./openai')
@@ -56,5 +56,34 @@ describe('openai generateImage', () => {
     const result = await generateImage({ model: 'gpt-image', prompt: 'test', imageUrls: [] })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.reason).toBe('transient')
+  })
+
+  it('never sends response_format — gpt-image-1 rejects it with 400 unknown_parameter', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'sk-test-key')
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: [{ b64_json: 'aGVsbG8=' }] }),
+    })
+    global.fetch = fetchMock
+    const { generateImage } = await import('./openai')
+
+    await generateImage({ model: 'gpt-image', prompt: 'test', imageUrls: [] })
+    const jsonBody = JSON.parse(String(fetchMock.mock.calls[0][1].body))
+    expect(jsonBody).not.toHaveProperty('response_format')
+
+    fetchMock.mockClear()
+    global.fetch = vi
+      .fn()
+      .mockImplementationOnce(async () => ({ ok: true, blob: async () => new Blob(['x']) }))
+      .mockImplementationOnce(fetchMock)
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: [{ b64_json: 'aGVsbG8=' }] }),
+    })
+    await generateImage({ model: 'gpt-image', prompt: 'test', imageUrls: ['https://example.com/a.png'] })
+    const formBody = fetchMock.mock.calls[0][1].body as FormData
+    expect(formBody.has('response_format')).toBe(false)
   })
 })

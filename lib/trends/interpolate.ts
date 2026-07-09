@@ -9,6 +9,18 @@ import { assertStorageUrl } from '@/lib/storage/validate-image-url'
 export type TrendInputValues = Record<string, string | string[]>
 
 /**
+ * Appended to every interpolated prompt sent to Gemini or OpenAI. Keeps
+ * trend-authored prompt_template text focused on scene/style; this covers
+ * texture realism so no trend has to spell it out individually.
+ * See also: supabase/functions/generate-image/index.ts REALISM_SUFFIX (Deno copy — keep in sync)
+ */
+export const REALISM_SUFFIX =
+  ' Photorealistic skin with visible pores and natural texture, individual ' +
+  'hair strands and eyebrow hairs, natural asymmetric eyelashes, realistic ' +
+  'teeth with natural color and alignment. Avoid airbrushed, plastic, or ' +
+  'over-smoothed CGI skin — this is a real photograph, not a digital painting.'
+
+/**
  * Substitutes `{{field_name}}` placeholders in a prompt template with text/select
  * values from the user payload. Image fields are NOT substituted into prompt text —
  * they are forwarded to Gemini as multimodal inputs alongside the prompt.
