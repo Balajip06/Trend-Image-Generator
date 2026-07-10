@@ -114,39 +114,56 @@ export function ResultView({ initial, trend }: ResultViewProps) {
     if (row.status === 'completed' || row.status === 'failed') return
 
     const supabase = createClient()
-    const wasSubscribedRef = { current: false }
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let cancelled = false
 
-    const channel = supabase
-      .channel(`gen-${row.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'generations', filter: `id=eq.${row.id}` },
-        (payload) => {
-          const next = payload.new as Initial
-          setRow((prev) => ({ ...prev, ...next }))
-        }
-      )
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          // Cover the RSC→SUBSCRIBED window (H-R2) and reconnect gap (H-R3)
-          wasSubscribedRef.current = true
-          try {
-            const { data } = await supabase
-              .from('generations')
-              .select(
-                'id, status, output_image_url, error_message, attempts, cost_usd, completed_at'
-              )
-              .eq('id', row.id)
-              .maybeSingle()
-            if (data) setRow((prev) => ({ ...prev, ...data }))
-          } catch {
-            /* best-effort */
+    // The @supabase/ssr browser client keeps the session in cookies and does
+    // NOT push the user's access token onto the Realtime socket the way the
+    // plain client (localStorage + onAuthStateChange) does. Without it,
+    // postgres_changes runs its per-row RLS check as the anon role, so
+    // generations_own_read (auth.uid() = user_id) denies every event and the
+    // subscription silently receives nothing despite reaching SUBSCRIBED.
+    // Set the token on the socket BEFORE subscribing so RLS evaluates as the
+    // authenticated owner and the channel is opened with it already applied.
+    void (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (cancelled) return
+      if (session?.access_token) supabase.realtime.setAuth(session.access_token)
+
+      channel = supabase
+        .channel(`gen-${row.id}`)
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'generations', filter: `id=eq.${row.id}` },
+          (payload) => {
+            const next = payload.new as Initial
+            setRow((prev) => ({ ...prev, ...next }))
           }
-        }
-      })
+        )
+        .subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            // Cover the RSC→SUBSCRIBED window (H-R2) and reconnect gap (H-R3)
+            try {
+              const { data } = await supabase
+                .from('generations')
+                .select(
+                  'id, status, output_image_url, error_message, attempts, cost_usd, completed_at'
+                )
+                .eq('id', row.id)
+                .maybeSingle()
+              if (data && !cancelled) setRow((prev) => ({ ...prev, ...data }))
+            } catch {
+              /* best-effort */
+            }
+          }
+        })
+    })()
 
     return () => {
-      void supabase.removeChannel(channel)
+      cancelled = true
+      if (channel) void supabase.removeChannel(channel)
     }
   }, [row.id, row.status])
 
