@@ -472,6 +472,11 @@ async function callOpenAI(prompt: string, imageUrls: string[]): Promise<GeminiOk
       form.append('model', modelId)
       form.append('prompt', prompt)
       form.append('n', '1')
+      // Explicit size + quality: without these gpt-image-2 defaults to its
+      // slowest config (high quality, large size). Keep in sync with the Node
+      // copy in lib/image-provider/openai.ts.
+      form.append('size', '1024x1024')
+      form.append('quality', 'medium')
 
       // Wired to the same abort signal as the OpenAI call below — without
       // this, a hung/stalled fetch here blocks forever with no timeout.
@@ -493,7 +498,13 @@ async function callOpenAI(prompt: string, imageUrls: string[]): Promise<GeminiOk
       res = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ model: modelId, prompt, n: 1 }),
+        body: JSON.stringify({
+          model: modelId,
+          prompt,
+          n: 1,
+          size: '1024x1024',
+          quality: 'medium',
+        }),
         signal: controller.signal,
       })
     }

@@ -24,6 +24,12 @@ import type { GenerateImageArgs, GenerateImageResult } from './types'
 const OPENAI_BASE_URL = 'https://api.openai.com/v1'
 const MOCK_PNG_HEADER = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
+// Explicit size + quality — without these gpt-image-2 falls back to its
+// slowest defaults (high quality, large/auto size). Keep in sync with the
+// Deno copy in supabase/functions/generate-image/index.ts.
+const OPENAI_IMAGE_SIZE = '1024x1024'
+const OPENAI_IMAGE_QUALITY = 'medium'
+
 export async function generateImage(args: GenerateImageArgs): Promise<GenerateImageResult> {
   const apiKey = process.env.OPENAI_API_KEY
   const modelId = process.env.OPENAI_IMAGE_MODEL ?? 'gpt-image-2'
@@ -52,6 +58,12 @@ export async function generateImage(args: GenerateImageArgs): Promise<GenerateIm
       form.append('model', modelId)
       form.append('prompt', args.prompt)
       form.append('n', '1')
+      // Without size/quality, gpt-image-2 defaults to quality=high + large
+      // size — its slowest config (90-140s observed). medium + a fixed 1024²
+      // cuts render time substantially at negligible quality loss for these
+      // avatar-style outputs. Keep in sync with the Deno copy.
+      form.append('size', OPENAI_IMAGE_SIZE)
+      form.append('quality', OPENAI_IMAGE_QUALITY)
 
       // Fetch each image URL and append as form parts. Wired to the same
       // abort signal as the OpenAI call — without this, a hung/stalled fetch
@@ -85,6 +97,8 @@ export async function generateImage(args: GenerateImageArgs): Promise<GenerateIm
           model: modelId,
           prompt: args.prompt,
           n: 1,
+          size: OPENAI_IMAGE_SIZE,
+          quality: OPENAI_IMAGE_QUALITY,
         }),
         signal: controller.signal,
       })
