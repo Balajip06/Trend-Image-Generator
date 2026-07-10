@@ -7,7 +7,14 @@ import { toast } from 'sonner'
 import { ActiveBadge, EvalBadge } from '@/components/admin/StatusBadges'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import { IMAGE_MODELS, MODEL_LABELS, type ImageModel } from '@/lib/image-provider/types'
 import { cn } from '@/lib/utils/cn'
@@ -76,6 +83,7 @@ export function EvalWorkflow({ trend, inputs, latestRuns, addEvalInputAction }: 
   const [pending, setPending] = useState<PendingState | null>(null)
   const [, startTransition] = useTransition()
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   // Per-card model selection for the Test button. Defaults to the trend's
   // saved model; the admin can switch to compare models before going live.
   const [selectedModels, setSelectedModels] = useState<Record<string, ImageModel>>({})
@@ -87,6 +95,14 @@ export function EvalWorkflow({ trend, inputs, latestRuns, addEvalInputAction }: 
   )
   const hasResults = inputs.length > 0 && Object.keys(latestRuns).length > 0
   const hasSuccessfulResults = Object.values(latestRuns).some((r) => r.output_url)
+  // The run that Approve & Go Live will commit: the successful latest run whose
+  // model matches the trend's, else the first successful one (its model gets
+  // committed). Shown in the confirmation dialog so the admin sees exactly what
+  // goes live + which model it locks in.
+  const successfulRuns = Object.values(latestRuns).filter((r) => r.output_url)
+  const winningRun =
+    successfulRuns.find((r) => r.model === trend.model) ?? successfulRuns[0] ?? null
+  const winningModel = (winningRun?.model as ImageModel | undefined) ?? (trend.model as ImageModel)
 
   function isPending(inputId: string, kind: PendingKind) {
     return pending?.inputId === inputId && pending?.kind === kind
@@ -121,7 +137,8 @@ export function EvalWorkflow({ trend, inputs, latestRuns, addEvalInputAction }: 
       await toggleActive(trend.id, false, `/admin/trends/${trend.id}/eval`)
     })
   }
-  function handleApprove() {
+  function confirmApprove() {
+    setConfirmOpen(false)
     startTransition(async () => {
       await approveAndGoLive(trend.id)
     })
@@ -379,7 +396,7 @@ export function EvalWorkflow({ trend, inputs, latestRuns, addEvalInputAction }: 
                     type="button"
                     size="lg"
                     disabled={!hasSuccessfulResults}
-                    onClick={handleApprove}
+                    onClick={() => setConfirmOpen(true)}
                     className="bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
                   >
                     <Rocket className="size-4" /> Approve &amp; Go Live
@@ -398,6 +415,49 @@ export function EvalWorkflow({ trend, inputs, latestRuns, addEvalInputAction }: 
             // eslint-disable-next-line @next/next/no-img-element
             <img src={previewUrl} alt="Result preview" className="w-full rounded-lg" />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve confirmation — shows exactly what goes live + which model it commits. */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Go live with this result?</DialogTitle>
+            <DialogDescription>
+              This activates the trend for customers and locks in the model below. Editing the
+              prompt or model later resets the eval.
+            </DialogDescription>
+          </DialogHeader>
+          {winningRun?.output_url && (
+            <div className="flex flex-col gap-3">
+              <div className="border-border/60 bg-muted mx-auto aspect-square w-full max-w-xs overflow-hidden rounded-xl border">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={winningRun.output_url}
+                  alt="Result going live"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="flex items-center justify-center gap-2 text-sm">
+                <span className="text-muted-foreground">Model:</span>
+                <span className="bg-muted rounded px-2 py-0.5 font-mono text-xs">
+                  {MODEL_LABELS[winningModel] ?? winningModel}
+                </span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmApprove}
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+            >
+              <Rocket className="size-4" /> Confirm &amp; Go Live
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
