@@ -18,23 +18,55 @@
 -- therefore NO bump_trend_version / eval-reset side effect. Existing eval
 -- proofs stay valid. We then patch trend_eval_runs.model (plain text, not the
 -- enum) and app_settings so the eval-proof trigger keeps matching.
+--
+-- IDEMPOTENT: each rename is guarded so re-running (or replaying after the
+-- rename already applied out-of-band via the dashboard) is a no-op instead of
+-- erroring with "<old> is not an existing enum label".
 
--- 1. Rename the enum values in place (PG15+; each is its own statement).
-alter type public.trend_model rename value 'nano-banana' to 'nano-banana-2';
-alter type public.trend_model rename value 'nano-banana-pro' to 'nano-banana-2-lite';
-alter type public.trend_model rename value 'gpt-image' to 'gpt-image-2';
+do $$
+begin
+  if exists (
+    select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
+    where t.typname = 'trend_model' and e.enumlabel = 'nano-banana'
+  ) then
+    alter type public.trend_model rename value 'nano-banana' to 'nano-banana-2';
+  end if;
 
--- 2. trend_eval_runs.model is TEXT (not the enum) and is compared verbatim by
---    require_eval_proof_for_passed against trends.model::text. Rewrite the old
---    strings so passing runs still certify their trend's (version, model).
+  if exists (
+    select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
+    where t.typname = 'trend_model' and e.enumlabel = 'nano-banana-pro'
+  ) then
+    alter type public.trend_model rename value 'nano-banana-pro' to 'nano-banana-2-lite';
+  end if;
+
+  if exists (
+    select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
+    where t.typname = 'trend_model' and e.enumlabel = 'gpt-image'
+  ) then
+    alter type public.trend_model rename value 'gpt-image' to 'gpt-image-2';
+  end if;
+end $$;
+
+-- trend_eval_runs.model is TEXT (not the enum) and is compared verbatim by
+-- require_eval_proof_for_passed against trends.model::text. Rewrite the old
+-- strings so passing runs still certify their trend's (version, model).
+-- (These UPDATEs are naturally idempotent — no rows match after the first run.)
 update public.trend_eval_runs set model = 'nano-banana-2'      where model = 'nano-banana';
 update public.trend_eval_runs set model = 'nano-banana-2-lite' where model = 'nano-banana-pro';
 update public.trend_eval_runs set model = 'gpt-image-2'        where model = 'gpt-image';
 
--- 3. Global default stays "ChatGPT Images 2.0" (was already gpt-image →
---    now gpt-image-2). The enum rename already updated any trends.model rows,
---    but app_settings stores the value as free JSON text, so patch it too.
+-- app_settings.default_image_model stores the model as free JSON text (NOT the
+-- enum), so the rename above does NOT touch it — patch every old value to its
+-- new equivalent. (Different environments seeded different defaults:
+-- '"nano-banana"' originally, '"gpt-image"' after the 2026-07-09 migration.)
+update public.app_settings
+   set value = '"nano-banana-2"'::jsonb, updated_at = now()
+ where key = 'default_image_model' and value = '"nano-banana"'::jsonb;
+
+update public.app_settings
+   set value = '"nano-banana-2-lite"'::jsonb, updated_at = now()
+ where key = 'default_image_model' and value = '"nano-banana-pro"'::jsonb;
+
 update public.app_settings
    set value = '"gpt-image-2"'::jsonb, updated_at = now()
- where key = 'default_image_model'
-   and value = '"gpt-image"'::jsonb;
+ where key = 'default_image_model' and value = '"gpt-image"'::jsonb;
