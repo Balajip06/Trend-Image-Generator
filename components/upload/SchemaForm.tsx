@@ -24,6 +24,12 @@ interface SchemaFormProps {
     files: Record<string, File[]>
   }) => void | Promise<void>
   submitting?: boolean
+  /**
+   * When set, renders a full-form overlay with a spinner + this label —
+   * covers the multi-step upload → generate window that the disabled submit
+   * button alone doesn't communicate. Undefined = no overlay.
+   */
+  phaseLabel?: string
   ctaLabel?: string
   className?: string
 }
@@ -40,6 +46,7 @@ export function SchemaForm({
   schema,
   onSubmit,
   submitting = false,
+  phaseLabel,
   ctaLabel = 'Generate',
   className,
 }: SchemaFormProps) {
@@ -99,7 +106,7 @@ export function SchemaForm({
   )
 
   return (
-    <form onSubmit={handleSubmit} className={cn('flex flex-col gap-6', className)}>
+    <form onSubmit={handleSubmit} className={cn('relative flex flex-col gap-6', className)}>
       {schema.fields.map((field) => (
         <FieldRenderer
           key={field.name}
@@ -121,6 +128,17 @@ export function SchemaForm({
           ctaLabel
         )}
       </GradientButton>
+
+      {phaseLabel && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="bg-background/70 absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl text-center backdrop-blur-sm"
+        >
+          <div className="border-muted-foreground/30 border-t-foreground size-10 animate-spin rounded-full border-4" />
+          <p className="text-sm font-medium">{phaseLabel}</p>
+        </div>
+      )}
     </form>
   )
 }

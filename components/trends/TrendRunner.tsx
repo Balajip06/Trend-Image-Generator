@@ -29,17 +29,25 @@ const SIGNED_URL_TTL_SECONDS = 3600
  * the runner only owns the upload form + idempotent /api/generate call;
  * the surrounding shell decides where to render it.
  */
+type Phase = 'idle' | 'uploading' | 'starting'
+
+const PHASE_LABELS: Record<Exclude<Phase, 'idle'>, string> = {
+  uploading: 'Uploading your photo…',
+  starting: 'Starting generation…',
+}
+
 export function TrendRunner({ trend, freeUsedThisWeek = 5 }: TrendRunnerProps) {
   const router = useRouter()
-  const [submitting, setSubmitting] = useState(false)
+  const [phase, setPhase] = useState<Phase>('idle')
   const [upsellOpen, setUpsellOpen] = useState(false)
+  const submitting = phase !== 'idle'
 
   const handleSubmit = useCallback(
     async (payload: {
       values: Record<string, string | string[]>
       files: Record<string, File[]>
     }) => {
-      setSubmitting(true)
+      setPhase('uploading')
 
       const fileCount = Object.values(payload.files).reduce((n, fs) => n + fs.length, 0)
       analytics.track(EVENTS.UPLOAD_STARTED, { trend_slug: trend.slug, file_count: fileCount })
@@ -61,6 +69,7 @@ export function TrendRunner({ trend, freeUsedThisWeek = 5 }: TrendRunnerProps) {
           router.push(`/login?next=/me/studio?trend=${trend.slug}`)
           return
         }
+        // navigating away — overlay unmounts with the route; no reset needed
 
         const idemKey = generateIdempotencyKey()
         const valuesWithUrls: Record<string, string | string[]> = { ...payload.values }
@@ -93,6 +102,7 @@ export function TrendRunner({ trend, freeUsedThisWeek = 5 }: TrendRunnerProps) {
           is_anonymous: false,
         })
 
+        setPhase('starting')
         const res = await fetch('/api/generate', {
           method: 'POST',
           headers: {
@@ -104,7 +114,7 @@ export function TrendRunner({ trend, freeUsedThisWeek = 5 }: TrendRunnerProps) {
         const body = (await res.json()) as { generation_id?: string; error?: string }
         if (res.status === 402) {
           setUpsellOpen(true)
-          setSubmitting(false)
+          setPhase('idle')
           return
         }
         if (!res.ok || !body.generation_id) {
@@ -119,7 +129,7 @@ export function TrendRunner({ trend, freeUsedThisWeek = 5 }: TrendRunnerProps) {
           attempts: 0,
         })
         toast.error(message)
-        setSubmitting(false)
+        setPhase('idle')
       }
     },
     [router, trend.slug, trend.model]
@@ -131,6 +141,7 @@ export function TrendRunner({ trend, freeUsedThisWeek = 5 }: TrendRunnerProps) {
         schema={trend.input_schema}
         onSubmit={handleSubmit}
         submitting={submitting}
+        phaseLabel={phase === 'idle' ? undefined : PHASE_LABELS[phase]}
         ctaLabel="Generate"
       />
       <QuotaUpsellModal

@@ -9,8 +9,8 @@ export default function Loading() {
         <Skeleton className="h-9 w-2/3" />
       </div>
 
-      {/* Large canvas */}
-      <Skeleton className="aspect-square w-full rounded-3xl" />
+      {/* Result canvas — matches ResultCanvas's max-w-md centered preview */}
+      <Skeleton className="mx-auto aspect-square w-full max-w-md rounded-3xl" />
 
       {/* Action button row */}
       <div className="flex flex-wrap items-center gap-3">
