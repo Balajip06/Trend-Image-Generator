@@ -18,7 +18,7 @@
 
 import { generateImage as geminiGenerate } from './gemini'
 import { generateImage as openaiGenerate } from './openai'
-import type { GenerateImageArgs, GenerateImageResult, ImageProvider } from './types'
+import type { GenerateImageArgs, GenerateImageResult, ImageModel, ImageProvider } from './types'
 import { MODEL_PROVIDER } from './types'
 
 export type {
@@ -54,4 +54,42 @@ export async function generateImage(args: GenerateImageArgs): Promise<GenerateIm
     default:
       return geminiGenerate(args)
   }
+}
+
+/**
+ * The model to fall back to when the primary fails. nano-banana-2-lite is the
+ * fastest/most-reliable model, so it's the default backstop; if the primary
+ * already IS lite, fall back to the standard nano-banana-2 instead.
+ */
+export function fallbackModelFor(model: ImageModel): ImageModel {
+  return model === 'nano-banana-2-lite' ? 'nano-banana-2' : 'nano-banana-2-lite'
+}
+
+/**
+ * Reasons worth retrying on a DIFFERENT model. 'safety' is excluded — a
+ * moderation block will re-block on any model, and retrying wastes budget /
+ * risks policy. 'not-configured' is excluded — a missing key won't be fixed by
+ * switching model within the same deploy.
+ */
+const FALLBACK_REASONS = new Set(['timeout', 'transient', 'invalid'])
+
+/**
+ * Generate with automatic single fallback: if the chosen model fails with a
+ * retryable reason, try once more with fallbackModelFor(model). Returns the
+ * first success, or the fallback's result if it also fails. The winning
+ * model is always readable via result.modelUsed on success.
+ *
+ * NOTE: the customer path (Supabase Edge Function) has its own inlined copy of
+ * this logic — keep the reason set + fallback choice in sync.
+ */
+export async function generateImageWithFallback(
+  args: GenerateImageArgs
+): Promise<GenerateImageResult> {
+  const primary = await generateImage(args)
+  if (primary.ok) return primary
+  if (!FALLBACK_REASONS.has(primary.reason)) return primary
+
+  const fallback = fallbackModelFor(args.model)
+  if (fallback === args.model) return primary
+  return generateImage({ ...args, model: fallback })
 }

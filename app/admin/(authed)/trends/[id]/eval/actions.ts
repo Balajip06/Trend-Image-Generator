@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { logAdminAction } from '@/lib/admin/audit'
-import { generateImage } from '@/lib/image-provider'
+import { fallbackModelFor, generateImage } from '@/lib/image-provider'
 import type { ImageModel } from '@/lib/image-provider/types'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { buildEvalValues } from '@/lib/trends/eval-values'
@@ -45,6 +45,11 @@ export async function addEvalInput(trendId: string, formData: FormData): Promise
 }
 
 export type EvalActionResult = { ok: true } | { ok: false; error: string }
+
+// Failure reasons worth retrying on a different model. 'safety' re-blocks on
+// any model; 'not-configured' is a missing key. Mirrors the set in
+// lib/image-provider/index.ts and the Edge Function — keep in sync.
+const FALLBACK_REASONS = new Set(['timeout', 'transient', 'invalid'])
 
 export async function removeEvalInput(trendId: string, inputId: string): Promise<EvalActionResult> {
   const supabase = createServiceClient()
@@ -130,16 +135,30 @@ export async function runEval(
     return { ok: false, error: `Missing eval default: ${reason}` }
   }
 
-  const result = await generateImage({
-    model: modelForRun,
-    prompt,
-    imageUrls,
-    // Eval runs as a plain Next.js server action, not the Supabase Edge
-    // Function — no 150s platform wall-clock applies here. gpt-image-2
-    // has been observed taking 93-134s+ for image-edit calls; give this
-    // admin-only path more headroom than the production default.
-    timeoutMs: 170_000,
-  })
+  // Eval runs as a plain Next.js server action, not the Supabase Edge
+  // Function — no 150s platform wall-clock applies here. gpt-image-2 has been
+  // observed taking 93-134s+ for image-edit calls; give this admin-only path
+  // more headroom than the production default.
+  const genArgs = { prompt, imageUrls, timeoutMs: 170_000 }
+
+  let effectiveModel = modelForRun
+  let result = await generateImage({ model: modelForRun, ...genArgs })
+
+  // Auto-fallback: if the chosen model fails with a retryable reason (not
+  // safety / not-configured), retry once on the fallback model. Record the
+  // model that actually produced the output so the run row + eval-proof stay
+  // accurate.
+  if (!result.ok && FALLBACK_REASONS.has(result.reason)) {
+    const fallback = fallbackModelFor(modelForRun)
+    if (fallback !== modelForRun) {
+      const fb = await generateImage({ model: fallback, ...genArgs })
+      if (fb.ok) {
+        effectiveModel = fallback
+        result = fb
+      }
+    }
+  }
+
   if (!result.ok) {
     return { ok: false, error: result.message }
   }
@@ -151,7 +170,9 @@ export async function runEval(
   if (uploadErr) return { ok: false, error: uploadErr.message }
 
   const { data: publicUrl } = supabase.storage.from('outputs').getPublicUrl(path)
-  const update = { output_url: publicUrl.publicUrl }
+  // Record the model that actually succeeded (may differ from modelForRun if
+  // fallback kicked in) so the result label + go-live proof reflect reality.
+  const update = { output_url: publicUrl.publicUrl, model: effectiveModel }
   const { error: updateErr } = await supabase.from('trend_eval_runs').update(update).eq('id', runId)
   if (updateErr) return { ok: false, error: updateErr.message }
 

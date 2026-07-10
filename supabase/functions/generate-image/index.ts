@@ -272,11 +272,11 @@ async function process(supabase: ReturnType<typeof createClient>, gen: Generatio
     .update({
       status: 'completed',
       output_image_url: publicUrl.publicUrl,
-      cost_usd: COST_USD[trendData.model],
+      cost_usd: COST_USD[result.modelUsed],
       model_used:
-        trendData.model === 'gpt-image-2'
+        result.modelUsed === 'gpt-image-2'
           ? (Deno.env.get('OPENAI_IMAGE_MODEL') ?? 'gpt-image-2')
-          : GEMINI_MODEL_ID[trendData.model as 'nano-banana-2' | 'nano-banana-2-lite'],
+          : GEMINI_MODEL_ID[result.modelUsed as 'nano-banana-2' | 'nano-banana-2-lite'],
       completed_at: new Date().toISOString(),
     })
     .eq('id', gen.id)
@@ -543,7 +543,7 @@ async function callOpenAI(prompt: string, imageUrls: string[]): Promise<GeminiOk
   }
 }
 
-async function callProvider(
+async function callOneProvider(
   model: EdgeImageModel,
   prompt: string,
   imageUrls: string[]
@@ -551,6 +551,38 @@ async function callProvider(
   const provider = MODEL_PROVIDER[model]
   if (provider === 'openai') return callOpenAI(prompt, imageUrls)
   return callGemini(model as 'nano-banana-2' | 'nano-banana-2-lite', prompt, imageUrls)
+}
+
+// Reasons worth retrying on a DIFFERENT model. Mirrors lib/image-provider
+// FALLBACK_REASONS (Node copy — keep in sync). 'safety' re-blocks on any
+// model; the Edge GeminiFail union has no 'not-configured'.
+const EDGE_FALLBACK_REASONS = new Set(['timeout', 'transient', 'invalid'])
+
+function edgeFallbackModelFor(model: EdgeImageModel): EdgeImageModel {
+  return model === 'nano-banana-2-lite' ? 'nano-banana-2' : 'nano-banana-2-lite'
+}
+
+/**
+ * Auto-fallback: if the chosen model fails with a retryable reason, retry once
+ * on the fallback model. Returns the winning result plus the model that
+ * produced it (so cost + model_used reflect reality). Keep the reason set +
+ * fallback choice in sync with lib/image-provider/index.ts.
+ */
+async function callProvider(
+  model: EdgeImageModel,
+  prompt: string,
+  imageUrls: string[]
+): Promise<(GeminiOk & { modelUsed: EdgeImageModel }) | GeminiFail> {
+  const primary = await callOneProvider(model, prompt, imageUrls)
+  if (primary.ok) return { ...primary, modelUsed: model }
+  if (!EDGE_FALLBACK_REASONS.has(primary.reason)) return primary
+
+  const fallback = edgeFallbackModelFor(model)
+  if (fallback === model) return primary
+
+  const fb = await callOneProvider(fallback, prompt, imageUrls)
+  if (fb.ok) return { ...fb, modelUsed: fallback }
+  return fb
 }
 
 async function fetchAsInlineData(
