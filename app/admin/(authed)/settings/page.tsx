@@ -94,6 +94,7 @@ export default async function SettingsPage() {
 
         <form action={setBannerTrend} className="space-y-3">
           <select
+            key={currentBannerTrendId ?? ''}
             name="trend_id"
             defaultValue={currentBannerTrendId ?? ''}
             className="border-input h-9 w-full max-w-sm rounded-md border bg-transparent px-3 text-sm"
