@@ -43,132 +43,122 @@ export async function addEvalInput(trendId: string, formData: FormData): Promise
   redirect(`/admin/trends/${trendId}/eval?added=1`)
 }
 
-export async function removeEvalInput(trendId: string, inputId: string): Promise<void> {
+export type EvalActionResult = { ok: true } | { ok: false; error: string }
+
+export async function removeEvalInput(trendId: string, inputId: string): Promise<EvalActionResult> {
   const supabase = createServiceClient()
-  await supabase.from('trend_eval_inputs').delete().eq('id', inputId)
+  const { error } = await supabase.from('trend_eval_inputs').delete().eq('id', inputId)
+  if (error) return { ok: false, error: error.message }
   revalidatePath(`/admin/trends/${trendId}/eval`)
-  redirect(`/admin/trends/${trendId}/eval?removed=1`)
+  return { ok: true }
 }
 
 /**
- * Runs the current trend prompt against every eval input in parallel.
+ * Runs the current trend prompt against a single eval input.
  *
  * Text + select placeholders in the prompt are substituted with each field's
  * admin-defined `default` (text) or first-option value (select). Trends with
- * required text fields that have no `default` will fail interpolation here
- * and the run is marked `error:missing_eval_default` — surfaces the gap
- * loudly so the admin knows to set a default before re-running.
+ * required text fields that have no `default` will fail interpolation and
+ * the failure is returned to the caller — the run row itself stays untouched
+ * so `admin_rating` remains reserved for actual pass/fail review state.
  *
- * Uploads each Gemini output to outputs/eval/<trend_id>/<run_id>.png and
+ * Uploads the Gemini output to outputs/eval/<trend_id>/<run_id>.png and
  * inserts a trend_eval_runs row. Falls back to mock-mode when GEMINI_API_KEY
  * is missing so the workflow can be exercised locally.
  */
-export async function runEval(trendId: string): Promise<void> {
+export async function runEval(trendId: string, inputId: string): Promise<EvalActionResult> {
   const supabase = createServiceClient()
 
-  const { data: trendRow } = await supabase
+  const { data: trend } = await supabase
     .from('trends')
     .select('id, prompt_template, model, version, input_schema')
     .eq('id', trendId)
     .maybeSingle()
-  const trend = trendRow
-  if (!trend) {
-    redirect(`/admin/trends/${trendId}/eval?error=trend_not_found`)
-  }
+  if (!trend) return { ok: false, error: 'Trend not found.' }
 
-  const schemaParsed = TrendInputSchema.safeParse(trend!.input_schema)
+  const schemaParsed = TrendInputSchema.safeParse(trend.input_schema)
   if (!schemaParsed.success) {
-    redirect(
-      `/admin/trends/${trendId}/eval?error=${encodeURIComponent('input_schema invalid: ' + (schemaParsed.error.issues[0]?.message ?? ''))}`
-    )
+    return {
+      ok: false,
+      error: `input_schema invalid: ${schemaParsed.error.issues[0]?.message ?? ''}`,
+    }
   }
   const schema: TrendInput = schemaParsed.data
 
-  const { data: inputRows } = await supabase
+  const { data: input } = await supabase
     .from('trend_eval_inputs')
     .select('id, image_url')
-    .eq('trend_id', trendId)
-  const inputs = inputRows ?? []
-  if (inputs.length === 0) {
-    redirect(`/admin/trends/${trendId}/eval?error=no_inputs`)
+    .eq('id', inputId)
+    .maybeSingle()
+  if (!input) return { ok: false, error: 'Reference photo not found.' }
+
+  const insertRow = {
+    trend_id: trendId,
+    prompt_version: trend.version,
+    eval_input_id: input.id,
+    model: trend.model,
+  }
+  const { data: created, error: insertErr } = await supabase
+    .from('trend_eval_runs')
+    .insert(insertRow)
+    .select('id')
+    .maybeSingle()
+  if (insertErr || !created) {
+    return { ok: false, error: insertErr?.message ?? 'Could not create eval run.' }
+  }
+  const runId = (created as { id: string }).id
+
+  let prompt: string
+  let imageUrls: string[]
+  try {
+    const values = buildEvalValues(schema, input.image_url)
+    prompt = interpolatePrompt(trend.prompt_template, schema, values) + REALISM_SUFFIX
+    imageUrls = collectImageInputs(schema, values)
+  } catch (err: unknown) {
+    const reason = err instanceof Error ? err.message : 'interpolation_failed'
+    return { ok: false, error: `Missing eval default: ${reason}` }
   }
 
-  await Promise.allSettled(
-    inputs.map(async (input) => {
-      const insertRow = {
-        trend_id: trendId,
-        prompt_version: trend!.version,
-        eval_input_id: input.id,
-        model: trend!.model,
-      }
-      const { data: created, error: insertErr } = await supabase
-        .from('trend_eval_runs')
-        .insert(insertRow)
-        .select('id')
-        .maybeSingle()
-      if (insertErr || !created) return
-      const runId = (created as { id: string }).id
+  const result = await generateImage({
+    model: trend.model,
+    prompt,
+    imageUrls,
+    // Eval runs as a plain Next.js server action, not the Supabase Edge
+    // Function — no 150s platform wall-clock applies here. gpt-image-2
+    // has been observed taking 93-134s+ for image-edit calls; give this
+    // admin-only path more headroom than the production default.
+    timeoutMs: 170_000,
+  })
+  if (!result.ok) {
+    return { ok: false, error: result.message }
+  }
 
-      let prompt: string
-      let imageUrls: string[]
-      try {
-        const values = buildEvalValues(schema, input.image_url)
-        prompt = interpolatePrompt(trend!.prompt_template, schema, values) + REALISM_SUFFIX
-        imageUrls = collectImageInputs(schema, values)
-      } catch (err: unknown) {
-        const reason = err instanceof Error ? err.message : 'interpolation_failed'
-        const update = {
-          output_url: null,
-          admin_rating: `error:missing_eval_default:${reason.slice(0, 80)}`,
-        }
-        await supabase.from('trend_eval_runs').update(update).eq('id', runId)
-        return
-      }
+  const path = `eval/${trendId}/${runId}.png`
+  const { error: uploadErr } = await supabase.storage
+    .from('outputs')
+    .upload(path, result.outputPng, { contentType: 'image/png', upsert: true })
+  if (uploadErr) return { ok: false, error: uploadErr.message }
 
-      const result = await generateImage({
-        model: trend!.model,
-        prompt,
-        imageUrls,
-        // Eval runs as a plain Next.js server action, not the Supabase Edge
-        // Function — no 150s platform wall-clock applies here. gpt-image-2
-        // has been observed taking 93-134s+ for image-edit calls; give this
-        // admin-only path more headroom than the production default.
-        timeoutMs: 170_000,
-      })
-      if (!result.ok) {
-        const update = {
-          output_url: null,
-          admin_rating: `error:${result.reason}:${result.message.slice(0, 150)}`,
-        }
-        await supabase.from('trend_eval_runs').update(update).eq('id', runId)
-        return
-      }
-
-      const path = `eval/${trendId}/${runId}.png`
-      const { error: uploadErr } = await supabase.storage
-        .from('outputs')
-        .upload(path, result.outputPng, { contentType: 'image/png', upsert: true })
-      if (uploadErr) return
-
-      const { data: publicUrl } = supabase.storage.from('outputs').getPublicUrl(path)
-      const update = { output_url: publicUrl.publicUrl }
-      await supabase.from('trend_eval_runs').update(update).eq('id', runId)
-    })
-  )
+  const { data: publicUrl } = supabase.storage.from('outputs').getPublicUrl(path)
+  const update = { output_url: publicUrl.publicUrl }
+  const { error: updateErr } = await supabase.from('trend_eval_runs').update(update).eq('id', runId)
+  if (updateErr) return { ok: false, error: updateErr.message }
 
   revalidatePath(`/admin/trends/${trendId}/eval`)
-  redirect(`/admin/trends/${trendId}/eval?ran=1`)
+  return { ok: true }
 }
 
 export async function rateEvalRun(
   trendId: string,
   runId: string,
   rating: 'pass' | 'fail'
-): Promise<void> {
+): Promise<EvalActionResult> {
   const supabase = createServiceClient()
   const update = { admin_rating: rating }
-  await supabase.from('trend_eval_runs').update(update).eq('id', runId)
+  const { error } = await supabase.from('trend_eval_runs').update(update).eq('id', runId)
+  if (error) return { ok: false, error: error.message }
   revalidatePath(`/admin/trends/${trendId}/eval`)
+  return { ok: true }
 }
 
 /**

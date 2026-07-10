@@ -42,6 +42,15 @@ function makeMockSupabase(overrides: ChainMockOverrides = {}) {
     maybeSingle: vi.fn(() => Promise.resolve(insertResult)),
   }
 
+  const storageBucket = {
+    upload: vi.fn(
+      (): Promise<{ error: { message: string } | null }> => Promise.resolve({ error: null })
+    ),
+    getPublicUrl: vi.fn((path: string) => ({
+      data: { publicUrl: `https://cdn.example.com/${path}` },
+    })),
+  }
+
   const supabase = {
     from: vi.fn(() => queryBuilder),
     auth: {
@@ -49,7 +58,11 @@ function makeMockSupabase(overrides: ChainMockOverrides = {}) {
         Promise.resolve({ data: { user: overrides.authUser ?? { id: 'admin-1' } } })
       ),
     },
+    storage: {
+      from: vi.fn(() => storageBucket),
+    },
     _queryBuilder: queryBuilder,
+    _storageBucket: storageBucket,
   }
   return supabase
 }
@@ -68,6 +81,7 @@ import {
   cloneTrend,
   toggleFeatured,
   bumpOrder,
+  uploadTrendImage,
 } from './actions'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
@@ -92,7 +106,7 @@ function buildFormData(overrides: Record<string, string> = {}): FormData {
     title: 'A Cool Trend',
     description: '',
     prompt_template: 'Transform this photo into something cool',
-    model: 'nano-banana',
+    model: 'nano-banana-2',
     aspect_ratio: '1:1',
     display_order: '5',
     thumbnail_url: '',
@@ -386,7 +400,7 @@ describe('cloneTrend', () => {
     title: 'Cool Trend',
     description: 'desc',
     prompt_template: 'do stuff',
-    model: 'nano-banana',
+    model: 'nano-banana-2',
     aspect_ratio: '1:1',
     display_order: 5,
     thumbnail_url: null,
@@ -660,5 +674,82 @@ describe('bumpOrder', () => {
     // revert reasserts current.id back to its original display_order=5
     expect(script._calls.updates[2]?.payload).toEqual({ display_order: 5 })
     expect(script._calls.updates[2]?.eqArgs).toEqual([validId])
+  })
+})
+
+describe('uploadTrendImage', () => {
+  function makeFile(bytes: number[], name = 'photo.jpg', type = 'image/jpeg'): File {
+    return new File([new Uint8Array(bytes)], name, { type })
+  }
+
+  const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]
+  const JPEG_MAGIC = [0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+  it('returns ok:false when no file provided', async () => {
+    const fd = new FormData()
+    const result = await uploadTrendImage(fd)
+    expect(result).toEqual({ ok: false, error: 'No file provided.' })
+  })
+
+  it('accepts a real PNG (sniffed by magic bytes) regardless of claimed name/type', async () => {
+    mockSupabase = makeMockSupabase()
+    const fd = new FormData()
+    // Deliberately mislabel a real PNG as .jpg/image/jpeg — detection must
+    // still go by the actual bytes, not the client-supplied metadata.
+    fd.set('file', makeFile(PNG_MAGIC, 'thumb.jpg', 'image/jpeg'))
+    const result = await uploadTrendImage(fd)
+    expect(result.ok).toBe(true)
+    expect(mockSupabase._storageBucket.upload).toHaveBeenCalledWith(
+      expect.stringMatching(/^trends\/.+\.png$/),
+      expect.anything(),
+      expect.objectContaining({ contentType: 'image/png' })
+    )
+  })
+
+  it('accepts a real JPEG', async () => {
+    mockSupabase = makeMockSupabase()
+    const fd = new FormData()
+    fd.set('file', makeFile(JPEG_MAGIC))
+    const result = await uploadTrendImage(fd)
+    expect(result.ok).toBe(true)
+    expect(mockSupabase._storageBucket.upload).toHaveBeenCalledWith(
+      expect.stringMatching(/^trends\/.+\.jpg$/),
+      expect.anything(),
+      expect.objectContaining({ contentType: 'image/jpeg' })
+    )
+  })
+
+  it('rejects an SVG payload spoofed with a .jpg name and image/jpeg type (stored-XSS guard)', async () => {
+    mockSupabase = makeMockSupabase()
+    const svgBytes = Array.from(
+      Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>')
+    )
+    const fd = new FormData()
+    fd.set('file', makeFile(svgBytes, 'thumb.jpg', 'image/jpeg'))
+    const result = await uploadTrendImage(fd)
+    expect(result).toEqual({
+      ok: false,
+      error: 'File must be a JPEG, PNG, GIF, or WEBP image.',
+    })
+    expect(mockSupabase._storageBucket.upload).not.toHaveBeenCalled()
+  })
+
+  it('rejects an empty file', async () => {
+    mockSupabase = makeMockSupabase()
+    const fd = new FormData()
+    fd.set('file', new File([], 'empty.jpg', { type: 'image/jpeg' }))
+    const result = await uploadTrendImage(fd)
+    expect(result).toEqual({ ok: false, error: 'No file provided.' })
+  })
+
+  it('returns ok:false when storage upload fails', async () => {
+    mockSupabase = makeMockSupabase()
+    mockSupabase._storageBucket.upload.mockResolvedValueOnce({
+      error: { message: 'bucket unavailable' },
+    })
+    const fd = new FormData()
+    fd.set('file', makeFile(JPEG_MAGIC))
+    const result = await uploadTrendImage(fd)
+    expect(result).toEqual({ ok: false, error: 'bucket unavailable' })
   })
 })

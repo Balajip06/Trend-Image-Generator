@@ -43,7 +43,7 @@ function makeMockSupabase(overrides: ChainOverrides = {}) {
           data: {
             id: 'trend-1',
             prompt_template: 'do thing',
-            model: 'nano-banana',
+            model: 'nano-banana-2',
             version: 3,
             input_schema: {
               fields: [
@@ -110,6 +110,10 @@ function makeMockSupabase(overrides: ChainOverrides = {}) {
       maybeSingle: vi.fn(() => {
         if (lastTable === 'trends') return Promise.resolve(trendFetchResult)
         if (lastOp === 'insert') return Promise.resolve(insertResult)
+        if (lastTable === 'trend_eval_inputs') {
+          const rows = (inputsList.data ?? []) as Array<{ id: string }>
+          return Promise.resolve({ data: rows[0] ?? null, error: inputsList.error })
+        }
         return Promise.resolve({ data: null, error: null })
       }),
     }
@@ -159,7 +163,6 @@ function makeAddInputForm(overrides: Record<string, string> = {}): FormData {
   const defaults: Record<string, string> = {
     label: 'Sample person',
     image_url: 'https://example.com/photo.jpg',
-    demographic_tag: 'adult-f',
   }
   const merged = { ...defaults, ...overrides }
   for (const [k, v] of Object.entries(merged)) {
@@ -208,16 +211,6 @@ describe('addEvalInput', () => {
     expect(lastRedirectUrl()).toMatch(/^\/admin\/trends\/trend-1\/eval\?error=/)
   })
 
-  it('emptyToNull normalizes whitespace-only demographic_tag to null', async () => {
-    const fd = makeAddInputForm({ demographic_tag: '   ' })
-    await expect(addEvalInput('trend-1', fd)).rejects.toThrow(/NEXT_REDIRECT:/)
-    // The chain.insert mock was called somewhere — inspect first .insert() args by
-    // grabbing the supabase mock's last `from('trend_eval_inputs').insert(...)`.
-    const fromCalls = mockSupabase.from.mock.calls
-    expect(fromCalls.some((c) => c[0] === 'trend_eval_inputs')).toBe(true)
-    expect(lastRedirectUrl()).toBe('/admin/trends/trend-1/eval?added=1')
-  })
-
   it('redirects ?error= on Supabase insert error', async () => {
     mockSupabase = makeMockSupabase({
       updateResult: { error: null },
@@ -238,38 +231,56 @@ describe('addEvalInput', () => {
 })
 
 describe('removeEvalInput', () => {
-  it('deletes by id and redirects ?removed=1', async () => {
-    await expect(removeEvalInput('trend-1', 'input-9')).rejects.toThrow(/NEXT_REDIRECT:/)
-    expect(lastRedirectUrl()).toBe('/admin/trends/trend-1/eval?removed=1')
+  it('deletes by id and returns ok, revalidates', async () => {
+    const result = await removeEvalInput('trend-1', 'input-9')
+    expect(result).toEqual({ ok: true })
     expect(revalidatePath).toHaveBeenCalledWith('/admin/trends/trend-1/eval')
+  })
+
+  it('returns ok:false on delete error', async () => {
+    mockSupabase = makeMockSupabase()
+    const origFrom = mockSupabase.from
+    mockSupabase.from = vi.fn((table: string) => {
+      const chain = origFrom(table) as Record<string, unknown>
+      chain.delete = vi.fn(function (this: unknown) {
+        return { eq: vi.fn(() => Promise.resolve({ error: { message: 'denied' } })) }
+      }) as unknown as typeof chain.delete
+      return chain as ReturnType<typeof origFrom>
+    }) as typeof mockSupabase.from
+    const result = await removeEvalInput('trend-1', 'input-9')
+    expect(result).toEqual({ ok: false, error: 'denied' })
   })
 })
 
 describe('runEval', () => {
-  it('redirects ?error=trend_not_found when trend missing', async () => {
+  it('returns ok:false when trend missing', async () => {
     mockSupabase = makeMockSupabase({ trendFetchResult: { data: null, error: null } })
-    await expect(runEval('missing-trend')).rejects.toThrow(/NEXT_REDIRECT:/)
-    expect(lastRedirectUrl()).toBe('/admin/trends/missing-trend/eval?error=trend_not_found')
+    const result = await runEval('missing-trend', 'input-1')
+    expect(result).toEqual({ ok: false, error: 'Trend not found.' })
   })
 
-  it('redirects ?error=no_inputs when no eval inputs exist', async () => {
+  it('returns ok:false when input missing', async () => {
     mockSupabase = makeMockSupabase({ inputsListResult: { data: [], error: null } })
-    await expect(runEval('trend-1')).rejects.toThrow(/NEXT_REDIRECT:/)
-    expect(lastRedirectUrl()).toBe('/admin/trends/trend-1/eval?error=no_inputs')
+    const result = await runEval('trend-1', 'missing-input')
+    expect(result).toEqual({ ok: false, error: 'Reference photo not found.' })
   })
 
-  it('happy path: inserts run, calls Gemini, uploads PNG, redirects ?ran=1', async () => {
+  it('happy path: inserts run, calls Gemini exactly once, uploads PNG, returns ok', async () => {
     mockSupabase = makeMockSupabase({
       inputsListResult: {
         data: [{ id: 'input-1', image_url: UPLOADS_URL }],
         error: null,
       },
     })
-    await expect(runEval('trend-1')).rejects.toThrow(/NEXT_REDIRECT:/)
-    expect(lastRedirectUrl()).toBe('/admin/trends/trend-1/eval?ran=1')
+    const result = await runEval('trend-1', 'input-1')
+    expect(result).toEqual({ ok: true })
+    // Regression guard: this action must fire exactly one generation call per
+    // invocation — bulk-firing across every reference photo is the behavior
+    // this redesign explicitly removes.
+    expect(generateImage).toHaveBeenCalledTimes(1)
     expect(generateImage).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'nano-banana',
+        model: 'nano-banana-2',
         prompt: expect.stringContaining('do thing'),
         imageUrls: [UPLOADS_URL],
       })
@@ -284,7 +295,7 @@ describe('runEval', () => {
     expect(uploadCalls[0]?.[0]).toMatch(/^eval\/trend-1\/new-id\.png$/)
   })
 
-  it('Gemini error: writes admin_rating="error:<reason>" to the run', async () => {
+  it('Gemini error: returns ok:false with the provider message, does not upload', async () => {
     mockSupabase = makeMockSupabase({
       inputsListResult: {
         data: [{ id: 'input-1', image_url: UPLOADS_URL }],
@@ -297,15 +308,12 @@ describe('runEval', () => {
       message: 'blocked',
       costUsd: 0,
     })
-    await expect(runEval('trend-1')).rejects.toThrow(/NEXT_REDIRECT:/)
-    expect(lastRedirectUrl()).toBe('/admin/trends/trend-1/eval?ran=1')
-    // The run-update receives admin_rating containing 'error:safety'
-    const fromCalls = mockSupabase.from.mock.calls
-    expect(fromCalls.some((c) => c[0] === 'trend_eval_runs')).toBe(true)
+    const result = await runEval('trend-1', 'input-1')
+    expect(result).toEqual({ ok: false, error: 'blocked' })
     expect(mockSupabase._storageBucket.upload).not.toHaveBeenCalled()
   })
 
-  it('storage upload error short-circuits before the post-upload update', async () => {
+  it('storage upload error returns ok:false, short-circuits before the post-upload update', async () => {
     mockSupabase = makeMockSupabase({
       inputsListResult: {
         data: [{ id: 'input-1', image_url: UPLOADS_URL }],
@@ -313,8 +321,8 @@ describe('runEval', () => {
       },
       uploadResult: { error: { message: 'storage down' } },
     })
-    await expect(runEval('trend-1')).rejects.toThrow(/NEXT_REDIRECT:/)
-    expect(lastRedirectUrl()).toBe('/admin/trends/trend-1/eval?ran=1')
+    const result = await runEval('trend-1', 'input-1')
+    expect(result).toEqual({ ok: false, error: 'storage down' })
     expect(mockSupabase._storageBucket.upload).toHaveBeenCalled()
     // getPublicUrl should never be reached if upload failed
     expect(mockSupabase._storageBucket.getPublicUrl).not.toHaveBeenCalled()
@@ -322,11 +330,17 @@ describe('runEval', () => {
 })
 
 describe('rateEvalRun', () => {
-  it('updates the run with the rating, revalidates eval page', async () => {
-    // rateEvalRun has no redirect — it just runs.
-    await rateEvalRun('trend-1', 'run-1', 'pass')
+  it('updates the run with the rating, revalidates eval page, returns ok', async () => {
+    const result = await rateEvalRun('trend-1', 'run-1', 'pass')
+    expect(result).toEqual({ ok: true })
     expect(revalidatePath).toHaveBeenCalledWith('/admin/trends/trend-1/eval')
     expect(mockSupabase.from).toHaveBeenCalledWith('trend_eval_runs')
+  })
+
+  it('returns ok:false on update error', async () => {
+    mockSupabase = makeMockSupabase({ updateResult: { error: { message: 'denied' } } })
+    const result = await rateEvalRun('trend-1', 'run-1', 'fail')
+    expect(result).toEqual({ ok: false, error: 'denied' })
   })
 })
 

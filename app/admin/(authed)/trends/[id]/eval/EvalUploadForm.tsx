@@ -4,7 +4,6 @@ import { Plus, Upload } from 'lucide-react'
 import { useRef, useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 import { prepareImageForUpload } from '@/lib/utils/image'
@@ -14,7 +13,7 @@ import { prepareImageForUpload } from '@/lib/utils/image'
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 365 // 1 year
 
 interface EvalUploadFormProps {
-  /** Server action bound to this trend id; expects label / image_url / demographic_tag. */
+  /** Server action bound to this trend id; expects label / image_url. Label is derived client-side from the filename. */
   addAction: (formData: FormData) => Promise<void>
 }
 
@@ -34,17 +33,12 @@ export function EvalUploadForm({ addAction }: EvalUploadFormProps) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     const file = fd.get('file')
-    const label = String(fd.get('label') ?? '').trim()
-    const tag = String(fd.get('demographic_tag') ?? '').trim()
 
     if (!(file instanceof File) || file.size === 0) {
       toast.error('Choose a photo to test with.')
       return
     }
-    if (!label) {
-      toast.error('Add a short label (e.g. “child”, “glasses”).')
-      return
-    }
+    const label = file.name.replace(/\.[^./]+$/, '').slice(0, 80) || `Photo ${Date.now()}`
 
     setBusy(true)
     try {
@@ -75,7 +69,6 @@ export function EvalUploadForm({ addAction }: EvalUploadFormProps) {
       const out = new FormData()
       out.set('label', label)
       out.set('image_url', signed.signedUrl)
-      if (tag) out.set('demographic_tag', tag)
       // addEvalInput revalidates + redirects back to the eval page on success.
       await addAction(out)
       formRef.current?.reset()
@@ -88,12 +81,8 @@ export function EvalUploadForm({ addAction }: EvalUploadFormProps) {
   }
 
   return (
-    <form
-      ref={formRef}
-      onSubmit={onSubmit}
-      className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
-    >
-      <div className="flex flex-col gap-1.5 sm:col-span-1">
+    <form ref={formRef} onSubmit={onSubmit} className="flex gap-3 sm:items-end">
+      <div className="flex flex-1 flex-col gap-1.5">
         <Label
           htmlFor="eval-file"
           className="text-muted-foreground text-[11px] tracking-wide uppercase"
@@ -115,21 +104,6 @@ export function EvalUploadForm({ addAction }: EvalUploadFormProps) {
           required
           className="sr-only"
           onChange={(e) => setFileName(e.currentTarget.files?.[0]?.name ?? null)}
-        />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label
-          htmlFor="eval-label"
-          className="text-muted-foreground text-[11px] tracking-wide uppercase"
-        >
-          Label
-        </Label>
-        <Input id="eval-label" name="label" required maxLength={80} placeholder="child / glasses" />
-        <Input
-          name="demographic_tag"
-          maxLength={40}
-          placeholder="tag (optional)"
-          className="mt-1"
         />
       </div>
       <Button type="submit" disabled={busy} size="default">

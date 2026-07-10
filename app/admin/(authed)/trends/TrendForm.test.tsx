@@ -37,7 +37,7 @@ describe('TrendForm', () => {
           title: 'Glow Up',
           description: 'A subtle warm grade.',
           prompt_template: 'Make {{user_photo}} glow.',
-          model: 'nano-banana',
+          model: 'nano-banana-2',
           aspect_ratio: '9:16',
           display_order: 7,
           thumbnail_url: 'https://cdn.example.com/thumb.jpg',
@@ -53,14 +53,14 @@ describe('TrendForm', () => {
     expect(screen.getByLabelText('Slug')).toHaveValue('glow-up')
     expect(screen.getByLabelText('Description')).toHaveValue('A subtle warm grade.')
     expect(screen.getByLabelText('Prompt template')).toHaveValue('Make {{user_photo}} glow.')
-    expect(screen.getByLabelText('Model')).toHaveValue('nano-banana')
+    expect(screen.getByLabelText('Model')).toHaveValue('nano-banana-2')
     expect(screen.getByLabelText('Aspect ratio')).toHaveValue('9:16')
     expect(screen.getByLabelText('Display order')).toHaveValue(7)
-    expect(screen.getByLabelText('Thumbnail URL')).toHaveValue('https://cdn.example.com/thumb.jpg')
-    expect(screen.getByLabelText('Sample before URL')).toHaveValue(
+    expect(screen.getByLabelText('Thumbnail')).toHaveValue('https://cdn.example.com/thumb.jpg')
+    expect(screen.getByLabelText('Sample before')).toHaveValue(
       'https://cdn.example.com/before.jpg'
     )
-    expect(screen.getByLabelText('Sample after URL')).toHaveValue(
+    expect(screen.getByLabelText('Sample after')).toHaveValue(
       'https://cdn.example.com/after.jpg'
     )
     expect(screen.getByLabelText('SEO title')).toHaveValue('Glow Up trend')
@@ -74,7 +74,7 @@ describe('TrendForm', () => {
     expect(screen.getByLabelText('Description')).toHaveValue('')
     expect(screen.getByLabelText('Prompt template')).toHaveValue('')
     // Defaults for selects when no initial value.
-    expect(screen.getByLabelText('Model')).toHaveValue('nano-banana-pro')
+    expect(screen.getByLabelText('Model')).toHaveValue('gpt-image-2')
     expect(screen.getByLabelText('Aspect ratio')).toHaveValue('1:1')
     expect(screen.getByLabelText('Display order')).toHaveValue(0)
     expect(screen.getByLabelText('Input schema')).toHaveValue('')

@@ -3,13 +3,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils/cn'
+import { ImageUrlField } from './ImageUrlField'
 
 export interface TrendFormValues {
   slug?: string
   title?: string
   description?: string | null
   prompt_template?: string
-  model?: 'nano-banana' | 'nano-banana-pro' | 'gpt-image'
+  model?: 'nano-banana-2' | 'nano-banana-2-lite' | 'gpt-image-2'
   model_pinned?: boolean
   aspect_ratio?: '1:1' | '3:4' | '16:9' | '9:16'
   display_order?: number
@@ -125,12 +126,12 @@ export function GenerationSection({ initial }: SectionProps) {
             <select
               id="model"
               name="model"
-              defaultValue={initial.model ?? 'nano-banana-pro'}
+              defaultValue={initial.model ?? 'gpt-image-2'}
               className={selectClasses}
             >
-              <option value="nano-banana-pro">nano-banana-pro (Gemini — quality)</option>
-              <option value="nano-banana">nano-banana (Gemini — fast)</option>
-              <option value="gpt-image">gpt-image (OpenAI)</option>
+              <option value="gpt-image-2">ChatGPT Images 2.0 (OpenAI)</option>
+              <option value="nano-banana-2">Nano Banana 2 (Gemini 3.1 Flash)</option>
+              <option value="nano-banana-2-lite">Nano Banana 2 Lite (Gemini 3.1 Flash-Lite)</option>
             </select>
           </Field>
           <Field label="Model source" htmlFor="model_pinned">
@@ -179,31 +180,28 @@ export function MediaSection({ initial }: SectionProps) {
     <Card className="gap-5">
       <CardHeader>
         <CardTitle className="text-base">Media</CardTitle>
-        <CardDescription>Thumbnail + before/after sample URLs (publicly hosted).</CardDescription>
+        <CardDescription>Thumbnail + before/after samples — paste a URL or upload.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-3">
-        <Field label="Thumbnail URL" htmlFor="thumbnail_url">
-          <Input
+        <Field label="Thumbnail" htmlFor="thumbnail_url">
+          <ImageUrlField
             id="thumbnail_url"
             name="thumbnail_url"
-            type="url"
-            defaultValue={initial.thumbnail_url ?? ''}
+            defaultValue={initial.thumbnail_url}
           />
         </Field>
-        <Field label="Sample before URL" htmlFor="sample_before_url">
-          <Input
+        <Field label="Sample before" htmlFor="sample_before_url">
+          <ImageUrlField
             id="sample_before_url"
             name="sample_before_url"
-            type="url"
-            defaultValue={initial.sample_before_url ?? ''}
+            defaultValue={initial.sample_before_url}
           />
         </Field>
-        <Field label="Sample after URL" htmlFor="sample_after_url">
-          <Input
+        <Field label="Sample after" htmlFor="sample_after_url">
+          <ImageUrlField
             id="sample_after_url"
             name="sample_after_url"
-            type="url"
-            defaultValue={initial.sample_after_url ?? ''}
+            defaultValue={initial.sample_after_url}
           />
         </Field>
       </CardContent>

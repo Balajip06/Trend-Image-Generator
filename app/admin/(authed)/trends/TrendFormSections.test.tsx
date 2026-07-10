@@ -54,21 +54,21 @@ describe('GenerationSection', () => {
       <GenerationSection
         initial={{
           prompt_template: 'Render {{user_photo}}',
-          model: 'nano-banana',
+          model: 'nano-banana-2',
           aspect_ratio: '9:16',
           display_order: 12,
         }}
       />
     )
     expect(screen.getByLabelText('Prompt template')).toHaveValue('Render {{user_photo}}')
-    expect(screen.getByLabelText('Model')).toHaveValue('nano-banana')
+    expect(screen.getByLabelText('Model')).toHaveValue('nano-banana-2')
     expect(screen.getByLabelText('Aspect ratio')).toHaveValue('9:16')
     expect(screen.getByLabelText('Display order')).toHaveValue(12)
   })
 
-  it('defaults to nano-banana-pro / 1:1 / 0 when no initial values supplied', () => {
+  it('defaults to gpt-image-2 / 1:1 / 0 when no initial values supplied', () => {
     render(<GenerationSection initial={{}} />)
-    expect(screen.getByLabelText('Model')).toHaveValue('nano-banana-pro')
+    expect(screen.getByLabelText('Model')).toHaveValue('gpt-image-2')
     expect(screen.getByLabelText('Aspect ratio')).toHaveValue('1:1')
     expect(screen.getByLabelText('Display order')).toHaveValue(0)
   })
@@ -82,9 +82,9 @@ describe('GenerationSection', () => {
 describe('MediaSection', () => {
   it('renders three URL inputs (thumbnail, sample_before, sample_after)', () => {
     render(<MediaSection initial={{}} />)
-    expect(screen.getByLabelText('Thumbnail URL')).toBeInTheDocument()
-    expect(screen.getByLabelText('Sample before URL')).toBeInTheDocument()
-    expect(screen.getByLabelText('Sample after URL')).toBeInTheDocument()
+    expect(screen.getByLabelText('Thumbnail')).toBeInTheDocument()
+    expect(screen.getByLabelText('Sample before')).toBeInTheDocument()
+    expect(screen.getByLabelText('Sample after')).toBeInTheDocument()
   })
 
   it('pre-fills the URL inputs from initial values', () => {
@@ -97,9 +97,9 @@ describe('MediaSection', () => {
         }}
       />
     )
-    expect(screen.getByLabelText('Thumbnail URL')).toHaveValue('https://cdn.example.com/t.jpg')
-    expect(screen.getByLabelText('Sample before URL')).toHaveValue('https://cdn.example.com/b.jpg')
-    expect(screen.getByLabelText('Sample after URL')).toHaveValue('https://cdn.example.com/a.jpg')
+    expect(screen.getByLabelText('Thumbnail')).toHaveValue('https://cdn.example.com/t.jpg')
+    expect(screen.getByLabelText('Sample before')).toHaveValue('https://cdn.example.com/b.jpg')
+    expect(screen.getByLabelText('Sample after')).toHaveValue('https://cdn.example.com/a.jpg')
   })
 
   it('renders inside a Card with the Media title', () => {
@@ -181,7 +181,7 @@ describe('TrendFormValues type', () => {
       title: 'Glow Up',
       description: 'desc',
       prompt_template: 'tmpl',
-      model: 'nano-banana-pro',
+      model: 'nano-banana-2-lite',
       aspect_ratio: '1:1',
       display_order: 0,
       thumbnail_url: 'https://x',

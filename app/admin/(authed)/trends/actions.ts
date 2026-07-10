@@ -40,7 +40,7 @@ const TrendUpsertSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(1000).optional().nullable(),
   prompt_template: z.string().min(10).max(2000),
-  model: z.enum(['nano-banana', 'nano-banana-pro', 'gpt-image']),
+  model: z.enum(['nano-banana-2', 'nano-banana-2-lite', 'gpt-image-2']),
   model_pinned: z.coerce.boolean().default(true),
   aspect_ratio: z.enum(['1:1', '3:4', '16:9', '9:16']),
   display_order: z.coerce.number().int().min(0).max(9999).default(0),
@@ -103,6 +103,65 @@ function datetimeLocalToIso(v: FormDataEntryValue | null): string | null {
   const d = new Date(s)
   if (Number.isNaN(d.getTime())) return null
   return d.toISOString()
+}
+
+// Magic-byte allowlist for raster image types only — file.type/file.name are
+// client-controlled and trivially spoofable (e.g. an SVG containing a
+// <script> tag renamed to thumbnail.jpg with type: 'image/jpeg' would pass a
+// naive check and, served from the same origin as `outputs`, execute as
+// stored XSS). Sniffing the real bytes and hard-rejecting SVG/HTML-capable
+// types closes that off without pulling in a library for 4 signatures.
+const IMAGE_SIGNATURES: Array<{ mime: string; ext: string; magic: number[] }> = [
+  { mime: 'image/jpeg', ext: '.jpg', magic: [0xff, 0xd8, 0xff] },
+  { mime: 'image/png', ext: '.png', magic: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
+  { mime: 'image/gif', ext: '.gif', magic: [0x47, 0x49, 0x46, 0x38] },
+  // WEBP: "RIFF"...."WEBP" — bytes 8-11 checked separately below.
+  { mime: 'image/webp', ext: '.webp', magic: [0x52, 0x49, 0x46, 0x46] },
+]
+
+function sniffImageType(bytes: Uint8Array): { mime: string; ext: string } | null {
+  for (const sig of IMAGE_SIGNATURES) {
+    if (sig.magic.every((b, i) => bytes[i] === b)) {
+      if (sig.mime === 'image/webp') {
+        const webpTag = String.fromCharCode(...bytes.slice(8, 12))
+        if (webpTag !== 'WEBP') continue
+      }
+      return { mime: sig.mime, ext: sig.ext }
+    }
+  }
+  return null
+}
+
+/**
+ * Uploads an admin-supplied trend thumbnail/sample image to the public
+ * `outputs` bucket via the service client — the authed admin client has no
+ * write policy on `outputs` (customer-facing bucket, service_role-only
+ * writes per migration 20260528000002), so this proxies the write through
+ * the server action instead of adding a new RLS policy.
+ */
+export async function uploadTrendImage(
+  formData: FormData
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const file = formData.get('file')
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: 'No file provided.' }
+  }
+
+  const head = new Uint8Array(await file.slice(0, 16).arrayBuffer())
+  const detected = sniffImageType(head)
+  if (!detected) {
+    return { ok: false, error: 'File must be a JPEG, PNG, GIF, or WEBP image.' }
+  }
+
+  const supabase = createServiceClient()
+  const path = `trends/${crypto.randomUUID()}${detected.ext}`
+  const { error: uploadErr } = await supabase.storage
+    .from('outputs')
+    .upload(path, file, { contentType: detected.mime, upsert: true })
+  if (uploadErr) return { ok: false, error: uploadErr.message }
+
+  const { data } = supabase.storage.from('outputs').getPublicUrl(path)
+  return { ok: true, url: data.publicUrl }
 }
 
 function slugify(input: string): string {
@@ -240,7 +299,7 @@ interface SourceTrendForClone {
   title: string
   description: string | null
   prompt_template: string
-  model: 'nano-banana' | 'nano-banana-pro'
+  model: 'nano-banana-2' | 'nano-banana-2-lite'
   aspect_ratio: '1:1' | '3:4' | '16:9' | '9:16'
   display_order: number
   thumbnail_url: string | null
@@ -469,12 +528,17 @@ export async function bumpOrder(formData: FormData): Promise<void> {
   redirect('/admin/trends')
 }
 
-export async function toggleActive(id: string, nextValue: boolean): Promise<void> {
+export async function toggleActive(
+  id: string,
+  nextValue: boolean,
+  returnPath?: string
+): Promise<void> {
+  const base = returnPath ?? `/admin/trends/${id}/edit`
   const supabase = createServiceClient()
   const update = { is_active: nextValue }
   const { error } = await supabase.from('trends').update(update).eq('id', id)
   if (error) {
-    redirect(`/admin/trends/${id}/edit?error=${encodeURIComponent(error.message)}`)
+    redirect(`${base}?error=${encodeURIComponent(error.message)}`)
   }
   const actorId = await adminActorId()
   await logAdminAction({
@@ -486,5 +550,6 @@ export async function toggleActive(id: string, nextValue: boolean): Promise<void
   })
   revalidatePath('/admin/trends')
   revalidatePath(`/admin/trends/${id}/edit`)
-  redirect(`/admin/trends/${id}/edit?${nextValue ? 'activated' : 'deactivated'}=1`)
+  revalidatePath(`/admin/trends/${id}/eval`)
+  redirect(`${base}?${nextValue ? 'activated' : 'deactivated'}=1`)
 }
