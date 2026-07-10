@@ -33,7 +33,7 @@ export default async function HomePage() {
     .select('value')
     .eq('key', 'banner_trend_id')
     .maybeSingle()
-  const bannerTrendId = (bannerSetting?.value as string | null) ?? null
+  const bannerTrendId = bannerSetting?.value ? String(bannerSetting.value) : null
   const bannerIdx = bannerTrendId ? trends.findIndex((t) => t.id === bannerTrendId) : -1
 
   // Admin-pinned banner trend takes priority over display_order if it's
