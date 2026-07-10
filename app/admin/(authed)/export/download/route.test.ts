@@ -205,7 +205,7 @@ describe('GET /admin/export/download — generations dataset', () => {
         cost_usd: 0.05,
         created_at: '2026-05-01T00:00:00Z',
         completed_at: '2026-05-01T00:01:00Z',
-        model_used: 'nano-banana',
+        model_used: 'nano-banana-2',
       },
     ]
     serviceData.trends = [{ id: 'trend-1', slug: 'ghibli-portrait' }]

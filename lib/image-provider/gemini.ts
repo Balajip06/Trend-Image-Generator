@@ -21,8 +21,8 @@ import type { GenerateImageArgs, GenerateImageResult } from './types'
 
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 const MODEL_ID: Record<GeminiModel, string> = {
-  'nano-banana': 'gemini-2.5-flash-image',
-  'nano-banana-pro': 'gemini-3.0-pro-image',
+  'nano-banana-2': 'gemini-3.1-flash-image',
+  'nano-banana-2-lite': 'gemini-3.1-flash-lite-image',
 }
 
 const MOCK_PNG_HEADER = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])

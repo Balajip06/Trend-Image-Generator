@@ -13,7 +13,7 @@ describe('openai generateImage', () => {
     vi.stubEnv('OPENAI_API_KEY', '')
     const { generateImage } = await import('./openai')
     const result = await generateImage({
-      model: 'gpt-image',
+      model: 'gpt-image-2',
       prompt: 'test prompt',
       imageUrls: [],
     })
@@ -37,7 +37,7 @@ describe('openai generateImage', () => {
     })
     const { generateImage } = await import('./openai')
     const result = await generateImage({
-      model: 'gpt-image',
+      model: 'gpt-image-2',
       prompt: 'test',
       imageUrls: [],
     })
@@ -53,7 +53,7 @@ describe('openai generateImage', () => {
       text: async () => 'rate limited',
     })
     const { generateImage } = await import('./openai')
-    const result = await generateImage({ model: 'gpt-image', prompt: 'test', imageUrls: [] })
+    const result = await generateImage({ model: 'gpt-image-2', prompt: 'test', imageUrls: [] })
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.reason).toBe('transient')
   })
@@ -68,7 +68,7 @@ describe('openai generateImage', () => {
     global.fetch = fetchMock
     const { generateImage } = await import('./openai')
 
-    await generateImage({ model: 'gpt-image', prompt: 'test', imageUrls: [] })
+    await generateImage({ model: 'gpt-image-2', prompt: 'test', imageUrls: [] })
     const jsonBody = JSON.parse(String(fetchMock.mock.calls[0][1].body))
     expect(jsonBody).not.toHaveProperty('response_format')
 
@@ -82,7 +82,7 @@ describe('openai generateImage', () => {
       status: 200,
       json: async () => ({ data: [{ b64_json: 'aGVsbG8=' }] }),
     })
-    await generateImage({ model: 'gpt-image', prompt: 'test', imageUrls: ['https://example.com/a.png'] })
+    await generateImage({ model: 'gpt-image-2', prompt: 'test', imageUrls: ['https://example.com/a.png'] })
     const formBody = fetchMock.mock.calls[0][1].body as FormData
     expect(formBody.has('response_format')).toBe(false)
   })

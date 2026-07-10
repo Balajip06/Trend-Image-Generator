@@ -6,7 +6,7 @@ import type { TrendInput } from '@/lib/trends/input-schema'
 interface TrendUploadProps {
   trendSlug: string
   schema: TrendInput
-  model: 'nano-banana' | 'nano-banana-pro'
+  model: 'nano-banana-2' | 'nano-banana-2-lite'
   freeUsedThisWeek?: number
 }
 

@@ -32,7 +32,7 @@ INSERT INTO public.trends (
   'Ghibli-style portrait',
   'Turn your selfie into a soft, painterly Studio Ghibli still.',
   'A Studio Ghibli style portrait of the subject in the photo, soft lighting, hand-painted background, gentle color palette',
-  'nano-banana-pro',
+  'nano-banana-2-lite',
   '1:1',
   '{"fields":[{"type":"image","name":"user_photo","label":"Your photo","required":true,"min_count":1,"max_count":1,"hint":"Clear front-facing photo works best."}]}'::jsonb,
   true,

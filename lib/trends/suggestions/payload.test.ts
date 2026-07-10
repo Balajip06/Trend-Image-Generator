@@ -17,7 +17,7 @@ const validAutoProposal = {
   suggested_title: 'Ghibli-style portrait',
   suggested_description: 'Turn your selfie into a Ghibli still.',
   prompt_template: 'A Ghibli-style portrait of the subject in the photo',
-  model: 'nano-banana-pro' as const,
+  model: 'nano-banana-2-lite' as const,
   input_schema: {
     fields: [
       {

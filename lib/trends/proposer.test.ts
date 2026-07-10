@@ -43,7 +43,7 @@ describe('mockProposer', () => {
     expect(p.suggested_slug).toBe('pixar-style-toy')
     expect(p.suggested_title).toBe('Pixar-style toy')
     expect(p.prompt_template.length).toBeGreaterThan(10)
-    expect(p.model).toBe('nano-banana-pro')
+    expect(p.model).toBe('nano-banana-2-lite')
     expect(p.input_schema.fields).toHaveLength(1)
     expect(p.input_schema.fields[0].name).toBe('user_photo')
     expect(p.confidence).toBeGreaterThanOrEqual(0)

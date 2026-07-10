@@ -92,7 +92,7 @@ interface GenerationRow {
   output_image_url: string | null
 }
 
-type EdgeImageModel = 'nano-banana' | 'nano-banana-pro' | 'gpt-image'
+type EdgeImageModel = 'nano-banana-2' | 'nano-banana-2-lite' | 'gpt-image-2'
 type EdgeProvider = 'gemini' | 'openai'
 
 interface TrendRow {
@@ -123,21 +123,21 @@ const WALL_TIMEOUT_MS = 140_000
 // gpt-image rate is a PLACEHOLDER carried over from gpt-image-1 pricing, not
 // confirmed for gpt-image-2 (now the default) — likely an underestimate.
 const COST_USD: Record<EdgeImageModel, number> = {
-  'nano-banana': 0.0039,
-  'nano-banana-pro': 0.024,
-  'gpt-image': 0.04,
+  'nano-banana-2': 0.0039,
+  'nano-banana-2-lite': 0.002,
+  'gpt-image-2': 0.04,
 }
 
 // Gemini model IDs — not used for OpenAI
-const GEMINI_MODEL_ID: Record<'nano-banana' | 'nano-banana-pro', string> = {
-  'nano-banana': 'gemini-2.5-flash-image',
-  'nano-banana-pro': 'gemini-3.0-pro-image',
+const GEMINI_MODEL_ID: Record<'nano-banana-2' | 'nano-banana-2-lite', string> = {
+  'nano-banana-2': 'gemini-3.1-flash-image',
+  'nano-banana-2-lite': 'gemini-3.1-flash-lite-image',
 }
 
 const MODEL_PROVIDER: Record<EdgeImageModel, EdgeProvider> = {
-  'nano-banana': 'gemini',
-  'nano-banana-pro': 'gemini',
-  'gpt-image': 'openai',
+  'nano-banana-2': 'gemini',
+  'nano-banana-2-lite': 'gemini',
+  'gpt-image-2': 'openai',
 }
 
 Deno.serve(async (req: Request) => {
@@ -274,9 +274,9 @@ async function process(supabase: ReturnType<typeof createClient>, gen: Generatio
       output_image_url: publicUrl.publicUrl,
       cost_usd: COST_USD[trendData.model],
       model_used:
-        trendData.model === 'gpt-image'
+        trendData.model === 'gpt-image-2'
           ? (Deno.env.get('OPENAI_IMAGE_MODEL') ?? 'gpt-image-2')
-          : GEMINI_MODEL_ID[trendData.model as 'nano-banana' | 'nano-banana-pro'],
+          : GEMINI_MODEL_ID[trendData.model as 'nano-banana-2' | 'nano-banana-2-lite'],
       completed_at: new Date().toISOString(),
     })
     .eq('id', gen.id)
@@ -370,7 +370,7 @@ interface GeminiFail {
 }
 
 async function callGemini(
-  model: 'nano-banana' | 'nano-banana-pro',
+  model: 'nano-banana-2' | 'nano-banana-2-lite',
   prompt: string,
   imageUrls: string[]
 ): Promise<GeminiOk | GeminiFail> {
@@ -539,7 +539,7 @@ async function callProvider(
 ): Promise<GeminiOk | GeminiFail> {
   const provider = MODEL_PROVIDER[model]
   if (provider === 'openai') return callOpenAI(prompt, imageUrls)
-  return callGemini(model as 'nano-banana' | 'nano-banana-pro', prompt, imageUrls)
+  return callGemini(model as 'nano-banana-2' | 'nano-banana-2-lite', prompt, imageUrls)
 }
 
 async function fetchAsInlineData(

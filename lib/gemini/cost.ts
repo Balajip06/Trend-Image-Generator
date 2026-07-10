@@ -9,19 +9,20 @@
 import type { ImageModel } from '@/lib/image-provider/types'
 
 // Keep GeminiModel export for backward compat (Edge Function imports it)
-export type GeminiModel = 'nano-banana' | 'nano-banana-pro'
+// nano-banana-2      → Gemini 3.1 Flash Image (Nano Banana 2)
+// nano-banana-2-lite → Gemini 3.1 Flash-Lite Image (Nano Banana 2 Lite)
+export type GeminiModel = 'nano-banana-2' | 'nano-banana-2-lite'
 
 const COST_USD_PER_IMAGE: Record<ImageModel, number> = {
-  'nano-banana': 0.0039, // v1 — fast/cheap
-  'nano-banana-pro': 0.024, // Pro — quality default
-  // PLACEHOLDER — carried over from gpt-image-1 pricing, not confirmed for
-  // gpt-image-2 (now the default model in openai.ts / generate-image Edge
-  // Function). A single 1024x1536 test call used 8146 output image tokens,
-  // roughly 2x a typical gpt-image-1 call at similar resolution — this rate
-  // is likely an underestimate. Replace with the real per-image cost from
-  // OpenAI billing before trusting margin dashboards.
+  'nano-banana-2': 0.0039, // Gemini 3.1 Flash Image — workhorse
+  'nano-banana-2-lite': 0.002, // Gemini 3.1 Flash-Lite Image — cheapest/fastest
+  // PLACEHOLDER — not confirmed for gpt-image-2 (the default model in
+  // openai.ts / generate-image Edge Function). A single 1024x1536 test call
+  // used 8146 output image tokens, roughly 2x a typical gpt-image-1 call at
+  // similar resolution — this rate is likely an underestimate. Replace with
+  // the real per-image cost from OpenAI billing before trusting margins.
   // See also: supabase/functions/generate-image/index.ts COST_USD (Deno copy)
-  'gpt-image': 0.04,
+  'gpt-image-2': 0.04,
 }
 
 export function costForOutput(model: ImageModel): number {

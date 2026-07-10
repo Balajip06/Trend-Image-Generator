@@ -159,7 +159,7 @@ export default async function TrendPage({ params }: TrendPageProps) {
                   variant="outline"
                   className="border-border/80 text-muted-foreground rounded-full"
                 >
-                  {trend.model === 'nano-banana-pro' ? 'Pro quality' : 'Quick render'}
+                  {trend.model === 'nano-banana-2-lite' ? 'Quick render' : 'Pro quality'}
                 </Badge>
               </div>
               <h1 className="text-5xl leading-[1.05] font-extrabold tracking-tight sm:text-6xl">

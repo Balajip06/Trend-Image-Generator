@@ -31,7 +31,7 @@ const EXPECTED_SLUGS = [
   'ai-passport-photo',
 ] as const
 
-const VALID_MODELS = new Set(['nano-banana', 'nano-banana-pro'])
+const VALID_MODELS = new Set(['nano-banana-2', 'nano-banana-2-lite'])
 const VALID_ASPECTS = new Set(['1:1', '3:4', '16:9', '9:16'])
 
 // v4-shape: 8-4-4-4-12 hex chars, version=4 in 3rd group, variant 8/9/a/b in 4th group.

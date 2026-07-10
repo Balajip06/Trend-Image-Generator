@@ -27,7 +27,7 @@ const makeTrend = (overrides?: Partial<PublicTrend>): PublicTrend => ({
   sample_after_url: 'https://example.com/after.jpg',
   aspect_ratio: '1:1',
   input_schema: { fields: [] },
-  model: 'nano-banana',
+  model: 'nano-banana-2',
   seo_title: null,
   seo_description: null,
   faq: [],

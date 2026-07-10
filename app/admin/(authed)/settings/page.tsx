@@ -13,14 +13,14 @@ export default async function SettingsPage() {
     .maybeSingle()
 
   const currentModel =
-    (setting?.value as string | undefined)?.replace(/"/g, '') ?? 'gpt-image'
+    (setting?.value as string | undefined)?.replace(/"/g, '') ?? 'gpt-image-2'
 
   const { data: bannerSetting } = await service
     .from('app_settings')
     .select('value')
     .eq('key', 'banner_trend_id')
     .maybeSingle()
-  const currentBannerTrendId = (bannerSetting?.value as string | null) ?? null
+  const currentBannerTrendId = bannerSetting?.value ? String(bannerSetting.value) : null
 
   const { data: activeTrends } = await service
     .from('trends')
@@ -45,7 +45,7 @@ export default async function SettingsPage() {
         </div>
 
         <form action={setGlobalDefaultModel} className="space-y-3">
-          {(['nano-banana', 'nano-banana-pro', 'gpt-image'] as const).map((model) => (
+          {(['gpt-image-2', 'nano-banana-2', 'nano-banana-2-lite'] as const).map((model) => (
             <label key={model} className="flex cursor-pointer items-center gap-3">
               <input
                 type="radio"
@@ -55,15 +55,19 @@ export default async function SettingsPage() {
                 className="h-4 w-4"
               />
               <span className="text-sm font-medium">{model}</span>
-              {model === 'nano-banana-pro' && (
-                <span className="text-muted-foreground text-xs">(Gemini — quality default)</span>
-              )}
-              {model === 'nano-banana' && (
-                <span className="text-muted-foreground text-xs">(Gemini — fast/cheap)</span>
-              )}
-              {model === 'gpt-image' && (
+              {model === 'gpt-image-2' && (
                 <span className="text-muted-foreground text-xs">
-                  (OpenAI — requires OPENAI_API_KEY)
+                  (ChatGPT Images 2.0 — default, requires OPENAI_API_KEY)
+                </span>
+              )}
+              {model === 'nano-banana-2' && (
+                <span className="text-muted-foreground text-xs">
+                  (Nano Banana 2 — Gemini 3.1 Flash)
+                </span>
+              )}
+              {model === 'nano-banana-2-lite' && (
+                <span className="text-muted-foreground text-xs">
+                  (Nano Banana 2 Lite — Gemini 3.1 Flash-Lite)
                 </span>
               )}
             </label>

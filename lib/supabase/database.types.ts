@@ -996,7 +996,7 @@ export type Database = {
       suggestion_source: 'auto' | 'user'
       suggestion_status: 'pending' | 'approved' | 'rejected'
       trend_aspect_ratio: '1:1' | '3:4' | '16:9' | '9:16'
-      trend_model: 'nano-banana' | 'nano-banana-pro' | 'gpt-image'
+      trend_model: 'nano-banana-2' | 'nano-banana-2-lite' | 'gpt-image-2'
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1136,7 +1136,7 @@ export const Constants = {
       suggestion_source: ['auto', 'user'],
       suggestion_status: ['pending', 'approved', 'rejected'],
       trend_aspect_ratio: ['1:1', '3:4', '16:9', '9:16'],
-      trend_model: ['nano-banana', 'nano-banana-pro', 'gpt-image'],
+      trend_model: ['nano-banana-2', 'nano-banana-2-lite', 'gpt-image-2'],
     },
   },
 } as const

@@ -90,7 +90,7 @@ interface Seed {
   slug: string
   title: string
   description: string
-  model: 'nano-banana' | 'nano-banana-pro'
+  model: 'nano-banana-2' | 'nano-banana-2-lite'
   aspect: PublicTrend['aspect_ratio']
   faq: Array<{ question: string; answer: string }>
 }
@@ -100,7 +100,7 @@ const SEEDS: Seed[] = [
     slug: 'ghibli-portrait',
     title: 'Ghibli-style portrait',
     description: 'Turn your selfie into a soft, painterly Studio Ghibli still.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '1:1',
     faq: [
       {
@@ -121,7 +121,7 @@ const SEEDS: Seed[] = [
     slug: 'pixar-3d-character',
     title: 'Pixar 3D character',
     description: 'Reimagine yourself as a Pixar-style 3D animated character.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '1:1',
     faq: [
       { question: 'How long does it take?', answer: 'About 20–40 seconds per generation.' },
@@ -135,7 +135,7 @@ const SEEDS: Seed[] = [
     slug: 'anime-portrait',
     title: 'Anime-style portrait',
     description: 'Bold-line anime portrait inspired by modern shōnen art.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '3:4',
     faq: [
       {
@@ -148,7 +148,7 @@ const SEEDS: Seed[] = [
     slug: 'vintage-polaroid',
     title: 'Vintage Polaroid',
     description: 'Faded, sun-soaked 1970s Polaroid aesthetic with a white border.',
-    model: 'nano-banana',
+    model: 'nano-banana-2',
     aspect: '1:1',
     faq: [
       {
@@ -161,7 +161,7 @@ const SEEDS: Seed[] = [
     slug: 'marble-statue',
     title: 'Greek marble statue',
     description: 'You, sculpted in classical Greek marble. Dramatic lighting included.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '3:4',
     faq: [
       {
@@ -175,7 +175,7 @@ const SEEDS: Seed[] = [
     title: 'Stranger Things 80s poster',
     description:
       'Cinematic Netflix-style poster — neon red & teal, fog, retro grain, Upside Down vibes.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '3:4',
     faq: [
       {
@@ -193,7 +193,7 @@ const SEEDS: Seed[] = [
     title: 'Action figure in box',
     description:
       'You as a collectible toy, packaged in a branded blister card — Barbie / Funko vibes.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '3:4',
     faq: [
       {
@@ -211,7 +211,7 @@ const SEEDS: Seed[] = [
     slug: 'funko-pop-figure',
     title: 'Funko Pop figure',
     description: 'You as the chunky-headed, dot-eyed vinyl collectible — clean studio backdrop.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '1:1',
     faq: [
       {
@@ -228,7 +228,7 @@ const SEEDS: Seed[] = [
     slug: 'lego-minifigure',
     title: 'LEGO minifigure',
     description: 'You as a smooth yellow LEGO minifigure with printed face + accessories.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '1:1',
     faq: [
       {
@@ -243,7 +243,7 @@ const SEEDS: Seed[] = [
     title: 'Wes Anderson pastel',
     description:
       'Centered symmetrical composition, pastel palette, dollhouse lighting — Grand Budapest aesthetic.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '16:9',
     faq: [
       {
@@ -257,7 +257,7 @@ const SEEDS: Seed[] = [
     slug: 'renaissance-oil-painting',
     title: 'Renaissance oil painting',
     description: 'You as a 16th-century noble — chiaroscuro lighting, brushwork, gold-leaf frame.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '3:4',
     faq: [
       {
@@ -273,7 +273,7 @@ const SEEDS: Seed[] = [
     title: 'South Park character',
     description:
       'You as a paper-cutout South Park kid — round head, beady eyes, mountain backdrop.',
-    model: 'nano-banana',
+    model: 'nano-banana-2',
     aspect: '1:1',
     faq: [
       {
@@ -287,7 +287,7 @@ const SEEDS: Seed[] = [
     title: 'Cyberpunk neon portrait',
     description:
       'You as a Night City netrunner — chrome implants, rain-slick neon streets, holographic ads.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '3:4',
     faq: [
       {
@@ -301,7 +301,7 @@ const SEEDS: Seed[] = [
     title: 'Y2K digicam flash',
     description:
       '2006 nightlife aesthetic — harsh on-camera flash, glowy skin, low-res digicam grain.',
-    model: 'nano-banana',
+    model: 'nano-banana-2',
     aspect: '1:1',
     faq: [
       {
@@ -316,7 +316,7 @@ const SEEDS: Seed[] = [
     title: 'LinkedIn headshot',
     description:
       'Professional studio headshot from any selfie — soft key light, neutral backdrop, business attire.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '1:1',
     faq: [
       {
@@ -334,7 +334,7 @@ const SEEDS: Seed[] = [
     slug: 'claymation-selfie',
     title: 'Claymation selfie',
     description: 'You reimagined as a chunky, handcrafted clay character — Aardman meets Laika.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '1:1',
     faq: [
       {
@@ -353,7 +353,7 @@ const SEEDS: Seed[] = [
     title: 'Barbie doll box',
     description:
       'You as a Barbie doll packaged in a glossy pink branded box — complete with career label.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '3:4',
     faq: [
       {
@@ -372,7 +372,7 @@ const SEEDS: Seed[] = [
     title: '70s magazine cover',
     description:
       'You on the cover of a glossy 1970s lifestyle magazine — bold typography, warm film grain.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '3:4',
     faq: [
       {
@@ -390,7 +390,7 @@ const SEEDS: Seed[] = [
     title: 'Manga panel',
     description:
       'You as a black-and-white manga panel — crisp ink lines, screen-tone shading, dramatic energy.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '1:1',
     faq: [
       {
@@ -408,7 +408,7 @@ const SEEDS: Seed[] = [
     title: 'AI passport photo',
     description:
       'A hyper-realistic official-style ID portrait — neutral backdrop, perfect exposure, print-ready.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect: '1:1',
     faq: [
       {

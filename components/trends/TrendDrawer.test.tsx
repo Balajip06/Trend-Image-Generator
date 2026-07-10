@@ -24,7 +24,7 @@ const trend: PublicTrend = {
   sample_after_url: null,
   aspect_ratio: '1:1',
   input_schema: { fields: [] },
-  model: 'nano-banana',
+  model: 'nano-banana-2',
   seo_title: null,
   seo_description: null,
   faq: [],

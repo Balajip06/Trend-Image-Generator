@@ -48,7 +48,7 @@ export interface BasePayload {
 
 export interface GenerateClickedPayload extends BasePayload {
   trend_slug: string
-  model: 'nano-banana' | 'nano-banana-pro' | 'gpt-image'
+  model: 'nano-banana-2' | 'nano-banana-2-lite' | 'gpt-image-2'
   is_anonymous: boolean
 }
 

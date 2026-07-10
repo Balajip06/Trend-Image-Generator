@@ -37,7 +37,7 @@ const AutoSuggestionPayloadSchema = z.object({
     suggested_title: z.string().min(1).max(200),
     suggested_description: z.string().min(1).max(1000),
     prompt_template: z.string().min(10).max(2000),
-    model: z.enum(['nano-banana', 'nano-banana-pro']),
+    model: z.enum(['nano-banana-2', 'nano-banana-2-lite']),
     input_schema: TrendInputSchema,
     proposer_model: z.string().min(1), // e.g. 'gemini-2.5-flash'
     confidence: z.number().min(0).max(1),

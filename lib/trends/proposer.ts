@@ -16,7 +16,7 @@ export interface Proposal {
   suggested_title: string
   suggested_description: string
   prompt_template: string
-  model: 'nano-banana' | 'nano-banana-pro'
+  model: 'nano-banana-2' | 'nano-banana-2-lite'
   input_schema: TrendInput
   proposer_model: string
   confidence: number
@@ -39,7 +39,7 @@ export const mockProposer: Proposer = {
       suggested_title: candidate.title.slice(0, 200),
       suggested_description: candidate.description.slice(0, 500) || candidate.title.slice(0, 500),
       prompt_template: `Apply the "${candidate.title}" trend visual style to the subject in the photo, preserving facial features`,
-      model: 'nano-banana-pro',
+      model: 'nano-banana-2-lite',
       input_schema: DEFAULT_TREND_INPUT,
       proposer_model: 'mock',
       confidence: 0.5,

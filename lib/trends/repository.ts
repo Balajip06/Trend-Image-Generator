@@ -23,7 +23,7 @@ export interface PublicTrend {
   sample_before_url: string | null
   sample_after_url: string | null
   aspect_ratio: '1:1' | '3:4' | '16:9' | '9:16'
-  model: 'nano-banana' | 'nano-banana-pro'
+  model: 'nano-banana-2' | 'nano-banana-2-lite'
   input_schema: TrendInput
   seo_title: string | null
   seo_description: string | null
@@ -51,7 +51,7 @@ function coerce(row: Record<string, unknown>): PublicTrend {
     sample_before_url: (row.sample_before_url as string | null) ?? null,
     sample_after_url: (row.sample_after_url as string | null) ?? null,
     aspect_ratio: (row.aspect_ratio as PublicTrend['aspect_ratio']) ?? '1:1',
-    model: (row.model as PublicTrend['model']) ?? 'nano-banana-pro',
+    model: (row.model as PublicTrend['model']) ?? 'nano-banana-2-lite',
     input_schema,
     seo_title: (row.seo_title as string | null) ?? null,
     seo_description: (row.seo_description as string | null) ?? null,

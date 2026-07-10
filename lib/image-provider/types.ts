@@ -17,16 +17,16 @@ import type { GeminiModel } from '@/lib/gemini/cost'
  * not from a separate env var — one source of truth.
  * See also: supabase/functions/generate-image/index.ts (Deno copy must stay in sync)
  */
-export type ImageModel = GeminiModel | 'gpt-image'
+export type ImageModel = GeminiModel | 'gpt-image-2'
 
 /**
  * Maps each model to its provider. Use this as the primary router;
  * IMAGE_PROVIDER env var is a fallback override for backward compatibility.
  */
 export const MODEL_PROVIDER: Record<ImageModel, ImageProvider> = {
-  'nano-banana': 'gemini',
-  'nano-banana-pro': 'gemini',
-  'gpt-image': 'openai',
+  'nano-banana-2': 'gemini',
+  'nano-banana-2-lite': 'gemini',
+  'gpt-image-2': 'openai',
 }
 
 export interface GenerateImageArgs {

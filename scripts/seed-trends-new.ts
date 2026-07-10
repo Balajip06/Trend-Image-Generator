@@ -34,7 +34,7 @@ interface SeedTrend {
   title: string
   description: string
   prompt_template: string
-  model: 'nano-banana' | 'nano-banana-pro'
+  model: 'nano-banana-2' | 'nano-banana-2-lite'
   aspect_ratio: '1:1' | '3:4' | '16:9' | '9:16'
   input_schema: TrendInput
   display_order: number
@@ -66,7 +66,7 @@ const trends: SeedTrend[] = [
     description: 'You reimagined as a chunky, handcrafted clay character — Aardman meets Laika.',
     prompt_template:
       "A stop-motion claymation character portrait of the subject in the reference photo, rendered in the handcrafted clay animation style of Aardman (Wallace & Gromit, Shaun the Sheep) crossed with Laika Studios (Coraline, Kubo). Visible clay fingerprint texture on all surfaces, slightly irregular surface sheen consistent with real plasticine under tungsten stage lighting, chunky simplified body proportions, oversized round head with a wide expressive mouth and prominent teeth, small beady eyes with subtle catchlight dots pressed into clay, puffy rounded limbs with no sharp edges, slightly imperfect symmetry as if hand-sculpted. Warm three-point stage lighting casting a soft warm key from upper-left, soft fill from camera-right, subtle rim light. Colour palette: warm terracotta skin tones with bold primary clothing colours. Preserve the subject's hair colour, rough hairstyle, and any distinctive features (glasses, beard, freckles) translated into clay textures. Square 1:1 composition, head and upper torso, plain canvas-grey backdrop. No text, no watermarks.",
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect_ratio: '1:1',
     input_schema: singlePhoto,
     display_order: 16,
@@ -100,7 +100,7 @@ const trends: SeedTrend[] = [
       'You as a Barbie doll packaged in a glossy pink branded box — complete with career label.',
     prompt_template:
       "A photorealistic product shot of a Barbie-style fashion doll packaged inside a glossy pink branded toy box, styled after Mattel's classic Barbie packaging circa 2023 (Barbie The Movie era). The doll inside the box is a stylised version of the subject in the reference photo: smooth porcelain-quality skin, wide bright eyes with long lashes, high-gloss lips in coral or fuchsia, perfect symmetrical features, and a fashionable outfit matching the subject's clothing colour palette. The box: bright hot-pink gloss cardboard with a clear acetate window panel on the front, gold foil Barbie logo at the top, a custom career or personality label at the bottom in bold white sans-serif font (e.g. 'Creative Director Barbie', 'CEO Barbie', 'Artist Barbie' — choose a fitting career based on the subject's appearance), pink tissue paper padding behind the doll, pink twist-ties holding the doll in position. Product photography lighting: soft studio overhead with sharp catch-light on the acetate window. Portrait 3:4 framing, full box in frame with slight perspective tilt for visual interest. No copyright text, no Mattel trademark, no real brand name — only the stylised visual aesthetic. No extra people.",
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect_ratio: '3:4',
     input_schema: singlePhoto,
     display_order: 17,
@@ -132,7 +132,7 @@ const trends: SeedTrend[] = [
       'You on the cover of a glossy 1970s lifestyle magazine — bold typography, warm film grain.',
     prompt_template:
       "A photorealistic vintage magazine cover featuring the subject in the reference photo, styled as a high-glamour 1970s American lifestyle or fashion magazine (think Vogue, Cosmopolitan, or Time circa 1972–1978). Editorial photography quality: warm Kodachrome film colour science, slightly overexposed highlights with creamy skin tones, shallow-depth-of-field 85mm portrait lens look, subtle film halation on light sources, visible fine grain consistent with Kodak Tri-X pushed to ISO 800. Art direction: bold condensed magazine masthead typography at the top in an era-accurate serif or slab-serif (placeholder text 'GLOSS' or 'VIVA' in white with a drop shadow), two or three cover-line headlines in yellow or white along the left edge (e.g. 'How to Own Every Room', 'The Style Issue', 'Summer's Biggest Trends'), barcode-free lower-right corner. Colour palette: earthy warm tones — burnt orange, mustard yellow, avocado green clothing and background. The subject is positioned centre-frame, looking directly at camera with a confident editorial gaze, head-and-shoulders to three-quarter framing. Preserve the subject's exact facial features, ethnicity, hair colour, and hairstyle. The image should look genuinely printed on slightly aged glossy magazine stock. Portrait 3:4. No real brand names, no real logos.",
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect_ratio: '3:4',
     input_schema: singlePhoto,
     display_order: 18,
@@ -163,7 +163,7 @@ const trends: SeedTrend[] = [
       'You as a black-and-white manga panel — crisp ink lines, screen-tone shading, dramatic energy.',
     prompt_template:
       "A high-quality black-and-white manga panel featuring the subject in the reference photo, drawn in the classic shōnen manga tradition of Tite Kubo (Bleach), Masashi Kishimoto (Naruto), and Eiichiro Oda (One Piece). Pure black ink on white, zero colour, zero grey wash — only hard black fills and Zip-a-tone dot-screen halftone patterns for shadow and texture. Linework: confident varying-weight brushwork, thick outlines on silhouette edges, thin secondary detail lines, speed-line (kakusen) burst background emanating from the subject to suggest dramatic intensity or movement. Shading: traditional circular dot-screen halftone (N-screen 45°) on shadows and hair, solid black fills in deepest shadow areas. Facial style: slightly exaggerated manga proportions — large dramatic eyes with multiple pupil highlight points and thick lash lines, sharp defined jaw and cheekbone structure, anime-style simplified nose. Preserve the subject's gender presentation, approximate age range, hairstyle silhouette, hair volume, and any distinctive features (glasses rendered as crisp ink lines, beard as hatching). Panel composition: a bold ¾-angle portrait with visible shoulder and upper torso, a thin rectangular panel border, and a single expressive Japanese-style sound-effect 'SFX' mark (e.g. ドン or ザ) faintly behind the subject. Square 1:1. No text captions, no speech bubbles, no colour.",
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect_ratio: '1:1',
     input_schema: singlePhoto,
     display_order: 19,
@@ -194,7 +194,7 @@ const trends: SeedTrend[] = [
       'A hyper-realistic official-style ID portrait — neutral backdrop, perfect exposure, print-ready.',
     prompt_template:
       'A hyper-realistic official government-style identification passport photograph of the subject in the reference photo, matching ICAO Document 9303 photographic specifications. Plain white or off-white seamless backdrop with zero shadow falloff, subjects face occupying 70-80% of frame height, centered, head slightly below vertical midpoint, neutral facial expression with mouth closed, both eyes open and clearly visible, no hair covering the face. Lighting: high-key flat lighting with a gentle soft-box at camera position plus two white-card fill reflectors eliminating all background shadow, resulting in a pure white background with no vignette. Skin: natural, accurate colour rendering with no beautification, no skin-smoothing, no saturation boost — the goal is authentic documentary accuracy, not glamour. Any glasses that appear in the source photo are removed (ICAO 2022 rules). Preserve exact ethnicity, skin tone, natural hair colour and style (neatly presented), and all facial features with no idealisation. Photographic quality: medium-format studio strobe look. Square 1:1, tight head-and-shoulders crop with a small amount of space above the head. No timestamp, no studio logo, no visible serial number, no country name, no borders — clean documentation-style photograph only.',
-    model: 'nano-banana-pro',
+    model: 'nano-banana-2-lite',
     aspect_ratio: '1:1',
     input_schema: singlePhoto,
     display_order: 20,

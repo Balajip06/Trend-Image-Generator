@@ -7,7 +7,7 @@ import { requireAdminRole } from '@/lib/admin/require-role'
 import { createServiceClient } from '@/lib/supabase/server'
 import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
 
-const ModelSchema = z.enum(['nano-banana', 'nano-banana-pro', 'gpt-image'])
+const ModelSchema = z.enum(['nano-banana-2', 'nano-banana-2-lite', 'gpt-image-2'])
 type AllowedModel = z.infer<typeof ModelSchema>
 
 export async function setGlobalDefaultModel(formData: FormData): Promise<void> {
@@ -28,7 +28,7 @@ export async function setGlobalDefaultModel(formData: FormData): Promise<void> {
     .maybeSingle()
 
   const currentModel =
-    (current?.value as string | undefined)?.replace(/"/g, '') ?? 'gpt-image'
+    (current?.value as string | undefined)?.replace(/"/g, '') ?? 'gpt-image-2'
   if (currentModel === newModel) return // No change
 
   // 2. Find live non-pinned trends that will be affected
@@ -93,13 +93,13 @@ export async function setBannerTrend(formData: FormData): Promise<void> {
     .select('value')
     .eq('key', 'banner_trend_id')
     .maybeSingle()
-  const currentTrendId = (current?.value as string | null) ?? null
+  const currentTrendId = current?.value ? String(current.value) : null
   if (currentTrendId === newTrendId) return
 
   await service
     .from('app_settings')
     .update({
-      value: newTrendId,
+      value: newTrendId ? JSON.stringify(newTrendId) : null,
       updated_by: userId,
       updated_at: new Date().toISOString(),
     })
