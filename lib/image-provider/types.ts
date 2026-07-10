@@ -29,6 +29,19 @@ export const MODEL_PROVIDER: Record<ImageModel, ImageProvider> = {
   'gpt-image-2': 'openai',
 }
 
+/**
+ * Human-facing model names. Single source of truth for the admin trend form,
+ * the global-default settings, and the eval per-test model switcher — keep
+ * these in sync everywhere instead of hardcoding <option> labels.
+ */
+export const MODEL_LABELS: Record<ImageModel, string> = {
+  'gpt-image-2': 'ChatGPT Images 2.0',
+  'nano-banana-2': 'Nano Banana 2 (fast)',
+  'nano-banana-2-lite': 'Nano Banana 2 Lite (fastest)',
+}
+
+export const IMAGE_MODELS: ImageModel[] = ['gpt-image-2', 'nano-banana-2', 'nano-banana-2-lite']
+
 export interface GenerateImageArgs {
   model: ImageModel
   prompt: string

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
+import { IMAGE_MODELS, MODEL_LABELS, type ImageModel } from '@/lib/image-provider/types'
 import { cn } from '@/lib/utils/cn'
 import {
   approveAndGoLive,
@@ -35,6 +36,7 @@ interface EvalRunRow {
   eval_input_id: string
   output_url: string | null
   admin_rating: string | null
+  model: string | null
   created_at: string
 }
 
@@ -74,6 +76,11 @@ export function EvalWorkflow({ trend, inputs, latestRuns, addEvalInputAction }: 
   const [pending, setPending] = useState<PendingState | null>(null)
   const [, startTransition] = useTransition()
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  // Per-card model selection for the Test button. Defaults to the trend's
+  // saved model; the admin can switch to compare models before going live.
+  const [selectedModels, setSelectedModels] = useState<Record<string, ImageModel>>({})
+  const modelFor = (inputId: string): ImageModel =>
+    selectedModels[inputId] ?? (trend.model as ImageModel)
 
   const rated = Object.values(latestRuns).filter(
     (r) => r.admin_rating === 'pass' || r.admin_rating === 'fail'
@@ -96,7 +103,8 @@ export function EvalWorkflow({ trend, inputs, latestRuns, addEvalInputAction }: 
   }
 
   function handleTest(inputId: string) {
-    runAction(inputId, 'test', () => runEval(trend.id, inputId))
+    const model = modelFor(inputId)
+    runAction(inputId, 'test', () => runEval(trend.id, inputId, model))
   }
   function handlePass(inputId: string, runId: string) {
     runAction(inputId, 'pass', () => rateEvalRun(trend.id, runId, 'pass'))
@@ -211,12 +219,19 @@ export function EvalWorkflow({ trend, inputs, latestRuns, addEvalInputAction }: 
                         <div className="animate-shimmer absolute inset-0 z-10 bg-gradient-to-br from-transparent via-white/10 to-transparent" />
                       )}
                       {run?.output_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={run.output_url}
-                          alt={`${input.label} result`}
-                          className="animate-pop-in h-full w-full object-cover"
-                        />
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={run.output_url}
+                            alt={`${input.label} result`}
+                            className="animate-pop-in h-full w-full object-cover"
+                          />
+                          {run.model && (
+                            <span className="absolute bottom-1 left-1 z-10 rounded bg-black/60 px-1.5 py-0.5 font-mono text-[10px] text-white">
+                              {MODEL_LABELS[run.model as ImageModel] ?? run.model}
+                            </span>
+                          )}
+                        </>
                       ) : (
                         <div className="text-muted-foreground flex h-full w-full flex-col items-center justify-center gap-2 text-center text-xs">
                           {testing ? (
@@ -230,6 +245,28 @@ export function EvalWorkflow({ trend, inputs, latestRuns, addEvalInputAction }: 
                         </div>
                       )}
                     </button>
+
+                    {/* Per-test model picker — compare models before going live. */}
+                    <label className="text-muted-foreground flex items-center gap-2 text-[11px]">
+                      <span className="shrink-0 tracking-wide uppercase">Model</span>
+                      <select
+                        value={modelFor(input.id)}
+                        disabled={testing}
+                        onChange={(e) =>
+                          setSelectedModels((prev) => ({
+                            ...prev,
+                            [input.id]: e.target.value as ImageModel,
+                          }))
+                        }
+                        className="border-border/60 bg-background h-7 w-full min-w-0 rounded-md border px-2 text-xs disabled:opacity-50"
+                      >
+                        {IMAGE_MODELS.map((m) => (
+                          <option key={m} value={m}>
+                            {MODEL_LABELS[m]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
 
                     <div className="flex gap-2">
                       <Button

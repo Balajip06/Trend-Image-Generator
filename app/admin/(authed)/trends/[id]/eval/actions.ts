@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { logAdminAction } from '@/lib/admin/audit'
 import { generateImage } from '@/lib/image-provider'
+import type { ImageModel } from '@/lib/image-provider/types'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { buildEvalValues } from '@/lib/trends/eval-values'
 import { TrendInputSchema, type TrendInput } from '@/lib/trends/input-schema'
@@ -66,7 +67,11 @@ export async function removeEvalInput(trendId: string, inputId: string): Promise
  * inserts a trend_eval_runs row. Falls back to mock-mode when GEMINI_API_KEY
  * is missing so the workflow can be exercised locally.
  */
-export async function runEval(trendId: string, inputId: string): Promise<EvalActionResult> {
+export async function runEval(
+  trendId: string,
+  inputId: string,
+  modelOverride?: ImageModel
+): Promise<EvalActionResult> {
   const supabase = createServiceClient()
 
   const { data: trend } = await supabase
@@ -75,6 +80,12 @@ export async function runEval(trendId: string, inputId: string): Promise<EvalAct
     .eq('id', trendId)
     .maybeSingle()
   if (!trend) return { ok: false, error: 'Trend not found.' }
+
+  // Per-test model override: lets an admin compare models on the same photo
+  // before committing one via Approve & Go Live. Falls back to the trend's
+  // saved model. The run row records the model actually used, so results stay
+  // attributable when comparing.
+  const modelForRun: ImageModel = modelOverride ?? (trend.model as ImageModel)
 
   const schemaParsed = TrendInputSchema.safeParse(trend.input_schema)
   if (!schemaParsed.success) {
@@ -96,7 +107,7 @@ export async function runEval(trendId: string, inputId: string): Promise<EvalAct
     trend_id: trendId,
     prompt_version: trend.version,
     eval_input_id: input.id,
-    model: trend.model,
+    model: modelForRun,
   }
   const { data: created, error: insertErr } = await supabase
     .from('trend_eval_runs')
@@ -120,7 +131,7 @@ export async function runEval(trendId: string, inputId: string): Promise<EvalAct
   }
 
   const result = await generateImage({
-    model: trend.model,
+    model: modelForRun,
     prompt,
     imageUrls,
     // Eval runs as a plain Next.js server action, not the Supabase Edge
@@ -175,7 +186,7 @@ export async function approveAndGoLive(trendId: string): Promise<void> {
 
   const { data: trend } = await supabase
     .from('trends')
-    .select('id, version')
+    .select('id, version, model')
     .eq('id', trendId)
     .maybeSingle()
   if (!trend) {
@@ -183,30 +194,72 @@ export async function approveAndGoLive(trendId: string): Promise<void> {
   }
 
   // Latest run per input at the current version that actually produced an image.
+  // Also read `model` — the admin may have tested with a switched model, and
+  // approving commits that model to the trend.
   const { data: runRows } = await supabase
     .from('trend_eval_runs')
-    .select('id, eval_input_id, output_url, created_at')
+    .select('id, eval_input_id, output_url, model, created_at')
     .eq('trend_id', trendId)
     .eq('prompt_version', trend!.version)
     .order('created_at', { ascending: false })
-  const latestByInput = new Map<string, { id: string; output_url: string | null }>()
+  const latestByInput = new Map<
+    string,
+    { id: string; output_url: string | null; model: string | null }
+  >()
   for (const r of (runRows ?? []) as Array<{
     id: string
     eval_input_id: string
     output_url: string | null
+    model: string | null
   }>) {
     if (!latestByInput.has(r.eval_input_id)) latestByInput.set(r.eval_input_id, r)
   }
-  const successfulRunIds = [...latestByInput.values()].filter((r) => r.output_url).map((r) => r.id)
+  const successful = [...latestByInput.values()].filter((r) => r.output_url)
 
-  if (successfulRunIds.length === 0) {
+  if (successful.length === 0) {
     redirect(
       `/admin/trends/${trendId}/eval?error=${encodeURIComponent('Run a successful test before going live')}`
     )
   }
 
-  // Rate the reviewed runs pass → satisfies require_eval_proof_for_passed.
-  await supabase.from('trend_eval_runs').update({ admin_rating: 'pass' }).in('id', successfulRunIds)
+  // The model to commit: the model the winning run(s) were generated with.
+  // Single-photo eval → one winning run. If runs used mixed models (multi-photo,
+  // edge case), prefer the trend's current model if any run matches it, else the
+  // first winning run's model.
+  const winningModel = (successful.find((r) => r.model === trend!.model)?.model ??
+    successful[0]?.model ??
+    trend!.model) as ImageModel
+  const successfulRunIds = successful.map((r) => r.id)
+  const modelChanged = winningModel !== trend!.model
+
+  let effectiveVersion = trend!.version
+
+  if (modelChanged) {
+    // Committing a different model. Updating trends.model fires
+    // bump_trend_version → version+1, eval_status='untested', is_active=false.
+    // The winning run was recorded at the OLD version, so after the bump the
+    // eval-proof trigger (keyed on (version, model)) would no longer see a
+    // passing run. Re-stamp the winning run(s) to the NEW (version, model) so
+    // the proof holds, THEN flip to passed.
+    const { error: modelErr } = await supabase
+      .from('trends')
+      .update({ model: winningModel })
+      .eq('id', trendId)
+    if (modelErr) {
+      redirect(`/admin/trends/${trendId}/eval?error=${encodeURIComponent(modelErr.message)}`)
+    }
+    effectiveVersion = trend!.version + 1 // bump_trend_version added exactly 1
+    await supabase
+      .from('trend_eval_runs')
+      .update({ prompt_version: effectiveVersion, model: winningModel, admin_rating: 'pass' })
+      .in('id', successfulRunIds)
+  } else {
+    // Same model — rate the reviewed runs pass to satisfy the proof trigger.
+    await supabase
+      .from('trend_eval_runs')
+      .update({ admin_rating: 'pass' })
+      .in('id', successfulRunIds)
+  }
 
   // Flip eval + activation together (CHECK constraint + proof trigger both hold).
   const { error } = await supabase
@@ -226,7 +279,7 @@ export async function approveAndGoLive(trendId: string): Promise<void> {
     action: 'trend_approve_and_go_live',
     targetTable: 'trends',
     targetId: trendId,
-    after: { eval_status: 'passed', is_active: true },
+    after: { eval_status: 'passed', is_active: true, model: winningModel },
   })
 
   revalidatePath(`/admin/trends/${trendId}/eval`)

@@ -295,6 +295,21 @@ describe('runEval', () => {
     expect(uploadCalls[0]?.[0]).toMatch(/^eval\/trend-1\/new-id\.png$/)
   })
 
+  it('uses the model override when provided, not the trend default', async () => {
+    mockSupabase = makeMockSupabase({
+      inputsListResult: {
+        data: [{ id: 'input-1', image_url: UPLOADS_URL }],
+        error: null,
+      },
+    })
+    // Trend fixture model is 'nano-banana-2'; override with gpt-image-2.
+    const result = await runEval('trend-1', 'input-1', 'gpt-image-2')
+    expect(result).toEqual({ ok: true })
+    expect(generateImage).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'gpt-image-2' })
+    )
+  })
+
   it('Gemini error: returns ok:false with the provider message, does not upload', async () => {
     mockSupabase = makeMockSupabase({
       inputsListResult: {
