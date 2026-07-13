@@ -11,13 +11,13 @@ export async function toggleFavorite(formData: FormData): Promise<void> {
   const parsed = ToggleSchema.safeParse({
     generation_id: formData.get('generation_id'),
   })
-  if (!parsed.success) redirect('/me/creations?error=invalid_id')
+  if (!parsed.success) redirect('/creations?error=invalid_id')
 
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect('/login?next=/me/creations')
+  if (!user) redirect('/login?next=/creations')
 
   const { data: row } = await supabase
     .from('generations')
@@ -26,7 +26,7 @@ export async function toggleFavorite(formData: FormData): Promise<void> {
     .eq('user_id', user.id)
     .maybeSingle()
 
-  if (!row) redirect('/me/creations?error=not_found')
+  if (!row) redirect('/creations?error=not_found')
 
   const next = !row.is_favorite
 
@@ -39,5 +39,5 @@ export async function toggleFavorite(formData: FormData): Promise<void> {
     .eq('id', parsed.data.generation_id)
     .eq('user_id', user.id)
 
-  revalidatePath('/me/creations')
+  revalidatePath('/creations')
 }

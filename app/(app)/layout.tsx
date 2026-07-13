@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/server'
 import { signOutAction } from './_actions/sign-out'
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  // Middleware already gates /me + /result to authed users — user is
+  // Middleware already gates /creations + /settings + /studio + /result to authed users — user is
   // guaranteed to be present. Read email for the header identity block.
   const supabase = await createClient()
   const {
@@ -29,19 +29,19 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           </Link>
           <nav className="flex items-center gap-1 text-sm">
             <Link
-              href="/me/studio"
+              href="/studio"
               className="text-muted-foreground hover:bg-muted hover:text-foreground hidden rounded-full px-3 py-1.5 sm:inline"
             >
               Studio
             </Link>
             <Link
-              href="/me/creations"
+              href="/creations"
               className="text-muted-foreground hover:bg-muted hover:text-foreground hidden rounded-full px-3 py-1.5 sm:inline"
             >
               My creations
             </Link>
             <Link
-              href="/me/settings"
+              href="/settings"
               className="text-muted-foreground hover:bg-muted hover:text-foreground hidden rounded-full px-3 py-1.5 sm:inline"
             >
               Settings

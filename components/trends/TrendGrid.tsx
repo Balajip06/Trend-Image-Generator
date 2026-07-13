@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import { Star } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, useTransition } from 'react'
 import { cn } from '@/lib/utils/cn'
 import type { PublicTrend } from '@/lib/trends/repository'
 import { TrendDrawer } from './TrendDrawer'
@@ -19,6 +19,10 @@ interface TrendGridProps {
 
 const NEW_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
 
+// Stable identity for the default so the prop-change sync below doesn't loop
+// (a fresh `[]` literal per render would always compare unequal).
+const EMPTY_IDS: string[] = []
+
 function isNewTrend(activatedAt: string | null): boolean {
   if (!activatedAt) return false
   const ts = new Date(activatedAt).getTime()
@@ -30,14 +34,47 @@ export function TrendGrid({
   trends,
   freeUsedThisWeek,
   initialSlug,
-  favoritedTrendIds = [],
+  favoritedTrendIds = EMPTY_IDS,
   onToggleFavourite,
   onSelect,
 }: TrendGridProps) {
-  const favSet = useMemo(() => new Set(favoritedTrendIds), [favoritedTrendIds])
   const router = useRouter()
   const searchParams = useSearchParams()
   const paramSlug = searchParams.get('trend')
+  const [, startFavTransition] = useTransition()
+
+  // Optimistic favourite set: the studio grid is a mounted client island, so a
+  // bare server-action <form> submit doesn't re-flow the favoritedTrendIds prop
+  // into it — the star stays stale until a hard refresh. Seed local state from
+  // the prop, flip it instantly on toggle, then router.refresh() to reconcile.
+  // Re-sync during render (not in an effect) when the prop changes, per the
+  // React "adjusting state on prop change" pattern — avoids a cascading render.
+  const [favSet, setFavSet] = useState<Set<string>>(() => new Set(favoritedTrendIds))
+  const [prevFavIds, setPrevFavIds] = useState(favoritedTrendIds)
+  if (prevFavIds !== favoritedTrendIds) {
+    setPrevFavIds(favoritedTrendIds)
+    setFavSet(new Set(favoritedTrendIds))
+  }
+
+  const handleToggleFavourite = useCallback(
+    (trendId: string) => {
+      if (!onToggleFavourite) return
+      // Optimistic flip
+      setFavSet((prev) => {
+        const next = new Set(prev)
+        if (next.has(trendId)) next.delete(trendId)
+        else next.add(trendId)
+        return next
+      })
+      const fd = new FormData()
+      fd.set('trend_id', trendId)
+      startFavTransition(async () => {
+        await onToggleFavourite(fd)
+        router.refresh()
+      })
+    },
+    [onToggleFavourite, router]
+  )
 
   // Slug in state — stable string, not stale object reference
   const [selectedSlug, setSelectedSlug] = useState<string | null>(initialSlug ?? paramSlug ?? null)
@@ -53,7 +90,7 @@ export function TrendGrid({
     (trend: PublicTrend) => {
       setSelectedSlug(trend.slug)
       setDrawerOpen(true)
-      router.replace(`/me/studio?trend=${trend.slug}`, { scroll: false })
+      router.replace(`/studio?trend=${trend.slug}`, { scroll: false })
       onSelect?.(trend)
     },
     [router, onSelect]
@@ -65,7 +102,7 @@ export function TrendGrid({
       if (!open) {
         // Clear slug after close so next open starts fresh
         setSelectedSlug(null)
-        router.replace('/me/studio', { scroll: false })
+        router.replace('/studio', { scroll: false })
       }
     },
     [router]
@@ -141,17 +178,16 @@ export function TrendGrid({
                 </button>
 
                 {onToggleFavourite && (
-                  <form
-                    action={onToggleFavourite}
+                  <div
                     className={cn(
                       'absolute top-2 right-2 transition-opacity',
                       hasFavorite ? 'opacity-100' : 'opacity-0 group-hover/card:opacity-100'
                     )}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <input type="hidden" name="trend_id" value={trend.id} />
                     <button
-                      type="submit"
+                      type="button"
+                      onClick={() => handleToggleFavourite(trend.id)}
                       aria-label={
                         hasFavorite ? `Unfavourite ${trend.title}` : `Favourite ${trend.title}`
                       }
@@ -168,7 +204,7 @@ export function TrendGrid({
                         aria-hidden
                       />
                     </button>
-                  </form>
+                  </div>
                 )}
               </li>
             )

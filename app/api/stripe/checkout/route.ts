@@ -94,8 +94,8 @@ export async function POST(request: NextRequest) {
         subscription_data: {
           metadata: { user_id: user.id, plan_id: plan.id },
         },
-        success_url: `${siteUrl}/me/settings?subscription=success`,
-        cancel_url: `${siteUrl}/me/settings?subscription=cancelled`,
+        success_url: `${siteUrl}/settings?subscription=success`,
+        cancel_url: `${siteUrl}/settings?subscription=cancelled`,
       })
 
       return NextResponse.json({ checkout_url: session.url })
@@ -145,8 +145,8 @@ export async function POST(request: NextRequest) {
       mode: 'payment',
       payment_method_types: ['card'],
       line_items: [{ price: requirePackPriceId(pack), quantity: 1 }],
-      success_url: `${siteUrl}/me/creations?purchase=success&pack=${pack.id}`,
-      cancel_url: `${siteUrl}/me/settings?purchase=cancelled`,
+      success_url: `${siteUrl}/creations?purchase=success&pack=${pack.id}`,
+      cancel_url: `${siteUrl}/settings?purchase=cancelled`,
       client_reference_id: user.id,
       customer_email: user.email ?? undefined,
       ...(applyFirstPurchaseCoupon && firstPurchaseCouponId

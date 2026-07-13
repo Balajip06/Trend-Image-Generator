@@ -197,11 +197,11 @@ export default function PricingPage() {
                 <div className="mt-auto">
                   {isHighlight ? (
                     <GradientButton size="lg" asChild className="w-full">
-                      <Link href={`/me/settings?pack=${pack.id}`}>Buy {pack.credits} credits</Link>
+                      <Link href={`/settings?pack=${pack.id}`}>Buy {pack.credits} credits</Link>
                     </GradientButton>
                   ) : (
                     <Link
-                      href={`/me/settings?pack=${pack.id}`}
+                      href={`/settings?pack=${pack.id}`}
                       className="border-border hover:bg-muted inline-flex w-full items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold transition-colors"
                     >
                       Buy {pack.credits} credits

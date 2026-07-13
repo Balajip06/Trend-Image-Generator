@@ -61,7 +61,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user) redirect('/login?next=/me/settings')
+    if (!user) redirect('/login?next=/settings')
 
     const [profileResult, tier] = await Promise.all([
       supabase

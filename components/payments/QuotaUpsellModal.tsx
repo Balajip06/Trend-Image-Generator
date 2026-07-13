@@ -79,11 +79,11 @@ export function QuotaUpsellModal({ open, onOpenChange, freeUsedThisWeek }: Quota
                 </div>
                 {highlighted ? (
                   <GradientButton size="sm" asChild>
-                    <Link href={`/me/settings?pack=${pack.id}`}>Buy</Link>
+                    <Link href={`/settings?pack=${pack.id}`}>Buy</Link>
                   </GradientButton>
                 ) : (
                   <Button size="sm" variant="outline" asChild>
-                    <Link href={`/me/settings?pack=${pack.id}`}>Buy</Link>
+                    <Link href={`/settings?pack=${pack.id}`}>Buy</Link>
                   </Button>
                 )}
               </div>

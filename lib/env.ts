@@ -79,7 +79,7 @@ export function getServerEnv(): ServerEnv {
     throw new Error(`Invalid server env:\n${issues}`)
   }
   // Fail-loud production guard: MOCK_TRENDS short-circuits auth (proxy.ts),
-  // RLS (repository.ts mock branch), and authed-area gates in /me + /admin +
+  // RLS (repository.ts mock branch), and authed-area gates in /creations + /settings + /studio + /admin +
   // /result pages. Leaving it on in production would expose private user data
   // + admin surfaces to unauthenticated visitors. Boot must crash if this
   // combination is ever attempted. See docs/LAUNCH_CHECKLIST.md "Dev-mode flags".

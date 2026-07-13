@@ -95,7 +95,7 @@ export default async function CreationsPage({ searchParams }: PageProps) {
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user) redirect('/login?next=/me/creations')
+    if (!user) redirect('/login?next=/creations')
 
     let query = supabase
       .from('generations')
@@ -140,7 +140,7 @@ export default async function CreationsPage({ searchParams }: PageProps) {
     if (range !== 'all') params.set('range', range)
     if (nextView !== 'all') params.set('view', nextView)
     const qs = params.toString()
-    return qs ? `/me/creations?${qs}` : '/me/creations'
+    return qs ? `/creations?${qs}` : '/creations'
   }
 
   return (
@@ -155,7 +155,7 @@ export default async function CreationsPage({ searchParams }: PageProps) {
           </p>
         </div>
         <GradientButton size="md" asChild>
-          <Link href="/">Pick a new trend</Link>
+          <Link href="/studio">Pick a new trend</Link>
         </GradientButton>
       </header>
 
@@ -210,7 +210,7 @@ export default async function CreationsPage({ searchParams }: PageProps) {
           </button>
           {isFiltered ? (
             <Link
-              href="/me/creations"
+              href="/creations"
               className="border-border text-muted-foreground hover:text-foreground grid h-9 place-items-center rounded-md border px-3 text-sm"
             >
               Reset
@@ -268,14 +268,14 @@ export default async function CreationsPage({ searchParams }: PageProps) {
           </div>
           {view === 'favorites' || isFiltered ? (
             <Link
-              href="/me/creations"
+              href="/creations"
               className="text-foreground text-sm font-medium underline-offset-4 hover:underline"
             >
               Clear filters
             </Link>
           ) : (
             <GradientButton asChild size="md">
-              <Link href="/">Pick a trend</Link>
+              <Link href="/studio">Pick a trend</Link>
             </GradientButton>
           )}
         </div>

@@ -110,7 +110,7 @@ test('Mobile home', async ({ page }, testInfo) => {
   }
 })
 
-const A11Y_ROUTES = ['/', '/trend/ghibli-portrait', '/me/settings']
+const A11Y_ROUTES = ['/', '/trend/ghibli-portrait', '/settings']
 
 for (const route of A11Y_ROUTES) {
   test(`a11y: ${route}`, async ({ page }, testInfo) => {

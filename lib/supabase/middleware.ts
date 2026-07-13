@@ -65,7 +65,8 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Authed-area gate
-  if (pathname.startsWith('/me') || pathname.startsWith('/result')) {
+  const AUTHED_PREFIXES = ['/creations', '/settings', '/studio', '/result']
+  if (AUTHED_PREFIXES.some((p) => pathname.startsWith(p))) {
     if (!user) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'

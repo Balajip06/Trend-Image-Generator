@@ -28,7 +28,7 @@ function buildHref(q: string, page: number): string {
   if (q) params.set('q', q)
   if (page > 1) params.set('page', String(page))
   const qs = params.toString()
-  return qs ? `/me/studio?${qs}` : '/me/studio'
+  return qs ? `/studio?${qs}` : '/studio'
 }
 
 export default async function StudioPage({ searchParams }: StudioPageProps) {
@@ -49,7 +49,7 @@ export default async function StudioPage({ searchParams }: StudioPageProps) {
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user) redirect('/login?next=/me/studio')
+    if (!user) redirect('/login?next=/studio')
 
     const { data: profile } = await supabase
       .from('profiles')

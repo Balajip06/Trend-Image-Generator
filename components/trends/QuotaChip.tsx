@@ -35,7 +35,7 @@ export function QuotaChip({ freeUsedThisWeek, creditsBalance, className }: Quota
         </>
       ) : exhausted ? (
         <Link
-          href="/me/settings#packs"
+          href="/settings#packs"
           className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline"
         >
           <AlertTriangle className="size-3" aria-hidden="true" />
