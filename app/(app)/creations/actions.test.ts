@@ -116,7 +116,7 @@ describe('toggleFavorite — happy path favorite', () => {
     expect(state.lastUpdatePayload).not.toBeNull()
     expect(state.lastUpdatePayload).toMatchObject({ is_favorite: true })
     expect(typeof state.lastUpdatePayload?.favorited_at).toBe('string')
-    expect(revalidatePath).toHaveBeenCalledWith('/me/creations')
+    expect(revalidatePath).toHaveBeenCalledWith('/creations')
   })
 
   it('update is scoped to the current user (eq user_id filter)', async () => {
@@ -142,14 +142,14 @@ describe('toggleFavorite — auth + ownership', () => {
   it('redirects /login when user is not authenticated', async () => {
     resetState({ authUser: null })
     await expect(toggleFavorite(makeForm())).rejects.toThrow(/NEXT_REDIRECT:/)
-    expect(lastRedirectUrl()).toBe('/login?next=/me/creations')
+    expect(lastRedirectUrl()).toBe('/login?next=/creations')
     expect(state.lastUpdatePayload).toBeNull()
   })
 
-  it('redirects /me/creations?error=not_found when row is not owned by user', async () => {
+  it('redirects /creations?error=not_found when row is not owned by user', async () => {
     resetState({ rowIsFavorite: null })
     await expect(toggleFavorite(makeForm())).rejects.toThrow(/NEXT_REDIRECT:/)
-    expect(lastRedirectUrl()).toBe('/me/creations?error=not_found')
+    expect(lastRedirectUrl()).toBe('/creations?error=not_found')
     expect(state.lastUpdatePayload).toBeNull()
   })
 })
@@ -157,7 +157,7 @@ describe('toggleFavorite — auth + ownership', () => {
 describe('toggleFavorite — input validation', () => {
   it('redirects ?error=invalid_id when generation_id is not a UUID', async () => {
     await expect(toggleFavorite(makeForm('not-a-uuid'))).rejects.toThrow(/NEXT_REDIRECT:/)
-    expect(lastRedirectUrl()).toBe('/me/creations?error=invalid_id')
+    expect(lastRedirectUrl()).toBe('/creations?error=invalid_id')
     expect(state.lastUpdatePayload).toBeNull()
   })
 })

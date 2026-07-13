@@ -9,13 +9,13 @@ const Schema = z.object({ trend_id: z.string().uuid() })
 
 export async function toggleFavouriteTrend(formData: FormData): Promise<void> {
   const parsed = Schema.safeParse({ trend_id: formData.get('trend_id') })
-  if (!parsed.success) redirect('/me/studio?error=invalid_id')
+  if (!parsed.success) redirect('/studio?error=invalid_id')
 
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect('/login?next=/me/studio')
+  if (!user) redirect('/login?next=/studio')
 
   const trendId = parsed.data.trend_id
 
@@ -25,7 +25,7 @@ export async function toggleFavouriteTrend(formData: FormData): Promise<void> {
     .eq('id', user.id)
     .maybeSingle()
 
-  if (!profile) redirect('/me/studio?error=not_found')
+  if (!profile) redirect('/studio?error=not_found')
 
   const current: string[] = profile.favourite_trend_ids ?? []
   const next = current.includes(trendId)
@@ -34,5 +34,5 @@ export async function toggleFavouriteTrend(formData: FormData): Promise<void> {
 
   await supabase.from('profiles').update({ favourite_trend_ids: next }).eq('id', user.id)
 
-  revalidatePath('/me/studio')
+  revalidatePath('/studio')
 }

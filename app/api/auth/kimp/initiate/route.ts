@@ -21,7 +21,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const url = new URL(request.url)
-  const next = safeNextPath(url.searchParams.get('next') ?? '/me/studio')
+  const next = safeNextPath(url.searchParams.get('next') ?? '/studio')
 
   const codeVerifier = await generateCodeVerifier()
   const codeChallenge = await generateCodeChallenge(codeVerifier)

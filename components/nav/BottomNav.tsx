@@ -6,9 +6,9 @@ import { Clapperboard, ImageIcon, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
 const tabs = [
-  { href: '/me/studio', label: 'Studio', icon: Clapperboard },
-  { href: '/me/creations', label: 'Creations', icon: ImageIcon },
-  { href: '/me/settings', label: 'Settings', icon: Settings2 },
+  { href: '/studio', label: 'Studio', icon: Clapperboard },
+  { href: '/creations', label: 'Creations', icon: ImageIcon },
+  { href: '/settings', label: 'Settings', icon: Settings2 },
 ]
 
 export function BottomNav() {

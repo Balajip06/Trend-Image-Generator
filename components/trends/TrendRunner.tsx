@@ -21,11 +21,11 @@ const SIGNED_URL_TTL_SECONDS = 3600
 /**
  * Shared upload + generate runner used by both:
  *   - /trend/[slug]      — anonymous-trial + SEO surface
- *   - /me/studio          — authed dashboard
+ *   - /studio          — authed dashboard
  *
  * Authed users land here either by clicking a trend in the studio rail
- * (URL becomes /me/studio?trend=<slug>) or by visiting /trend/<slug>
- * directly (server redirects to /me/studio?trend=<slug>). Either way,
+ * (URL becomes /studio?trend=<slug>) or by visiting /trend/<slug>
+ * directly (server redirects to /studio?trend=<slug>). Either way,
  * the runner only owns the upload form + idempotent /api/generate call;
  * the surrounding shell decides where to render it.
  */
@@ -65,8 +65,8 @@ export function TrendRunner({ trend, freeUsedThisWeek = 5 }: TrendRunnerProps) {
         } = await supabase.auth.getUser()
         if (!user) {
           // Send post-login users straight into the studio with this trend
-          // pre-selected. Skips the /trend/<slug> → /me/studio hop.
-          router.push(`/login?next=/me/studio?trend=${trend.slug}`)
+          // pre-selected. Skips the /trend/<slug> → /studio hop.
+          router.push(`/login?next=/studio?trend=${trend.slug}`)
           return
         }
         // navigating away — overlay unmounts with the route; no reset needed

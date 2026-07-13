@@ -14,7 +14,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
             </Link>
             <nav className="flex items-center gap-2 text-sm">
               <Link
-                href="/me/creations"
+                href="/creations"
                 className="text-muted-foreground hover:text-foreground hidden rounded-full px-3 py-1.5 sm:inline"
               >
                 My creations

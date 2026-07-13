@@ -22,9 +22,9 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
 
 function normalizeNextPath(raw: string | undefined): string {
-  if (!raw) return '/me/studio'
-  // Strip Git-Bash MSYS path conversion artifact: `/me/creations` on Windows
-  // bash gets rewritten to `C:/Program Files/Git/me/creations`. Detect by
+  if (!raw) return '/studio'
+  // Strip Git-Bash MSYS path conversion artifact: `/creations` on Windows
+  // bash gets rewritten to `C:/Program Files/Git/creations`. Detect by
   // looking for a drive prefix + recover the trailing slash-prefixed path.
   const winPathPrefix =
     /^[A-Za-z]:[\\/].*?[\\/](me|admin|result|login|trend|pricing|status|about)[\\/]?/i
@@ -33,7 +33,7 @@ function normalizeNextPath(raw: string | undefined): string {
     const idx = raw.toLowerCase().lastIndexOf('/' + match[1].toLowerCase())
     return raw.slice(idx).replace(/\\/g, '/')
   }
-  // Accept either `me/creations` or `/me/creations` — normalize to leading `/`.
+  // Accept either `me/creations` or `/creations` — normalize to leading `/`.
   return raw.startsWith('/') ? raw : `/${raw}`
 }
 
@@ -43,7 +43,7 @@ async function main(): Promise<void> {
   if (!email) {
     console.error('Usage: pnpm dlx tsx scripts/generate-magic-link.ts <email> [next-path]')
     console.error('Example: pnpm dlx tsx scripts/generate-magic-link.ts you@example.com admin')
-    console.error('Default next-path: /me/creations')
+    console.error('Default next-path: /creations')
     process.exit(1)
   }
 

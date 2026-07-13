@@ -37,7 +37,7 @@ test('happy path: home → trend → login → creations → settings → result
   await expect(page.getByRole('button', { name: /Sign in with email/i })).toBeVisible()
 
   // 4. Studio (drawer-based — grid of trend cards, no empty-state card)
-  await page.goto('/me/studio')
+  await page.goto('/studio')
   // Two headings start with "Pick a trend" (h1 "Pick a trend and go"
   // + h2 "Pick a trend" section eyebrow). Pin to the h1 to avoid the
   // strict-mode locator collision.
@@ -47,11 +47,11 @@ test('happy path: home → trend → login → creations → settings → result
   await expect(page.getByRole('button').first()).toBeVisible()
 
   // 5. Creations (history)
-  await page.goto('/me/creations')
+  await page.goto('/creations')
   await expect(page.getByRole('heading', { name: /creations/i })).toBeVisible()
 
   // 6. Settings
-  await page.goto('/me/settings')
+  await page.goto('/settings')
   await expect(page.getByRole('heading', { name: /Settings/i })).toBeVisible()
   await expect(page.getByText(/Your quota/i)).toBeVisible()
   // "Buy credits" when Stripe is configured; "Credits & plans" (coming soon)

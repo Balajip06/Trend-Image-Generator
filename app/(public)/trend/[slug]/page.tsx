@@ -75,7 +75,7 @@ export async function generateMetadata({ params }: TrendPageProps): Promise<Meta
 export default async function TrendPage({ params }: TrendPageProps) {
   const { slug } = await params
 
-  // Authed users go through the unified /me/studio dashboard with the trend
+  // Authed users go through the unified /studio dashboard with the trend
   // pre-selected. Anonymous users fall through to the SSR + SEO + anonymous-
   // trial flow below, which is what organic + social traffic lands on.
   const supabase = await createClient()
@@ -83,7 +83,7 @@ export default async function TrendPage({ params }: TrendPageProps) {
     data: { user },
   } = await supabase.auth.getUser()
   if (user) {
-    redirect(`/me/studio?trend=${slug}`)
+    redirect(`/studio?trend=${slug}`)
   }
 
   const trend = await getActiveTrendBySlug(slug)

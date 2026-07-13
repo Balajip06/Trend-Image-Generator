@@ -150,8 +150,8 @@ describe('signInWithEmail', () => {
     try {
       await signInWithEmail(makeEmailForm())
     } catch (err) {
-      // next='/' normalises to /me/studio
-      expect(lastRedirectUrl(err)).toBe('/me/studio')
+      // next='/' normalises to /studio
+      expect(lastRedirectUrl(err)).toBe('/studio')
       return
     }
     throw new Error('redirect was not invoked')
@@ -228,9 +228,9 @@ describe('signInWithKimp', () => {
     try {
       await signInWithKimp(makeKimpForm())
     } catch (err) {
-      // next='/' normalises to /me/studio
+      // next='/' normalises to /studio
       expect(lastRedirectUrl(err)).toBe(
-        `/api/auth/kimp/initiate?next=${encodeURIComponent('/me/studio')}`
+        `/api/auth/kimp/initiate?next=${encodeURIComponent('/studio')}`
       )
       return
     }

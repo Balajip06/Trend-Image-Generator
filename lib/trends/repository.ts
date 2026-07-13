@@ -29,12 +29,13 @@ export interface PublicTrend {
   seo_description: string | null
   faq: FAQItem[]
   display_order: number
+  created_at: string
   updated_at: string
   activated_at: string | null
 }
 
 const COLUMNS =
-  'id, slug, title, description, thumbnail_url, sample_before_url, sample_after_url, aspect_ratio, model, input_schema, seo_title, seo_description, faq, display_order, updated_at, activated_at'
+  'id, slug, title, description, thumbnail_url, sample_before_url, sample_after_url, aspect_ratio, model, input_schema, seo_title, seo_description, faq, display_order, created_at, updated_at, activated_at'
 
 function coerce(row: Record<string, unknown>): PublicTrend {
   const inputSchemaParse = TrendInputSchema.safeParse(row.input_schema)
@@ -57,6 +58,7 @@ function coerce(row: Record<string, unknown>): PublicTrend {
     seo_description: (row.seo_description as string | null) ?? null,
     faq,
     display_order: (row.display_order as number) ?? 0,
+    created_at: row.created_at as string,
     updated_at: row.updated_at as string,
     activated_at: (row.activated_at as string | null) ?? null,
   }
@@ -69,7 +71,7 @@ export async function listActiveTrends(): Promise<PublicTrend[]> {
   const { data, error } = await supabase
     .from('trends')
     .select(COLUMNS)
-    .order('display_order', { ascending: true })
+    .order('created_at', { ascending: false })
 
   // Distinguish "DB error" (must surface) from "no rows" (legit empty state).
   // Returning [] in both cases is the right UX, but the error path needs to
@@ -117,7 +119,7 @@ export async function listActiveTrendsPaged(
   let query = supabase
     .from('trends')
     .select(COLUMNS, { count: 'exact' })
-    .order('display_order', { ascending: true })
+    .order('created_at', { ascending: false })
     .range(from, to)
 
   if (q) query = query.ilike('title', `%${q}%`)

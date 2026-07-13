@@ -36,6 +36,14 @@ const ISO_NOW = '2026-05-28T12:00:00.000Z'
 const ISO_RECENT = '2026-05-20T12:00:00.000Z' // ~8d before ISO_NOW
 const ISO_OLD = '2026-04-01T12:00:00.000Z' // ~57d before ISO_NOW
 
+// Distinct, monotonically-decreasing created_at per mock row so idx 0 is the
+// newest. Mirrors prod ordering (created_at desc) without relying on Date.now.
+const MOCK_CREATED_BASE_MS = Date.parse(ISO_NOW)
+const DAY_MS = 24 * 60 * 60 * 1000
+function mockCreatedAt(idx: number): string {
+  return new Date(MOCK_CREATED_BASE_MS - idx * DAY_MS).toISOString()
+}
+
 export const MOCK_USER = {
   id: '00000000-0000-4000-8000-000000000001',
   email: 'demo@trendly.dev',
@@ -447,6 +455,7 @@ export const MOCK_TRENDS: PublicTrend[] = SEEDS.map((seed, idx) => {
     seo_description: seed.description,
     faq: seed.faq,
     display_order: idx,
+    created_at: mockCreatedAt(idx),
     updated_at: ISO_NOW,
     activated_at: idx < 3 ? ISO_RECENT : ISO_OLD,
   }

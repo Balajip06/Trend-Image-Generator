@@ -24,8 +24,8 @@ async function clientIp(): Promise<string | undefined> {
 }
 
 function resolveNext(raw: string | undefined): string {
-  const normalized = safeNextPath(raw ?? '/me/studio')
-  return normalized === '/' ? '/me/studio' : normalized
+  const normalized = safeNextPath(raw ?? '/studio')
+  return normalized === '/' ? '/studio' : normalized
 }
 
 export async function signInWithEmail(formData: FormData): Promise<void> {
@@ -69,7 +69,7 @@ export async function signInWithEmail(formData: FormData): Promise<void> {
 }
 
 export async function signInWithKimp(formData: FormData): Promise<void> {
-  const rawNext = (formData.get('next') as string) || '/me/studio'
+  const rawNext = (formData.get('next') as string) || '/studio'
   const next = resolveNext(rawNext)
   const tosAccepted = (formData.get('tos_accepted') as string) || '0'
 
@@ -81,7 +81,7 @@ export async function signInWithKimp(formData: FormData): Promise<void> {
 }
 
 export async function signInWithGoogle(formData: FormData): Promise<void> {
-  const rawNext = (formData.get('next') as string) || '/me/studio'
+  const rawNext = (formData.get('next') as string) || '/studio'
   const next = resolveNext(rawNext)
   const token = (formData.get('turnstile_token') as string) || ''
   const tosAccepted = (formData.get('tos_accepted') as string) || '0'

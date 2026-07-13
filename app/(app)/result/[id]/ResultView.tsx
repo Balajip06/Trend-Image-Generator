@@ -44,7 +44,10 @@ export function ResultView({ initial, trend }: ResultViewProps) {
   const [row, setRow] = useState<Initial>(initial)
   const [retrying, setRetrying] = useState(false)
   const [pushHint, setPushHint] = useState<string | null>(null)
+  const [timedOut, setTimedOut] = useState(false)
   const askedRef = useRef(false)
+
+  const isTerminal = row.status === 'completed' || row.status === 'failed'
 
   useEffect(() => {
     if (row.status === 'completed') {
@@ -167,8 +170,48 @@ export function ResultView({ initial, trend }: ResultViewProps) {
     }
   }, [row.id, row.status])
 
+  // Poll + hard timeout fallback. Realtime can miss the terminal UPDATE if the
+  // Edge Function is killed at the ~140s server wall clock mid-fallback (row
+  // left in `processing`), or if the generations table isn't in the realtime
+  // publication. Without this the page spins forever. Poll every 5s as a
+  // belt-and-suspenders catch-up, and after a hard ceiling surface a
+  // "timed out — retry" state instead of an endless spinner.
+  const POLL_MS = 5_000
+  const TIMEOUT_MS = 180_000
+  useEffect(() => {
+    if (isTerminal) return
+
+    const supabase = createClient()
+    let cancelled = false
+    const startedAt = Date.now()
+
+    const poll = setInterval(async () => {
+      if (cancelled) return
+      try {
+        const { data } = await supabase
+          .from('generations')
+          .select('id, status, output_image_url, error_message, attempts, cost_usd, completed_at')
+          .eq('id', row.id)
+          .maybeSingle()
+        if (data && !cancelled) setRow((prev) => ({ ...prev, ...data }))
+      } catch {
+        /* best-effort */
+      }
+      if (!cancelled && Date.now() - startedAt >= TIMEOUT_MS) {
+        setTimedOut(true)
+        clearInterval(poll)
+      }
+    }, POLL_MS)
+
+    return () => {
+      cancelled = true
+      clearInterval(poll)
+    }
+  }, [row.id, row.status, isTerminal])
+
   const onRetry = async () => {
     setRetrying(true)
+    setTimedOut(false)
     try {
       // Red-team L4: retry no longer echoes the row's idempotency_key
       // through the client. The server resolves it from the
@@ -210,6 +253,8 @@ export function ResultView({ initial, trend }: ResultViewProps) {
           </>
         ) : row.status === 'failed' ? (
           'Something went sideways'
+        ) : timedOut ? (
+          'This one took too long'
         ) : (
           <>
             Cooking your <span className="text-gradient-hero">{trend.title}</span>
@@ -243,14 +288,14 @@ export function ResultView({ initial, trend }: ResultViewProps) {
             </a>
           </GradientButton>
         )}
-        {(row.status === 'failed' || row.status === 'failed_retryable') && (
+        {(row.status === 'failed' || row.status === 'failed_retryable' || timedOut) && (
           <GradientButton size="lg" onClick={onRetry} disabled={retrying}>
             <RefreshCw className={retrying ? 'size-4 animate-spin' : 'size-4'} />
             {retrying ? 'Retrying…' : 'Try again'}
           </GradientButton>
         )}
         <Button asChild variant="outline" size="lg" className="rounded-full">
-          <Link href="/me/creations">
+          <Link href="/creations">
             <ImageIcon className="size-4" />
             My creations
           </Link>
@@ -264,6 +309,13 @@ export function ResultView({ initial, trend }: ResultViewProps) {
           outputImageUrl={row.output_image_url}
           shareCaptionTemplate={trend.share_caption_template}
         />
+      )}
+
+      {timedOut && !isTerminal && (
+        <p className="bg-muted text-muted-foreground rounded-full px-4 py-2 text-center text-xs">
+          Generation is taking longer than expected. Your quota isn&apos;t spent until it
+          succeeds — tap Try again.
+        </p>
       )}
 
       {pushHint && (

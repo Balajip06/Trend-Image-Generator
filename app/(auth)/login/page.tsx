@@ -27,7 +27,7 @@ const ERROR_COPY: Record<string, string> = {
 }
 
 export default async function LoginPage({ searchParams }: { searchParams: SearchParams }) {
-  const { next = '/me/studio', sent, error } = await searchParams
+  const { next = '/studio', sent, error } = await searchParams
   const errorMessage = error ? (ERROR_COPY[error] ?? 'Sign in failed. Try again.') : null
 
   return (

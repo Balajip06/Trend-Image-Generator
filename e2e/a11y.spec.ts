@@ -14,10 +14,10 @@ const ROUTES = [
   '/',
   '/trend/ghibli-portrait',
   '/login',
-  '/me/studio',
-  '/me/studio?trend=ghibli-portrait',
-  '/me/creations',
-  '/me/settings',
+  '/studio',
+  '/studio?trend=ghibli-portrait',
+  '/creations',
+  '/settings',
   '/result/mock-completed',
 ]
 

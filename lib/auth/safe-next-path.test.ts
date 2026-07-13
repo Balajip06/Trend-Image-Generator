@@ -11,7 +11,7 @@ describe('safeNextPath', () => {
   })
 
   it('passes through a same-origin path', () => {
-    expect(safeNextPath('/me/creations')).toBe('/me/creations')
+    expect(safeNextPath('/creations')).toBe('/creations')
   })
 
   it('passes through a same-origin path with query', () => {

@@ -66,7 +66,7 @@ test('trend card click', async ({ page }, testInfo) => {
 
   await check(checks, 'clicking card navigates to /trend/...', async () => {
     await firstCard.click()
-    // Authed (mock) users get redirected to /me/studio?trend=... — accept either
+    // Authed (mock) users get redirected to /studio?trend=... — accept either
     // landing on /trend/ OR the studio with a trend query param. Wait for the URL
     // to settle rather than reading a single (possibly pre-navigation) snapshot.
     await page.waitForURL(/(\/trend\/|\/me\/studio\?trend=)/, { timeout: 10_000 }).catch(() => {})
@@ -130,7 +130,7 @@ test('trend detail', async ({ page }, testInfo) => {
 test('studio', async ({ page }, testInfo) => {
   const consoleErrors = collectConsoleErrors(page)
   const checks: import('./harness').Check[] = []
-  const route = '/me/studio'
+  const route = '/studio'
   await safeGoto(page, checks, route)
   await check(checks, 'heading or trend grid visible', async () => {
     const heading = await page
@@ -159,7 +159,7 @@ test('studio', async ({ page }, testInfo) => {
 test('creations', async ({ page }, testInfo) => {
   const consoleErrors = collectConsoleErrors(page)
   const checks: import('./harness').Check[] = []
-  const route = '/me/creations'
+  const route = '/creations'
   await safeGoto(page, checks, route)
   await check(checks, 'heading visible', async () => page.locator('h1').first().isVisible())
   const shot = await screenshot(page, 'consumer-creations')
@@ -176,7 +176,7 @@ test('creations', async ({ page }, testInfo) => {
 test('settings', async ({ page }, testInfo) => {
   const consoleErrors = collectConsoleErrors(page)
   const checks: import('./harness').Check[] = []
-  const route = '/me/settings'
+  const route = '/settings'
   await safeGoto(page, checks, route)
 
   await check(
