@@ -20,15 +20,15 @@ export async function setGlobalDefaultModel(formData: FormData): Promise<void> {
 
   const service = createServiceClient()
 
-  // 1. Read current default from app_settings
+  // 1. Read current default from app_settings.
+  //    value is a jsonb scalar; supabase-js already parses it to a JS string.
   const { data: current } = await service
     .from('app_settings')
     .select('value')
     .eq('key', 'default_image_model')
     .maybeSingle()
 
-  const currentModel =
-    (current?.value as string | undefined)?.replace(/"/g, '') ?? 'gpt-image-2'
+  const currentModel = (current?.value as string | undefined) ?? 'gpt-image-2'
   if (currentModel === newModel) return // No change
 
   // 2. Find live non-pinned trends that will be affected
@@ -47,15 +47,18 @@ export async function setGlobalDefaultModel(formData: FormData): Promise<void> {
     await service.from('trends').update({ model: newModel }).eq('model_pinned', false)
   }
 
-  // 4. Write the new global default
-  await service
+  // 4. Write the new global default. Pass the raw string — supabase-js
+  //    JSON-encodes the request body, so the jsonb column receives a proper
+  //    scalar. JSON.stringify here would double-encode it (stored as "\"x\"").
+  const { error: writeError } = await service
     .from('app_settings')
     .update({
-      value: JSON.stringify(newModel),
+      value: newModel,
       updated_by: userId,
       updated_at: new Date().toISOString(),
     })
     .eq('key', 'default_image_model')
+  if (writeError) throw new Error(`Failed to save default model: ${writeError.message}`)
 
   // 5. Audit trail (H-S9: app.admin_actor GUC doesn't work via PostgREST; use logAdminAction)
   await logAdminAction({
@@ -88,22 +91,27 @@ export async function setBannerTrend(formData: FormData): Promise<void> {
 
   const service = createServiceClient()
 
+  // value is a jsonb scalar; supabase-js parses it to a JS string (or null).
   const { data: current } = await service
     .from('app_settings')
     .select('value')
     .eq('key', 'banner_trend_id')
     .maybeSingle()
-  const currentTrendId = current?.value ? String(current.value) : null
+  const currentTrendId = (current?.value as string | null | undefined) ?? null
   if (currentTrendId === newTrendId) return
 
-  await service
+  // Pass the raw value — supabase-js JSON-encodes the body, so the jsonb column
+  // stores a proper scalar (string or JSON null). JSON.stringify would
+  // double-encode; a SQL NULL would violate the NOT NULL constraint.
+  const { error: writeError } = await service
     .from('app_settings')
     .update({
-      value: newTrendId ? JSON.stringify(newTrendId) : null,
+      value: newTrendId,
       updated_by: userId,
       updated_at: new Date().toISOString(),
     })
     .eq('key', 'banner_trend_id')
+  if (writeError) throw new Error(`Failed to save banner trend: ${writeError.message}`)
 
   await logAdminAction({
     adminId: userId,
