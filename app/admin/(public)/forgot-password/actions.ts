@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { siteUrl } from '@/lib/utils/site-url'
 
 /**
  * Send an admin password-reset email.
@@ -22,7 +23,7 @@ export async function sendResetEmail(formData: FormData): Promise<void> {
 
   const supabase = await createClient()
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/admin/reset-password`,
+    redirectTo: siteUrl('/admin/reset-password'),
   })
 
   if (error) {

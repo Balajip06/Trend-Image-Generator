@@ -6,6 +6,7 @@ import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { findPack, isPackId, requirePackPriceId } from '@/lib/payments/packs'
 import { findPlan, isPlanId, requirePlanPriceId } from '@/lib/payments/plans'
+import { siteOrigin } from '@/lib/utils/site-url'
 
 export const runtime = 'nodejs'
 
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const siteUrl = siteOrigin()
 
   // ── Subscription path ──────────────────────────────────────────────────────
   if ('plan_id' in body) {

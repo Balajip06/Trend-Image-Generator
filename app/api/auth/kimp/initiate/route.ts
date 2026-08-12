@@ -6,6 +6,7 @@ import {
   generateNonce,
 } from '@/lib/auth/kimp/pkce'
 import { safeNextPath } from '@/lib/auth/safe-next-path'
+import { siteOrigin } from '@/lib/utils/site-url'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -13,7 +14,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const issuer = process.env.KIMP360_OIDC_ISSUER
   const clientId = process.env.KIMP360_OIDC_CLIENT_ID
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const siteUrl = siteOrigin()
 
   // Fallback: IdP not yet configured — surface clean error
   if (!issuer || !clientId) {

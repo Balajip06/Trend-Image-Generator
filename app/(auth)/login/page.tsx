@@ -14,6 +14,10 @@ const ERROR_COPY: Record<string, string> = {
   exchange_failed: 'Could not finish sign-in. Try again.',
   tos_required: 'Please check the box to accept our terms + privacy policy before continuing.',
   invalid_credentials: 'Email or password is incorrect. Try again.',
+  // Closed-beta allowlist rejection. Distinct from invalid_credentials on
+  // purpose: this fires on passwordless flows (Google, KIMP SSO) too, where
+  // "your password is wrong" is both false and unactionable.
+  not_invited: "This email isn't on the beta list yet. Ask us for access if you think it should be.",
   kimp_unavailable: 'KIMP360 sign-in is not available right now. Try Google or email.',
   kimp_account_conflict: 'This KIMP360 account is linked to a different email. Contact support.',
   kimp_email_unverified: 'Your KIMP360 email is not verified. Please verify it and try again.',

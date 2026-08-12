@@ -7,6 +7,7 @@ import { isEmailAllowedToLogin } from '@/lib/auth/login-allowlist'
 import { safeNextPath } from '@/lib/auth/safe-next-path'
 import { createClient } from '@/lib/supabase/server'
 import { verifyTurnstile } from '@/lib/turnstile/verify'
+import { siteUrl } from '@/lib/utils/site-url'
 
 // `tos_accepted` MUST be the literal string "1" — the LoginForms checkbox
 // emits "0" by default and "1" only once the user checks it.
@@ -44,8 +45,13 @@ export async function signInWithEmail(formData: FormData): Promise<void> {
     redirect('/login?error=invalid_email')
   }
 
+  // Beta-gate rejection, checked before any credential verification. Reveals
+  // allowlist membership by design — the gate is not a secret (the OAuth paths
+  // disclose it too), and the alternative was telling invited-but-mistyped
+  // users their password was wrong. The genuine wrong-password path below
+  // keeps its generic copy to avoid account enumeration.
   if (!isEmailAllowedToLogin(parsed.data.email)) {
-    redirect('/login?error=invalid_credentials')
+    redirect('/login?error=not_invited')
   }
 
   const ok = await verifyTurnstile(parsed.data.turnstile_token ?? '', await clientIp())
@@ -92,10 +98,9 @@ export async function signInWithGoogle(formData: FormData): Promise<void> {
   if (!ok) redirect('/login?error=bot_check_failed')
 
   const supabase = await createClient()
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent(next)}` },
+    options: { redirectTo: siteUrl(`/auth/callback?next=${encodeURIComponent(next)}`) },
   })
   if (error || !data.url) redirect('/login?error=oauth_failed')
   redirect(data.url)

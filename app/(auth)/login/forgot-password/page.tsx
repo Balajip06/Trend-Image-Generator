@@ -1,14 +1,14 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { siteUrl } from '@/lib/utils/site-url'
 
 export default function ForgotPasswordPage() {
   async function sendReset(formData: FormData) {
     'use server'
     const email = formData.get('email') as string
     const supabase = await createClient()
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
     await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${siteUrl}/auth/confirm?type=recovery`,
+      redirectTo: siteUrl('/auth/confirm?type=recovery'),
     })
     redirect('/login?sent=1')
   }
