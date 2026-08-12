@@ -22,6 +22,7 @@ interface InitialRow {
   created_at: string
   cost_usd: number
   completed_at: string | null
+  is_public: boolean
 }
 
 interface TrendBrief {
@@ -52,6 +53,7 @@ export default async function ResultPage({ params }: ResultPageProps) {
       created_at: mockGen.created_at,
       cost_usd: mockGen.cost_usd,
       completed_at: mockGen.completed_at,
+      is_public: false,
     }
     const trend: TrendBrief = mockTrend
       ? { slug: mockTrend.slug, title: mockTrend.title, share_caption_template: null }
@@ -68,7 +70,7 @@ export default async function ResultPage({ params }: ResultPageProps) {
   const { data: row } = await supabase
     .from('generations')
     .select(
-      'id, user_id, trend_id, status, output_image_url, error_message, attempts, created_at, cost_usd, completed_at'
+      'id, user_id, trend_id, status, output_image_url, error_message, attempts, created_at, cost_usd, completed_at, is_public'
     )
     .eq('id', id)
     .maybeSingle()

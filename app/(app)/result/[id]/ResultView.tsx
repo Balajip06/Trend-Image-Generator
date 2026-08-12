@@ -27,6 +27,7 @@ interface Initial {
   created_at: string
   cost_usd: number
   completed_at: string | null
+  is_public: boolean
 }
 
 interface Trend {
@@ -305,11 +306,13 @@ export function ResultView({ initial, trend, referralCode }: ResultViewProps) {
 
       {row.status === 'completed' && row.output_image_url && (
         <ShareBurst
+          generationId={row.id}
           trendSlug={trend.slug}
           trendTitle={trend.title}
           outputImageUrl={row.output_image_url}
           shareCaptionTemplate={trend.share_caption_template}
           referralCode={referralCode}
+          initialIsPublic={row.is_public}
         />
       )}
 

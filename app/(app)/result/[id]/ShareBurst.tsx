@@ -1,10 +1,11 @@
 'use client'
 
-import { Copy, Share2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Copy, Globe, Lock, Share2 } from 'lucide-react'
+import { useEffect, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { analytics, EVENTS } from '@/lib/analytics/client'
 import { buildReferralUrl } from '@/lib/referrals/links'
+import { toggleGenerationPublic } from './actions'
 import {
   buildTwitterShareUrl,
   buildWhatsappShareUrl,
@@ -15,11 +16,13 @@ import {
 } from '@/lib/share/web-share'
 
 interface ShareBurstProps {
+  generationId: string
   trendSlug: string
   trendTitle: string
   outputImageUrl: string
   shareCaptionTemplate?: string | null
   referralCode: string | null
+  initialIsPublic: boolean
 }
 
 // Substitute the two supported tokens. NULL or empty template → generic
@@ -37,14 +40,18 @@ function buildCaption(
 }
 
 export function ShareBurst({
+  generationId,
   trendSlug,
   trendTitle,
   outputImageUrl,
   shareCaptionTemplate,
   referralCode,
+  initialIsPublic,
 }: ShareBurstProps) {
   const [copied, setCopied] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [isPublic, setIsPublic] = useState(initialIsPublic)
+  const [togglePending, startToggle] = useTransition()
   // Defer feature-detected tiles until after hydration. isWebShareSupported()
   // is false on the server (no `navigator`) but true on capable clients —
   // gating on `mounted` keeps the first client render structurally identical
@@ -57,14 +64,34 @@ export function ShareBurst({
   // Use the env-pinned site URL so SSR and CSR agree (window.location.origin
   // is undefined on the server, which causes a hydration mismatch).
   const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-  const siteUrl = `${origin}/trend/${trendSlug}`
+  // Share the generated design itself once it's public, falling back to the
+  // trend page while it isn't. /s/[id] renders the image for signed-out
+  // visitors; /result/[id] is owner-only and would 404 for a recipient, which
+  // is why the trend page was the original (link-only) target.
+  const sharePath = isPublic ? `/s/${generationId}` : `/trend/${trendSlug}`
+  const siteUrl = `${origin}${sharePath}`
   const text = buildCaption(shareCaptionTemplate, trendTitle, siteUrl)
   // Referral-tag the actual shared link (not the caption's {site_url} token)
   // so every outbound share — native, Twitter, WhatsApp, copy — credits the
   // sharer, not just their own settings-page link.
-  const shareUrl = referralCode
-    ? buildReferralUrl(origin, referralCode, `/trend/${trendSlug}`)
-    : siteUrl
+  const shareUrl = referralCode ? buildReferralUrl(origin, referralCode, sharePath) : siteUrl
+
+  const onTogglePublic = () => {
+    startToggle(async () => {
+      const next = !isPublic
+      const result = await toggleGenerationPublic(generationId, next)
+      if (result.ok) {
+        setIsPublic(result.isPublic ?? next)
+        toast.success(
+          next
+            ? 'Public link on — shares now show your design.'
+            : 'Public link off — shares point to the trend page.'
+        )
+      } else {
+        toast.error(result.error ?? 'Could not update sharing.')
+      }
+    })
+  }
 
   const fireTrack = (channel: ShareChannel) => {
     analytics.track(EVENTS.SHARE_CLICKED, { trend_slug: trendSlug, channel })
@@ -116,6 +143,44 @@ export function ShareBurst({
         </div>
         <Share2 className="text-muted-foreground size-5" aria-hidden="true" />
       </div>
+
+      <div className="border-border/60 bg-background/60 mt-4 flex items-start gap-3 rounded-2xl border p-3">
+        <span className="mt-0.5 shrink-0" aria-hidden="true">
+          {isPublic ? (
+            <Globe className="size-4 text-[var(--brand-grad-1)]" />
+          ) : (
+            <Lock className="text-muted-foreground size-4" />
+          )}
+        </span>
+        <div className="flex-1">
+          <p className="text-sm font-semibold">
+            {isPublic ? 'Anyone with the link can see this' : 'Only you can see this'}
+          </p>
+          <p className="text-muted-foreground mt-0.5 text-xs">
+            {isPublic
+              ? 'Your shares link straight to the image.'
+              : 'Turn on to share the design itself — otherwise links point to the trend page.'}
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isPublic}
+          aria-label="Share this design publicly"
+          onClick={onTogglePublic}
+          disabled={togglePending}
+          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-60 ${
+            isPublic ? 'bg-[var(--brand-grad-1)]' : 'bg-muted-foreground/30'
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform ${
+              isPublic ? 'translate-x-5' : 'translate-x-0.5'
+            }`}
+          />
+        </button>
+      </div>
+
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
         {showNative && (
           <ShareTile
