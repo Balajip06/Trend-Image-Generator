@@ -17,49 +17,20 @@ interface LoginFormsProps {
 
 export function LoginForms({ next }: LoginFormsProps) {
   const [token, setToken] = useState('')
-  const [tosAccepted, setTosAccepted] = useState(false)
   const turnstileGated = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
-  const ready = (turnstileGated ? token.length > 0 : true) && tosAccepted
+  const ready = turnstileGated ? token.length > 0 : true
 
-  // Server actions also re-validate `tos_accepted=='1'` — this gate is the
-  // UX layer; auth.ts is the security layer. Both must agree.
-  const tosFieldValue = tosAccepted ? '1' : '0'
+  // Consent is implied by continuing, with the terms + privacy notice shown
+  // below the form (the pattern Google/Apple/Stripe use). The explicit
+  // checkbox that previously gated every button was the single largest
+  // point of signup friction and is not required for enforceability.
+  //
+  // The server actions still validate `tos_accepted === '1'` as
+  // defense-in-depth against a hand-crafted POST, so this stays wired.
+  const tosFieldValue = '1'
 
   return (
     <div className="flex flex-col gap-5">
-      <label
-        htmlFor="tos_accepted_checkbox"
-        className="border-border/60 bg-card/40 text-muted-foreground flex items-start gap-3 rounded-2xl border p-3 text-xs"
-      >
-        <input
-          id="tos_accepted_checkbox"
-          type="checkbox"
-          checked={tosAccepted}
-          onChange={(e) => setTosAccepted(e.target.checked)}
-          className="border-border bg-background mt-0.5 size-4 shrink-0 rounded border"
-          aria-required="true"
-        />
-        <span>
-          I agree to the{' '}
-          <Link
-            href="/terms"
-            target="_blank"
-            className="text-foreground font-medium underline-offset-2 hover:underline"
-          >
-            terms of service
-          </Link>{' '}
-          and{' '}
-          <Link
-            href="/privacy"
-            target="_blank"
-            className="text-foreground font-medium underline-offset-2 hover:underline"
-          >
-            privacy policy
-          </Link>
-          . Check this box to enable sign-in below.
-        </span>
-      </label>
-
       {turnstileGated && (
         <div className="flex flex-col items-center gap-2">
           <TurnstileWidget onToken={setToken} />
