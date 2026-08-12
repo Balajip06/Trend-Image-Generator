@@ -38,9 +38,10 @@ interface Trend {
 interface ResultViewProps {
   initial: Initial
   trend: Trend
+  referralCode: string | null
 }
 
-export function ResultView({ initial, trend }: ResultViewProps) {
+export function ResultView({ initial, trend, referralCode }: ResultViewProps) {
   const [row, setRow] = useState<Initial>(initial)
   const [retrying, setRetrying] = useState(false)
   const [pushHint, setPushHint] = useState<string | null>(null)
@@ -249,7 +250,7 @@ export function ResultView({ initial, trend }: ResultViewProps) {
       <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
         {row.status === 'completed' ? (
           <>
-            <span className="text-gradient-hero">{trend.title}</span> — fresh off the model
+            <span className="text-gradient-hero">{trend.title}</span> — trending now
           </>
         ) : row.status === 'failed' ? (
           'Something went sideways'
@@ -257,7 +258,7 @@ export function ResultView({ initial, trend }: ResultViewProps) {
           'This one took too long'
         ) : (
           <>
-            Cooking your <span className="text-gradient-hero">{trend.title}</span>
+            Creating your <span className="text-gradient-hero">{trend.title}</span>
           </>
         )}
       </h1>
@@ -308,6 +309,7 @@ export function ResultView({ initial, trend }: ResultViewProps) {
           trendTitle={trend.title}
           outputImageUrl={row.output_image_url}
           shareCaptionTemplate={trend.share_caption_template}
+          referralCode={referralCode}
         />
       )}
 

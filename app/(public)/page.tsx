@@ -81,28 +81,22 @@ export default async function HomePage() {
               New trend drops weekly
             </Badge>
             <h1 className="text-5xl leading-[1.05] font-extrabold tracking-tight sm:text-6xl lg:text-7xl">
-              Make the trend <span className="text-gradient-hero">everyone</span> is making.
+              Create your version of the <span className="text-gradient-hero">hottest</span> trends.
             </h1>
             <p className="text-muted-foreground max-w-xl text-lg">
-              Pick a viral look. Upload your photo. We render the moment in seconds — ready to drop
-              on your feed.
+              Upload a photo and we&rsquo;ll turn it into a trending post, ready for your feed, in
+              just seconds.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               {heroTrend ? (
                 <GradientButton size="lg" asChild>
-                  <Link href={`/trend/${heroTrend.slug}`}>Try {heroTrend.title.split(' ')[0]}</Link>
+                  <a href="#trends">Browse trends</a>
                 </GradientButton>
               ) : (
                 <GradientButton size="lg" asChild>
                   <Link href="/login">Get early access</Link>
                 </GradientButton>
               )}
-              <Link
-                href="/anonymous/demo"
-                className="border-border hover:bg-muted rounded-full border px-6 py-3 text-sm font-medium"
-              >
-                Try one free, no signup →
-              </Link>
             </div>
             <div className="text-muted-foreground flex flex-wrap items-center gap-x-6 gap-y-2 pt-2 text-sm">
               <span className="flex items-center gap-2">
@@ -155,8 +149,38 @@ export default async function HomePage() {
           )}
         </section>
 
+        {/* How it works — sits above the grid so the process is explained
+            before the user starts picking a trend. */}
+        <section className="border-border/60 bg-card/60 rounded-3xl border p-10 backdrop-blur">
+          <h2 className="text-center text-2xl font-extrabold tracking-tight">
+            From Photo to Trend in 3 Taps
+          </h2>
+          <ol className="mt-6 grid gap-6 sm:grid-cols-3">
+            {[
+              { n: '01', title: 'Pick a trend', body: 'Browse what is going viral this week.' },
+              {
+                n: '02',
+                title: 'Upload your photo',
+                body: 'Selfie or full body — clear lighting works best.',
+              },
+              {
+                n: '03',
+                title: 'Share it',
+                body: 'Native Instagram + TikTok share, or download a clean PNG.',
+              },
+            ].map((step) => (
+              <li key={step.n} className="bg-background rounded-2xl p-6">
+                <div className="text-gradient-hero text-3xl font-extrabold">{step.n}</div>
+                <h3 className="mt-3 text-lg font-bold">{step.title}</h3>
+                <p className="text-muted-foreground mt-1 text-sm">{step.body}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
         {/* Trend grid */}
-        <section id="trends" className="flex flex-col gap-6">
+        {/* scroll-mt clears the sticky header when the hero CTA jumps here */}
+        <section id="trends" className="flex scroll-mt-24 flex-col gap-6">
           <div className="flex items-baseline justify-between">
             <h2 className="text-2xl font-extrabold tracking-tight">Browse trends</h2>
             <p className="text-muted-foreground text-sm">
@@ -228,31 +252,6 @@ export default async function HomePage() {
           )}
         </section>
 
-        {/* How it works */}
-        <section className="border-border/60 bg-card/60 rounded-3xl border p-10 backdrop-blur">
-          <h2 className="text-2xl font-extrabold tracking-tight">3 taps to a trend</h2>
-          <ol className="mt-6 grid gap-6 sm:grid-cols-3">
-            {[
-              { n: '01', title: 'Pick a trend', body: 'Browse what is going viral this week.' },
-              {
-                n: '02',
-                title: 'Upload your photo',
-                body: 'Selfie or full body — clear lighting works best.',
-              },
-              {
-                n: '03',
-                title: 'Share it',
-                body: 'Native Instagram + TikTok share, or download a clean PNG.',
-              },
-            ].map((step) => (
-              <li key={step.n} className="bg-background rounded-2xl p-6">
-                <div className="text-gradient-hero text-3xl font-extrabold">{step.n}</div>
-                <h3 className="mt-3 text-lg font-bold">{step.title}</h3>
-                <p className="text-muted-foreground mt-1 text-sm">{step.body}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
       </main>
     </div>
   )

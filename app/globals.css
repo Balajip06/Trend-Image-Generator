@@ -132,6 +132,14 @@
   * {
     border-color: var(--color-border);
   }
+  /* In-page anchor jumps (hero "Browse trends" → #trends) glide instead of
+     teleporting. Reduced-motion users keep the instant jump — see the
+     prefers-reduced-motion block below. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
   body {
     background: var(--background);
     color: var(--foreground);

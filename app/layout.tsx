@@ -43,6 +43,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html
       lang="en"
       suppressHydrationWarning
+      // globals.css sets `scroll-behavior: smooth` for in-page anchor jumps
+      // (hero "Browse trends" → #trends). This attribute tells the Next router
+      // to keep route-change scroll restoration instant instead of animating it.
+      data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body

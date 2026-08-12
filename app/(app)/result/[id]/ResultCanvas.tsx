@@ -21,6 +21,12 @@ export function ResultCanvas({
   title,
 }: ResultCanvasProps) {
   const [zoomed, setZoomed] = useState(false)
+  // Gemini doesn't always honor the trend's configured aspect_ratio (e.g. a
+  // 1:1 trend can come back as a tall portrait) — size the frame to the
+  // image's real dimensions once known instead of forcing a square crop
+  // that cuts off the top/bottom. Square is just the layout-stable default
+  // before onLoad fires.
+  const [aspectRatio, setAspectRatio] = useState(1)
 
   if (status === 'completed' && outputImageUrl) {
     return (
@@ -31,7 +37,10 @@ export function ResultCanvas({
           aria-label="View full size"
           className="group focus-visible:ring-ring block w-full cursor-zoom-in rounded-3xl focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
         >
-          <figure className="border-border/60 bg-card shadow-pop animate-pop-in relative aspect-square overflow-hidden rounded-3xl border">
+          <figure
+            className="border-border/60 bg-card shadow-pop animate-pop-in relative overflow-hidden rounded-3xl border"
+            style={{ aspectRatio }}
+          >
             <Image
               src={outputImageUrl}
               alt={title}
@@ -39,7 +48,13 @@ export function ResultCanvas({
               priority
               quality={95}
               sizes="(max-width: 480px) 100vw, 480px"
-              className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+              className="object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+              onLoad={(e) => {
+                const img = e.currentTarget
+                if (img.naturalWidth && img.naturalHeight) {
+                  setAspectRatio(img.naturalWidth / img.naturalHeight)
+                }
+              }}
             />
             <div
               aria-hidden

@@ -3,8 +3,8 @@
 import { KeyRound } from 'lucide-react'
 import { useState } from 'react'
 import { GradientButton } from '@/components/brand/GradientButton'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/ui/password-input'
 import { updatePassword } from './actions'
 
 export function ResetPasswordForm() {
@@ -18,9 +18,8 @@ export function ResetPasswordForm() {
     <form action={updatePassword} className="flex flex-col gap-3">
       <div className="flex flex-col gap-2">
         <Label htmlFor="password">New password</Label>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           name="password"
           required
           minLength={8}
@@ -34,9 +33,8 @@ export function ResetPasswordForm() {
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="confirm">Confirm password</Label>
-        <Input
+        <PasswordInput
           id="confirm"
-          type="password"
           name="confirm"
           required
           minLength={8}

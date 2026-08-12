@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import {
   findMockGeneration,
   findMockTrendById,
+  MOCK_PROFILE,
   MOCK_TRENDS_ENABLED,
   MOCK_USER,
 } from '@/lib/dev/mock-data'
@@ -55,7 +56,7 @@ export default async function ResultPage({ params }: ResultPageProps) {
     const trend: TrendBrief = mockTrend
       ? { slug: mockTrend.slug, title: mockTrend.title, share_caption_template: null }
       : { slug: 'unknown', title: 'Trend', share_caption_template: null }
-    return <ResultView initial={initial} trend={trend} />
+    return <ResultView initial={initial} trend={trend} referralCode={MOCK_PROFILE.referral_code} />
   }
 
   const supabase = await createClient()
@@ -76,16 +77,21 @@ export default async function ResultPage({ params }: ResultPageProps) {
   if (!gen) notFound()
   if (gen.user_id !== user.id) notFound() // hide via 404 rather than 403 to avoid id-leaks
 
-  const { data: trendRow } = await supabase
-    .from('trends')
-    .select('slug, title, share_caption_template')
-    .eq('id', gen.trend_id)
-    .maybeSingle()
+  const [{ data: trendRow }, { data: profileRow }] = await Promise.all([
+    supabase
+      .from('trends')
+      .select('slug, title, share_caption_template')
+      .eq('id', gen.trend_id)
+      .maybeSingle(),
+    supabase.from('profiles').select('referral_code').eq('id', user.id).maybeSingle(),
+  ])
   const trend: TrendBrief = trendRow ?? {
     slug: 'unknown',
     title: 'Trend',
     share_caption_template: null,
   }
 
-  return <ResultView initial={gen} trend={trend} />
+  return (
+    <ResultView initial={gen} trend={trend} referralCode={profileRow?.referral_code ?? null} />
+  )
 }

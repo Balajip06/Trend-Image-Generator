@@ -4,10 +4,10 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { GradientButton } from '@/components/brand/GradientButton'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import { MOCK_GENERATIONS, MOCK_TRENDS, MOCK_TRENDS_ENABLED } from '@/lib/dev/mock-data'
 import { createClient } from '@/lib/supabase/server'
-import { toggleFavorite } from './actions'
+import { FavoriteButton } from './FavoriteButton'
+import { FilterForm } from './FilterForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -159,65 +159,14 @@ export default async function CreationsPage({ searchParams }: PageProps) {
         </GradientButton>
       </header>
 
-      <form
-        method="get"
-        className="border-border/60 bg-card/40 flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-end"
-      >
-        {view !== 'all' ? <input type="hidden" name="view" value={view} /> : null}
-        <label className="flex-1">
-          <span className="text-muted-foreground mb-1 block text-xs font-medium">Search</span>
-          <Input
-            name="q"
-            defaultValue={rawQ}
-            maxLength={100}
-            placeholder="Search prompts, trends…"
-          />
-        </label>
-        <label className="sm:w-44">
-          <span className="text-muted-foreground mb-1 block text-xs font-medium">Trend</span>
-          <select
-            name="trend"
-            defaultValue={trendFilter}
-            className="border-input focus-visible:border-ring focus-visible:ring-ring/50 bg-background text-foreground h-9 w-full rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-          >
-            <option value="">All trends</option>
-            {trendOptions.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="sm:w-32">
-          <span className="text-muted-foreground mb-1 block text-xs font-medium">Range</span>
-          <select
-            name="range"
-            defaultValue={range}
-            className="border-input focus-visible:border-ring focus-visible:ring-ring/50 bg-background text-foreground h-9 w-full rounded-md border px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-          >
-            <option value="all">All time</option>
-            <option value="24h">Last 24h</option>
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
-          </select>
-        </label>
-        <div className="flex gap-2 sm:items-end">
-          <button
-            type="submit"
-            className="border-border bg-foreground text-background h-9 rounded-md border px-4 text-sm font-semibold transition-opacity hover:opacity-90"
-          >
-            Filter
-          </button>
-          {isFiltered ? (
-            <Link
-              href="/creations"
-              className="border-border text-muted-foreground hover:text-foreground grid h-9 place-items-center rounded-md border px-3 text-sm"
-            >
-              Reset
-            </Link>
-          ) : null}
-        </div>
-      </form>
+      <FilterForm
+        rawQ={rawQ}
+        trendFilter={trendFilter}
+        range={range}
+        view={view}
+        trendOptions={trendOptions}
+        isFiltered={isFiltered}
+      />
 
       <nav className="border-border/60 bg-muted inline-flex w-fit items-center gap-1 rounded-lg border p-1 text-sm font-medium">
         <Link
@@ -307,31 +256,11 @@ export default async function CreationsPage({ searchParams }: PageProps) {
                     >
                       {STATUS_BADGE[c.status].label}
                     </Badge>
-                    {c.is_favorite ? (
-                      <Badge className="rounded-full bg-[var(--brand-grad-1)]/15 px-2.5 py-0.5 text-[10px] font-semibold text-[var(--brand-grad-1)]">
-                        Favorite
-                      </Badge>
-                    ) : null}
                   </div>
                 </Link>
-                <form action={toggleFavorite} className="absolute top-2 right-2">
-                  <input type="hidden" name="generation_id" value={c.id} />
-                  <button
-                    type="submit"
-                    aria-label={c.is_favorite ? 'Unfavorite' : 'Favorite'}
-                    aria-pressed={c.is_favorite}
-                    className="border-border/60 bg-card/90 hover:bg-card grid size-8 place-items-center rounded-full border backdrop-blur-sm transition-colors"
-                  >
-                    <Star
-                      className={`size-4 ${
-                        c.is_favorite
-                          ? 'fill-current text-[var(--brand-grad-1)]'
-                          : 'text-foreground/60'
-                      }`}
-                      aria-hidden
-                    />
-                  </button>
-                </form>
+                <div className="absolute top-2 right-2">
+                  <FavoriteButton generationId={c.id} isFavorite={c.is_favorite} />
+                </div>
               </div>
             </li>
           ))}

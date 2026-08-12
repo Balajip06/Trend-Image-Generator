@@ -3,20 +3,14 @@
  *
  * Pure, side-effect-free builders so the API route stays thin and the shape
  * stays unit-testable. The route fetches rows + signs URLs, then hands them
- * here to assemble the user-facing JSON payload.
+ * here to assemble a single generations.csv.
+ *
+ * Scope note: profile fields (email, credits, referral code) are
+ * intentionally NOT part of this export per explicit user request. See the
+ * route's header comment for the compliance caveat.
  */
 
-export interface ExportProfile {
-  email: string
-  credits_balance: number | null
-  free_used_this_week: number
-  bonus_credits_earned: number
-  referral_code: string
-  created_at?: string
-  deleted_at?: string | null
-  name?: string | null
-  avatar_url?: string | null
-}
+import { unparse } from 'papaparse'
 
 export interface ExportGenerationInput {
   id: string
@@ -38,60 +32,49 @@ export interface ExportGenerationInput {
   signed_download_url: string | null
 }
 
-export interface ExportPayload {
-  schema_version: 1
-  generated_at: string
-  user_id: string
-  signed_url_ttl_seconds: number
-  profile: ExportProfile
-  generations: ExportGenerationInput[]
-  totals: {
-    generations_total: number
-    generations_completed: number
-    total_cost_usd: number
-  }
-  notes: {
-    article: 'GDPR Article 15'
-    contact: string
-    signed_url_expiry: string
-  }
-}
-
 const SIGNED_URL_TTL_SECONDS = 3600
-
-export function buildExportPayload(
-  userId: string,
-  profile: ExportProfile,
-  generations: ExportGenerationInput[],
-  generatedAt: Date = new Date()
-): ExportPayload {
-  const completed = generations.filter((g) => g.status === 'completed').length
-  const totalCost = generations.reduce((sum, g) => sum + (g.cost_usd ?? 0), 0)
-
-  return {
-    schema_version: 1,
-    generated_at: generatedAt.toISOString(),
-    user_id: userId,
-    signed_url_ttl_seconds: SIGNED_URL_TTL_SECONDS,
-    profile,
-    generations,
-    totals: {
-      generations_total: generations.length,
-      generations_completed: completed,
-      total_cost_usd: Number(totalCost.toFixed(6)),
-    },
-    notes: {
-      article: 'GDPR Article 15',
-      contact: 'privacy@trendly.app',
-      signed_url_expiry: 'Download URLs expire 1 hour after this export was generated.',
-    },
-  }
-}
 
 export function buildExportFilename(userId: string, isoDate: string): string {
   const datePart = isoDate.slice(0, 10) // YYYY-MM-DD
   const prefix = userId.slice(0, 8) || 'anon'
-  return `trend-image-export-${prefix}-${datePart}.json`
+  return `trend-image-export-${prefix}-${datePart}.csv`
+}
+
+const GENERATION_CSV_COLUMNS = [
+  'id',
+  'trend_id',
+  'status',
+  'created_at',
+  'completed_at',
+  'attempts',
+  'cost_usd',
+  'error_message',
+  'purge_at',
+  'model_used',
+  'download_url',
+] as const
+
+/** Excel/Sheets treat a blank cell and the literal string differently than `null` — normalize. */
+function csvCell(value: unknown): string | number {
+  if (value === null || value === undefined) return ''
+  return value as string | number
+}
+
+export function buildGenerationsCsv(generations: ExportGenerationInput[]): string {
+  const rows = generations.map((g) => ({
+    id: g.id,
+    trend_id: g.trend_id,
+    status: g.status,
+    created_at: g.created_at,
+    completed_at: csvCell(g.completed_at),
+    attempts: g.attempts,
+    cost_usd: g.cost_usd,
+    error_message: csvCell(g.error_message),
+    purge_at: csvCell(g.purge_at),
+    model_used: csvCell(g.model_used),
+    download_url: csvCell(g.signed_download_url),
+  }))
+  return unparse({ fields: GENERATION_CSV_COLUMNS as unknown as string[], data: rows })
 }
 
 export const EXPORT_SIGNED_URL_TTL_SECONDS = SIGNED_URL_TTL_SECONDS
