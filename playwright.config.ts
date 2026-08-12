@@ -82,15 +82,23 @@ export default defineConfig({
       : []),
   ],
   webServer: {
-    command: 'pnpm dev',
+    // CI already runs `pnpm build` before this step, so serve that build
+    // instead of starting a second dev server. `pnpm dev` compiles each route
+    // on first request, and happy-path.spec.ts visits ~7 routes — on a cold
+    // runner those compiles blew the 30s navigation budget and the spec timed
+    // out on all four projects with `page.goto: Test timeout` /
+    // `net::ERR_ABORTED`. Locally `pnpm dev` stays the default for fast
+    // iteration against uncompiled changes.
+    command: process.env.CI ? 'pnpm start' : 'pnpm dev',
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     // The functional specs walk auth-gated routes (/studio, /creations,
     // /settings, /result/mock-completed) without signing in, relying on the
     // MOCK_TRENDS escape hatch in lib/supabase/middleware.ts to short-circuit
-    // the auth gate and serve lib/dev/mock-data.ts. Without this the gated
-    // pages redirect to /login and their assertions can never pass.
+    // the auth gate and serve lib/dev/mock-data.ts. CI also sets this at the
+    // job level (.github/workflows/ci.yml); setting it here is what makes
+    // local runs work, where it was previously absent entirely.
     env: {
       ...process.env,
       MOCK_TRENDS: 'true',
