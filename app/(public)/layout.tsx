@@ -1,8 +1,17 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { Logo } from '@/components/brand/Logo'
+import { PublicHeaderAuth } from '@/components/nav/PublicHeaderAuth'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 
+// No server-side auth read here on purpose. `/` and `/trend/[slug]` are
+// ISR-cached (revalidate 600s / 3600s) — baking `getUser()` into this shared
+// layout would bake stale auth chrome into the cached render too (the "logo
+// click shows signed out" bug). PublicHeaderAuth fetches auth state
+// client-side after hydration instead, so it's always fresh regardless of
+// page cache age. The footer's "Sign in" link is unconditional — a harmless
+// extra link for already-signed-in visitors, not worth a second client
+// component for a footer nobody's reporting bugs about.
 export default function PublicLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
@@ -19,12 +28,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
               >
                 My creations
               </Link>
-              <Link
-                href="/login"
-                className="bg-foreground text-background hidden rounded-full px-4 py-2 text-sm font-medium hover:opacity-90 sm:inline-block"
-              >
-                Sign in
-              </Link>
+              <PublicHeaderAuth />
               <ThemeToggle />
             </nav>
           </div>
