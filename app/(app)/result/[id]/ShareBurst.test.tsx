@@ -3,6 +3,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 
 // ── Module-level mocks ────────────────────────────────────────────────────
 // sonner toast — pure side-effect, capture call counts only.
+// Server action — cannot execute in jsdom. Individual tests override the
+// resolved value where the toggle behaviour is what's under test.
+vi.mock('./actions', () => ({
+  toggleGenerationPublic: vi.fn(async () => ({ ok: true, isPublic: true })),
+}))
+
 vi.mock('sonner', () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
 }))
@@ -40,10 +46,14 @@ import {
 import { analytics, EVENTS } from '@/lib/analytics/client'
 
 const baseProps = {
+  generationId: '11111111-2222-3333-4444-555555555555',
   trendSlug: 'glow-up',
   trendTitle: 'Glow Up',
   outputImageUrl: 'https://cdn.example.com/result.jpg',
   referralCode: null,
+  // Default to private: these existing assertions all expect the trend-page
+  // share URL, which is the not-yet-public fallback.
+  initialIsPublic: false,
 }
 
 beforeEach(() => {
@@ -273,6 +283,38 @@ describe('ShareBurst', () => {
     expect(analytics.track).toHaveBeenCalledWith(EVENTS.SHARE_CLICKED, {
       trend_slug: 'glow-up',
       channel: 'twitter',
+    })
+  })
+
+  // The reported bug: shares linked to the trend page rather than the design.
+  // /result/[id] is owner-gated, so it 404s for a recipient — /s/[id] is the
+  // public view, and it only exists once the owner opts in.
+  describe('share target', () => {
+    it('links to the trend page while the design is private', () => {
+      render(<ShareBurst {...baseProps} initialIsPublic={false} />)
+      const href = screen.getByText('X / Twitter').closest('a')?.getAttribute('href') ?? ''
+      expect(decodeURIComponent(href)).toContain('/trend/glow-up')
+      expect(decodeURIComponent(href)).not.toContain('/s/')
+    })
+
+    it('links to the public design page once it is public', () => {
+      render(<ShareBurst {...baseProps} initialIsPublic />)
+      const href = screen.getByText('X / Twitter').closest('a')?.getAttribute('href') ?? ''
+      expect(decodeURIComponent(href)).toContain(`/s/${baseProps.generationId}`)
+    })
+
+    it('keeps referral tagging on the public design link', () => {
+      render(<ShareBurst {...baseProps} initialIsPublic referralCode="a1b2c3d4e5f6" />)
+      const href = screen.getByText('X / Twitter').closest('a')?.getAttribute('href') ?? ''
+      const decoded = decodeURIComponent(href)
+      expect(decoded).toContain(`/s/${baseProps.generationId}`)
+      expect(decoded).toContain('ref=a1b2c3d4e5f6')
+    })
+
+    it('exposes the public toggle as a switch reflecting current state', () => {
+      render(<ShareBurst {...baseProps} initialIsPublic={false} />)
+      expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false')
+      expect(screen.getByText('Only you can see this')).toBeInTheDocument()
     })
   })
 })
