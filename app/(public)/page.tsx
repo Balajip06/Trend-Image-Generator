@@ -90,7 +90,7 @@ export default async function HomePage() {
             <div className="flex flex-wrap items-center gap-3">
               {heroTrend ? (
                 <GradientButton size="lg" asChild>
-                  <a href="#trends">Browse trends</a>
+                  <a href="#trends">Browse Trends</a>
                 </GradientButton>
               ) : (
                 <GradientButton size="lg" asChild>
@@ -182,7 +182,7 @@ export default async function HomePage() {
         {/* scroll-mt clears the sticky header when the hero CTA jumps here */}
         <section id="trends" className="flex scroll-mt-24 flex-col gap-6">
           <div className="flex items-baseline justify-between">
-            <h2 className="text-2xl font-extrabold tracking-tight">Browse trends</h2>
+            <h2 className="text-2xl font-extrabold tracking-tight">Browse Trends</h2>
             <p className="text-muted-foreground text-sm">
               {trends.length} trend{trends.length === 1 ? '' : 's'} live now
             </p>

@@ -17,7 +17,7 @@ test.describe('Home', () => {
 
     // Exactly one hero CTA — the old build had a second competing
     // "Try <trend>" / "Try one free" link pair.
-    const cta = page.getByRole('link', { name: 'Browse trends' })
+    const cta = page.getByRole('link', { name: 'Browse Trends' })
     await expect(cta).toHaveCount(1)
     await expect(cta).toHaveAttribute('href', '#trends')
 
@@ -27,7 +27,7 @@ test.describe('Home', () => {
 
   test('trend grid clears the sticky header after the CTA jump', async ({ page }) => {
     await page.goto('/')
-    await page.getByRole('link', { name: 'Browse trends' }).click()
+    await page.getByRole('link', { name: 'Browse Trends' }).click()
 
     // Smooth scrolling is async. Poll-until-true would pass mid-scroll (the
     // heading is trivially below the header before the jump lands), so wait for
@@ -57,7 +57,7 @@ test.describe('Home', () => {
       .first()
       .evaluate((el) => el.getBoundingClientRect().bottom)
     const h2Top = await page
-      .getByRole('heading', { name: 'Browse trends', level: 2 })
+      .getByRole('heading', { name: 'Browse Trends', level: 2 })
       .evaluate((el) => el.getBoundingClientRect().top)
 
     expect(
