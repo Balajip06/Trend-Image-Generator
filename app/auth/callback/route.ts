@@ -33,7 +33,10 @@ export async function GET(request: NextRequest) {
 
   if (user?.email && !isEmailAllowedToLogin(user.email)) {
     await supabase.auth.signOut()
-    return NextResponse.redirect(new URL('/login?error=invalid_credentials', request.url))
+    // `not_invited`, not `invalid_credentials` — OAuth involves no password, so
+    // the password-specific copy misled testers into debugging their Google
+    // account instead of asking to be added to the allowlist.
+    return NextResponse.redirect(new URL('/login?error=not_invited', request.url))
   }
 
   let consumedReferralCookie = false

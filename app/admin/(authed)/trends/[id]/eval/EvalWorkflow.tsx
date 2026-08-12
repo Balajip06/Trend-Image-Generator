@@ -169,9 +169,7 @@ export function EvalWorkflow({ trend, inputs, latestRuns, addEvalInputAction }: 
           <EvalUploadForm addAction={addEvalInputAction} />
 
           {inputs.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              Upload your first test photo to start.
-            </p>
+            <p className="text-muted-foreground text-sm">Upload your first test photo to start.</p>
           ) : (
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {inputs.map((input) => {
@@ -193,7 +191,7 @@ export function EvalWorkflow({ trend, inputs, latestRuns, addEvalInputAction }: 
                       />
                     )}
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex min-w-0 items-center gap-2">
                         <div className="border-border/60 bg-muted size-8 shrink-0 overflow-hidden rounded-md border">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img

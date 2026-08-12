@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { GradientButton } from '@/components/brand/GradientButton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/ui/password-input'
 import { signInWithPassword } from './actions'
 
 interface AdminLoginFormProps {
@@ -30,9 +31,8 @@ export function AdminLoginForm({ next }: AdminLoginFormProps) {
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="password">Password</Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             name="password"
             required
             placeholder="••••••••"

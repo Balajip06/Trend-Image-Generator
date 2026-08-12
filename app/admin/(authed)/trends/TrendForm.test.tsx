@@ -57,12 +57,8 @@ describe('TrendForm', () => {
     expect(screen.getByLabelText('Aspect ratio')).toHaveValue('9:16')
     expect(screen.getByLabelText('Display order')).toHaveValue(7)
     expect(screen.getByLabelText('Thumbnail')).toHaveValue('https://cdn.example.com/thumb.jpg')
-    expect(screen.getByLabelText('Sample before')).toHaveValue(
-      'https://cdn.example.com/before.jpg'
-    )
-    expect(screen.getByLabelText('Sample after')).toHaveValue(
-      'https://cdn.example.com/after.jpg'
-    )
+    expect(screen.getByLabelText('Sample before')).toHaveValue('https://cdn.example.com/before.jpg')
+    expect(screen.getByLabelText('Sample after')).toHaveValue('https://cdn.example.com/after.jpg')
     expect(screen.getByLabelText('SEO title')).toHaveValue('Glow Up trend')
     expect(screen.getByLabelText('SEO description')).toHaveValue('Try the viral glow-up.')
   })

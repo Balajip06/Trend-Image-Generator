@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { findMockAnonymousGeneration } from '@/lib/dev/mock-anonymous'
 import { MOCK_TRENDS_ENABLED } from '@/lib/dev/mock-data'
 import { createServiceClient } from '@/lib/supabase/server'
+import { AnonymousStatusPoller } from './AnonymousStatusPoller'
 
 export const dynamic = 'force-dynamic'
 
@@ -205,15 +206,18 @@ export default async function AnonymousResultPage({ params }: PageProps) {
         )}
 
         {pending && (
-          <figure
-            aria-label="Image still generating"
-            className="border-border/60 bg-muted/30 text-muted-foreground flex aspect-square items-center justify-center rounded-3xl border border-dashed"
-          >
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="size-8 animate-spin" />
-              <p className="text-sm">Working on it…</p>
-            </div>
-          </figure>
+          <>
+            <AnonymousStatusPoller id={gen.id} />
+            <figure
+              aria-label="Image still generating"
+              className="border-border/60 bg-muted/30 text-muted-foreground flex aspect-square items-center justify-center rounded-3xl border border-dashed"
+            >
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="size-8 animate-spin" />
+                <p className="text-sm">Working on it…</p>
+              </div>
+            </figure>
+          </>
         )}
 
         <section className="border-border/60 bg-card rounded-3xl border p-6 sm:p-8">

@@ -20,8 +20,10 @@ const ValueSchema = z.union([z.string().max(5000), z.array(z.string().max(5000))
 const BodySchema = z.object({
   trend_slug: z.string().min(1).max(100),
   values: z.record(z.string().min(1).max(100), ValueSchema),
-  /** Cloudflare Turnstile token from the client widget. */
-  turnstile_token: z.string().min(1),
+  // Empty string allowed: verifyTurnstile() itself no-ops (returns true)
+  // when TURNSTILE_SECRET_KEY isn't configured, so an unconfigured
+  // environment must be able to send no token at all.
+  turnstile_token: z.string().max(4096),
   /** SHA-256-hashed FingerprintJS visitor id; client computes hash to avoid raw fingerprint reaching server. */
   fingerprint_hash: z.string().min(1).max(100),
 })

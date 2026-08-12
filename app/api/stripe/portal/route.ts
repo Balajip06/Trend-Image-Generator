@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
 import Stripe from 'stripe'
 import { createClient } from '@/lib/supabase/server'
+import { siteOrigin } from '@/lib/utils/site-url'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -31,7 +32,7 @@ export async function POST(_request: NextRequest) {
       return NextResponse.json({ error: 'No billing account found' }, { status: 404 })
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+    const siteUrl = siteOrigin()
     const stripe = getStripe()
     const session = await stripe.billingPortal.sessions.create({
       customer: profile.stripe_customer_id,

@@ -209,7 +209,9 @@ export default async function TrendPage({ params }: TrendPageProps) {
 
             {trend.faq.length > 0 ? (
               <aside className="border-border/60 bg-card/80 rounded-3xl border p-6 backdrop-blur sm:p-8">
-                <h2 className="text-2xl font-extrabold tracking-tight">Questions</h2>
+                <h2 className="text-2xl font-extrabold tracking-tight">
+                  Frequently Asked Questions
+                </h2>
                 <Accordion type="single" collapsible className="mt-2">
                   {trend.faq.map((item) => (
                     <AccordionItem key={item.question} value={item.question}>

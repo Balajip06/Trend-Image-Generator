@@ -12,8 +12,7 @@ export default async function SettingsPage() {
     .eq('key', 'default_image_model')
     .maybeSingle()
 
-  const currentModel =
-    (setting?.value as string | undefined)?.replace(/"/g, '') ?? 'gpt-image-2'
+  const currentModel = (setting?.value as string | undefined)?.replace(/"/g, '') ?? 'gpt-image-2'
 
   const { data: bannerSetting } = await service
     .from('app_settings')
@@ -86,9 +85,9 @@ export default async function SettingsPage() {
         <div>
           <h2 className="text-base font-medium">Homepage Banner Trend</h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            Pins a specific trend as the homepage hero banner, overriding the normal
-            display-order sort. Leave on &ldquo;No override&rdquo; to use the lowest display-order
-            active trend automatically.
+            Pins a specific trend as the homepage hero banner, overriding the normal display-order
+            sort. Leave on &ldquo;No override&rdquo; to use the lowest display-order active trend
+            automatically.
           </p>
         </div>
 

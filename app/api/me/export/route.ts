@@ -1,20 +1,24 @@
 /**
- * GDPR Article 15 right-of-access: stream the signed-in user's full export
- * (profile + every generation row + short-TTL signed download URLs) as a
- * single JSON file. PII — never cached, never logged.
+ * GDPR Article 15 right-of-access: stream the signed-in user's generation
+ * history (every row + short-TTL signed download URLs) as a single CSV.
+ * PII — never cached, never logged.
+ *
+ * Scope note: profile fields (email, credits, referral code) are
+ * intentionally NOT included in this download per explicit user request —
+ * they're already visible on the settings page UI. This narrows Article 15
+ * coverage; revisit before any formal GDPR compliance review.
  */
 
 import { NextResponse } from 'next/server'
 import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
-import { MOCK_GENERATIONS, MOCK_PROFILE, MOCK_TRENDS_ENABLED, MOCK_USER } from '@/lib/dev/mock-data'
+import { MOCK_GENERATIONS, MOCK_TRENDS_ENABLED, MOCK_USER } from '@/lib/dev/mock-data'
 import { exportUserLimiter } from '@/lib/rate-limit'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import {
   buildExportFilename,
-  buildExportPayload,
+  buildGenerationsCsv,
   EXPORT_SIGNED_URL_TTL_SECONDS,
   type ExportGenerationInput,
-  type ExportProfile,
 } from '@/lib/utils/export'
 
 export const runtime = 'nodejs'
@@ -35,9 +39,6 @@ interface GenerationRow {
   purge_at: string | null
   model_used: string | null
 }
-
-const PROFILE_COLUMNS =
-  'email, credits_balance, free_used_this_week, bonus_credits_earned, referral_code, created_at, deleted_at, name, avatar_url'
 
 const GENERATION_COLUMNS =
   'id, user_id, trend_id, status, output_image_url, error_message, attempts, idempotency_key, created_at, completed_at, cost_usd, purge_at, model_used'
@@ -64,14 +65,7 @@ export async function GET() {
       model_used: null,
       signed_download_url: g.output_image_url, // No signing in mock mode.
     }))
-    const profile: ExportProfile = {
-      ...MOCK_PROFILE,
-      created_at: '2026-01-01T00:00:00.000Z',
-      deleted_at: null,
-      name: null,
-      avatar_url: null,
-    }
-    return respondWithExport(MOCK_USER.id, profile, generations, now)
+    return respondWithExport(MOCK_USER.id, generations, now)
   }
 
   // Real flow.
@@ -96,17 +90,6 @@ export async function GET() {
       }
     )
   }
-
-  const { data: profileRow, error: profileError } = await supabase
-    .from('profiles')
-    .select(PROFILE_COLUMNS)
-    .eq('id', user.id)
-    .maybeSingle()
-
-  if (profileError || !profileRow) {
-    return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
-  }
-  const profile = profileRow
 
   // Paginate generations — full history, no cap. 1000-row pages keep memory
   // bounded if a power user has thousands of rows.
@@ -160,40 +143,26 @@ export async function GET() {
     })
   )
 
-  const exportProfile: ExportProfile = {
-    email: profile.email,
-    credits_balance: profile.credits_balance,
-    free_used_this_week: profile.free_used_this_week,
-    bonus_credits_earned: profile.bonus_credits_earned,
-    referral_code: profile.referral_code,
-    created_at: profile.created_at,
-    deleted_at: profile.deleted_at,
-    name: profile.name,
-    avatar_url: profile.avatar_url,
-  }
-
   trackServer(user.id, EVENTS.DATA_EXPORTED, {
     generation_count: signed.length,
   })
   await flushServer()
 
-  return respondWithExport(user.id, exportProfile, signed, now)
+  return respondWithExport(user.id, signed, now)
 }
 
 function respondWithExport(
   userId: string,
-  profile: ExportProfile,
   generations: ExportGenerationInput[],
   now: Date
 ): NextResponse {
-  const payload = buildExportPayload(userId, profile, generations, now)
   const filename = buildExportFilename(userId, now.toISOString())
-  const body = JSON.stringify(payload, null, 2)
+  const csv = buildGenerationsCsv(generations)
 
-  return new NextResponse(body, {
+  return new NextResponse(csv, {
     status: 200,
     headers: {
-      'content-type': 'application/json; charset=utf-8',
+      'content-type': 'text/csv; charset=utf-8',
       'content-disposition': `attachment; filename="${filename}"`,
       'cache-control': 'private, no-store',
     },

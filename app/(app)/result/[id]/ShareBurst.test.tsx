@@ -43,6 +43,7 @@ const baseProps = {
   trendSlug: 'glow-up',
   trendTitle: 'Glow Up',
   outputImageUrl: 'https://cdn.example.com/result.jpg',
+  referralCode: null,
 }
 
 beforeEach(() => {
@@ -117,6 +118,39 @@ describe('ShareBurst', () => {
     )
     const link = screen.getByText('WhatsApp').closest('a')
     expect(link?.getAttribute('href')).toContain('https://wa.me/')
+  })
+
+  it('tags the Twitter share URL with ?ref=<code> when a referral code is present', () => {
+    render(<ShareBurst {...baseProps} referralCode="a1b2c3d4e5f6" />)
+    expect(buildTwitterShareUrl).toHaveBeenCalledWith(
+      expect.stringContaining('Glow Up'),
+      expect.stringContaining('ref=a1b2c3d4e5f6')
+    )
+  })
+
+  it('tags the WhatsApp share URL with ?ref=<code> when a referral code is present', () => {
+    render(<ShareBurst {...baseProps} referralCode="a1b2c3d4e5f6" />)
+    expect(buildWhatsappShareUrl).toHaveBeenCalledWith(
+      expect.stringContaining('Glow Up'),
+      expect.stringContaining('ref=a1b2c3d4e5f6')
+    )
+  })
+
+  it('tags the copied link with ?ref=<code> when a referral code is present', async () => {
+    render(<ShareBurst {...baseProps} referralCode="a1b2c3d4e5f6" />)
+    const copyBtn = screen.getByText('Copy link').closest('button')
+    await act(async () => {
+      fireEvent.click(copyBtn as HTMLButtonElement)
+    })
+    expect(copyToClipboard).toHaveBeenCalledWith(expect.stringContaining('ref=a1b2c3d4e5f6'))
+  })
+
+  it('falls back to the plain trend URL (no ?ref=) when referralCode is null', () => {
+    render(<ShareBurst {...baseProps} referralCode={null} />)
+    expect(buildTwitterShareUrl).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.not.stringContaining('ref=')
+    )
   })
 
   it('copy-link click calls copyToClipboard, fires analytics, toasts, flips to "Copied!" for ~1.8s', async () => {

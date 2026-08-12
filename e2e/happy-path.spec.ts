@@ -13,7 +13,7 @@ test('happy path: home → trend → login → creations → settings → result
   // 1. Home renders, shows trend cards
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-  await expect(page.getByText(/Make the trend/i)).toBeVisible()
+  await expect(page.getByText(/Create your version of the/i)).toBeVisible()
 
   // 2. Click first trend card → trend page
   await page
@@ -60,10 +60,10 @@ test('happy path: home → trend → login → creations → settings → result
 
   // 7. Result (mock-completed)
   await page.goto('/result/mock-completed')
-  await expect(page.getByRole('heading', { name: /fresh off the model/i })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /trending now/i })).toBeVisible()
   await expect(page.getByRole('link', { name: /Download/i })).toBeVisible()
 
   // 8. Result (mock-processing) — verifies the loading state renders
   await page.goto('/result/mock-processing')
-  await expect(page.getByRole('heading', { name: /Cooking your/i })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Creating your/i })).toBeVisible()
 })

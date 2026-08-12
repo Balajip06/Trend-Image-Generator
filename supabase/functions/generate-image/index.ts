@@ -1,14 +1,13 @@
 // Supabase Edge Function — generate-image
-// Triggered by Database Webhook on `generations` INSERT.
+// Triggered by a DB trigger (generations_invoke_edge, migration
+// 20260713000001) on `generations` INSERT via pg_net.
 // Deno runtime; uses Web Fetch + AbortController for portability.
 //
 // Configure in Supabase Dashboard:
 //   1. Storage buckets `uploads` + `outputs` exist (see migration 0007)
-//   2. Database Webhook: table=generations, event=INSERT,
-//      URL=<edge-fn-url>, HTTP method=POST,
-//      header `Authorization: Bearer <service_role>`
-//   3. Function secrets: GEMINI_API_KEY, OPENAI_API_KEY, OPENAI_IMAGE_MODEL,
-//      SENTRY_DSN, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (auto-injected by Supabase)
+//   2. Function secrets: GEMINI_API_KEY, OPENAI_API_KEY, OPENAI_IMAGE_MODEL,
+//      SENTRY_DSN, SUPABASE_URL, SUPABASE_SECRET_KEYS (auto-injected by
+//      Supabase; legacy JWT keys are disabled on this project)
 //
 // Failure model per amended plan §"Phase 3":
 //   - safety   → status='failed' (DB trigger refunds quota)
@@ -18,6 +17,24 @@
 
 // @ts-expect-error Deno-only import; not resolved by Node typecheck.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+// Supabase auto-injects the platform secret key as SUPABASE_SECRET_KEYS, a
+// JSON object ({"default": "sb_secret_..."}), replacing the legacy
+// SUPABASE_SERVICE_ROLE_KEY JWT var now that legacy keys are disabled on this
+// project. Falls back to the legacy var so this keeps working if legacy keys
+// are ever re-enabled.
+function getSupabaseSecretKey(): string {
+  const secretKeys = Deno.env.get('SUPABASE_SECRET_KEYS')
+  if (secretKeys) {
+    try {
+      const parsed = JSON.parse(secretKeys) as Record<string, string>
+      if (parsed.default) return parsed.default
+    } catch {
+      // fall through to legacy var
+    }
+  }
+  return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+}
 
 // Lightweight Sentry error reporter for Deno runtime (cannot use @sentry/nextjs)
 // See H-M3: sentry.edge.config.ts uses Node SDK, incompatible with Deno.
@@ -165,11 +182,9 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ ignored: true })
   }
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    { auth: { persistSession: false } }
-  )
+  const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', getSupabaseSecretKey(), {
+    auth: { persistSession: false },
+  })
 
   const wallTimer = setTimeout(() => {
     // No-op; consumed by individual fetch AbortControllers.
@@ -289,7 +304,7 @@ async function process(supabase: ReturnType<typeof createClient>, gen: Generatio
 
 async function dispatchNotification(generationId: string): Promise<void> {
   const siteUrl = Deno.env.get('SITE_URL')
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+  const serviceKey = getSupabaseSecretKey()
   if (!siteUrl || !serviceKey) return
 
   try {

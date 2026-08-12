@@ -17,6 +17,14 @@ vi.mock('next/image', () => ({
   ),
 }))
 
+// TrendDrawer mounts TrendRunner, which checks auth state on mount via
+// @/lib/supabase/client — mock it so tests don't need real Supabase env vars.
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({
+    auth: { getUser: () => Promise.resolve({ data: { user: null } }) },
+  }),
+}))
+
 const makeTrend = (overrides?: Partial<PublicTrend>): PublicTrend => ({
   id: '1',
   slug: 'ghibli-portrait',

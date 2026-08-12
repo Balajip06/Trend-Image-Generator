@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 // jsdom can't render next/image natively (no real layout / fill prop handling).
 // Stub it to a plain <img> so we can assert on the URL + alt text directly.
@@ -46,6 +46,42 @@ describe('ResultCanvas', () => {
     // Assert
     const img = screen.getByRole('img', { name: 'Glow Up' })
     expect(img).toHaveAttribute('src', 'https://cdn.example.com/result.jpg')
+  })
+
+  it('defaults the frame to a square aspect ratio before the image loads', () => {
+    render(
+      <ResultCanvas
+        status="completed"
+        outputImageUrl="https://cdn.example.com/result.jpg"
+        errorMessage={null}
+        attempts={1}
+        title="Glow Up"
+      />
+    )
+    const figure = screen.getByRole('img', { name: 'Glow Up' }).closest('figure')
+    expect(figure).toHaveStyle({ aspectRatio: '1' })
+  })
+
+  it("resizes the frame to the image's real aspect ratio on load (Gemini ignored the configured 1:1)", () => {
+    render(
+      <ResultCanvas
+        status="completed"
+        outputImageUrl="https://cdn.example.com/result.jpg"
+        errorMessage={null}
+        attempts={1}
+        title="Glow Up"
+      />
+    )
+    const img = screen.getByRole('img', { name: 'Glow Up' })
+    Object.defineProperty(img, 'naturalWidth', { value: 842, configurable: true })
+    Object.defineProperty(img, 'naturalHeight', { value: 1264, configurable: true })
+
+    act(() => {
+      fireEvent.load(img)
+    })
+
+    const figure = img.closest('figure')
+    expect(figure).toHaveStyle({ aspectRatio: String(842 / 1264) })
   })
 
   it('falls back to the shimmer/gradient panel when completed but no outputImageUrl', () => {

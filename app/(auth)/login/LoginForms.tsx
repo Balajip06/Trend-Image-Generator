@@ -7,6 +7,7 @@ import { TurnstileWidget } from '@/components/auth/TurnstileWidget'
 import { GradientButton } from '@/components/brand/GradientButton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Separator } from '@/components/ui/separator'
 import { signInWithEmail, signInWithGoogle, signInWithKimp } from './actions'
 
@@ -120,9 +121,8 @@ export function LoginForms({ next }: LoginFormsProps) {
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="password">Password</Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             name="password"
             required
             placeholder="Your password"

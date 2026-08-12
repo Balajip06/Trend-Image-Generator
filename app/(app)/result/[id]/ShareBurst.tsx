@@ -4,6 +4,7 @@ import { Copy, Share2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { analytics, EVENTS } from '@/lib/analytics/client'
+import { buildReferralUrl } from '@/lib/referrals/links'
 import {
   buildTwitterShareUrl,
   buildWhatsappShareUrl,
@@ -18,6 +19,7 @@ interface ShareBurstProps {
   trendTitle: string
   outputImageUrl: string
   shareCaptionTemplate?: string | null
+  referralCode: string | null
 }
 
 // Substitute the two supported tokens. NULL or empty template → generic
@@ -39,6 +41,7 @@ export function ShareBurst({
   trendTitle,
   outputImageUrl,
   shareCaptionTemplate,
+  referralCode,
 }: ShareBurstProps) {
   const [copied, setCopied] = useState(false)
   const [sharing, setSharing] = useState(false)
@@ -56,6 +59,12 @@ export function ShareBurst({
   const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
   const siteUrl = `${origin}/trend/${trendSlug}`
   const text = buildCaption(shareCaptionTemplate, trendTitle, siteUrl)
+  // Referral-tag the actual shared link (not the caption's {site_url} token)
+  // so every outbound share — native, Twitter, WhatsApp, copy — credits the
+  // sharer, not just their own settings-page link.
+  const shareUrl = referralCode
+    ? buildReferralUrl(origin, referralCode, `/trend/${trendSlug}`)
+    : siteUrl
 
   const fireTrack = (channel: ShareChannel) => {
     analytics.track(EVENTS.SHARE_CLICKED, { trend_slug: trendSlug, channel })
@@ -74,7 +83,7 @@ export function ShareBurst({
       const result = await shareNative({
         title: trendTitle,
         text,
-        url: siteUrl,
+        url: shareUrl,
         imageBlob,
         imageFilename: `trend-${trendSlug}.jpg`,
       })
@@ -85,7 +94,7 @@ export function ShareBurst({
   }
 
   const onCopyLink = async () => {
-    const result = await copyToClipboard(siteUrl)
+    const result = await copyToClipboard(shareUrl)
     if (result.ok) {
       fireTrack('copy_link')
       setCopied(true)
@@ -118,14 +127,14 @@ export function ShareBurst({
           />
         )}
         <ShareTile
-          href={buildTwitterShareUrl(text, siteUrl)}
+          href={buildTwitterShareUrl(text, shareUrl)}
           onClick={() => fireTrack('twitter')}
           label="X / Twitter"
           sub="Tweet"
           tone="outline"
         />
         <ShareTile
-          href={buildWhatsappShareUrl(text, siteUrl)}
+          href={buildWhatsappShareUrl(text, shareUrl)}
           onClick={() => fireTrack('whatsapp')}
           label="WhatsApp"
           sub="DM friends"

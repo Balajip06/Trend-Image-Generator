@@ -5,6 +5,7 @@ import { resolveKimpEntitlement } from '@/lib/auth/kimp/resolve-entitlement'
 import { isEmailAllowedToLogin } from '@/lib/auth/login-allowlist'
 import { createServiceClient } from '@/lib/supabase/server'
 import { EVENTS, flushServer, trackServer } from '@/lib/analytics/server'
+import { siteOrigin } from '@/lib/utils/site-url'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const code = url.searchParams.get('code')
   const returnedState = url.searchParams.get('state')
   const errorParam = url.searchParams.get('error')
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  const siteUrl = siteOrigin()
 
   if (errorParam) {
     return NextResponse.redirect(new URL(`/login?error=kimp_oauth_${errorParam}`, request.url))
@@ -115,7 +116,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   if (!isEmailAllowedToLogin(email)) {
-    return NextResponse.redirect(new URL('/login?error=invalid_credentials', request.url))
+    return NextResponse.redirect(new URL('/login?error=not_invited', request.url))
   }
 
   // Issue 2: Nonce check must be unconditional — undefined !== tx.nonce rejects missing nonce
