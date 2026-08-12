@@ -86,5 +86,14 @@ export default defineConfig({
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    // The functional specs walk auth-gated routes (/studio, /creations,
+    // /settings, /result/mock-completed) without signing in, relying on the
+    // MOCK_TRENDS escape hatch in lib/supabase/middleware.ts to short-circuit
+    // the auth gate and serve lib/dev/mock-data.ts. Without this the gated
+    // pages redirect to /login and their assertions can never pass.
+    env: {
+      ...process.env,
+      MOCK_TRENDS: 'true',
+    },
   },
 })
