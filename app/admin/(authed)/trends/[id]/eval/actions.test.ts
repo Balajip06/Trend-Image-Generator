@@ -285,8 +285,7 @@ describe('runEval', () => {
         imageUrls: [UPLOADS_URL],
       })
     )
-    const sentPrompt = (generateImage as ReturnType<typeof vi.fn>).mock.calls[0][0]
-      .prompt as string
+    const sentPrompt = (generateImage as ReturnType<typeof vi.fn>).mock.calls[0][0].prompt as string
     expect(sentPrompt).toContain('visible pores')
     expect(mockSupabase._storageBucket.upload).toHaveBeenCalled()
     const uploadCalls = mockSupabase._storageBucket.upload.mock.calls as unknown as Array<
@@ -305,9 +304,7 @@ describe('runEval', () => {
     // Trend fixture model is 'nano-banana-2'; override with gpt-image-2.
     const result = await runEval('trend-1', 'input-1', 'gpt-image-2')
     expect(result).toEqual({ ok: true })
-    expect(generateImage).toHaveBeenCalledWith(
-      expect.objectContaining({ model: 'gpt-image-2' })
-    )
+    expect(generateImage).toHaveBeenCalledWith(expect.objectContaining({ model: 'gpt-image-2' }))
   })
 
   it('Gemini error: returns ok:false with the provider message, does not upload', async () => {

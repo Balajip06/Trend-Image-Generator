@@ -91,7 +91,5 @@ export default async function ResultPage({ params }: ResultPageProps) {
     share_caption_template: null,
   }
 
-  return (
-    <ResultView initial={gen} trend={trend} referralCode={profileRow?.referral_code ?? null} />
-  )
+  return <ResultView initial={gen} trend={trend} referralCode={profileRow?.referral_code ?? null} />
 }

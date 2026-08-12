@@ -147,7 +147,10 @@ describe('ShareBurst', () => {
 
   it('falls back to the plain trend URL (no ?ref=) when referralCode is null', () => {
     render(<ShareBurst {...baseProps} referralCode={null} />)
-    expect(buildTwitterShareUrl).toHaveBeenCalledWith(expect.anything(), expect.not.stringContaining('ref='))
+    expect(buildTwitterShareUrl).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.not.stringContaining('ref=')
+    )
   })
 
   it('copy-link click calls copyToClipboard, fires analytics, toasts, flips to "Copied!" for ~1.8s', async () => {

@@ -55,12 +55,7 @@ export function FilterForm({
     >
       <label className="flex-1">
         <span className="text-muted-foreground mb-1 block text-xs font-medium">Search</span>
-        <Input
-          name="q"
-          defaultValue={rawQ}
-          maxLength={100}
-          placeholder="Search prompts, trends…"
-        />
+        <Input name="q" defaultValue={rawQ} maxLength={100} placeholder="Search prompts, trends…" />
       </label>
       <label className="sm:w-44">
         <span className="text-muted-foreground mb-1 block text-xs font-medium">Trend</span>

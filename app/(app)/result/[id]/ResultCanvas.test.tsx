@@ -62,7 +62,7 @@ describe('ResultCanvas', () => {
     expect(figure).toHaveStyle({ aspectRatio: '1' })
   })
 
-  it('resizes the frame to the image\'s real aspect ratio on load (Gemini ignored the configured 1:1)', () => {
+  it("resizes the frame to the image's real aspect ratio on load (Gemini ignored the configured 1:1)", () => {
     render(
       <ResultCanvas
         status="completed"

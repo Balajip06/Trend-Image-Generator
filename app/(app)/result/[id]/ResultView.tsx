@@ -315,8 +315,8 @@ export function ResultView({ initial, trend, referralCode }: ResultViewProps) {
 
       {timedOut && !isTerminal && (
         <p className="bg-muted text-muted-foreground rounded-full px-4 py-2 text-center text-xs">
-          Generation is taking longer than expected. Your quota isn&apos;t spent until it
-          succeeds — tap Try again.
+          Generation is taking longer than expected. Your quota isn&apos;t spent until it succeeds —
+          tap Try again.
         </p>
       )}
 

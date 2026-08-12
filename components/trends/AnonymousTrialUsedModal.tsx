@@ -33,8 +33,7 @@ export function AnonymousTrialUsedModal({
             You&apos;ve used your <span className="text-gradient-hero">free trial</span>
           </DialogTitle>
           <DialogDescription>
-            One free try per device — sign up for 5 free generations every week, no card
-            required.
+            One free try per device — sign up for 5 free generations every week, no card required.
           </DialogDescription>
         </DialogHeader>
 

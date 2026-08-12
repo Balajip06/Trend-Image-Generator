@@ -22,7 +22,7 @@ Set in Supabase Dashboard → Edge Functions → generate-image → Secrets:
 | Key              | Value                                                                                                                                       |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GEMINI_API_KEY` | from Google AI Studio                                                                                                                       |
-| `WEBHOOK_SECRET` | shared secret; must equal the Vault `edge_webhook_secret` value the trigger sends                                                          |
+| `WEBHOOK_SECRET` | shared secret; must equal the Vault `edge_webhook_secret` value the trigger sends                                                           |
 | `SITE_URL`       | public origin of the Next.js app (e.g. `https://trendimage.com`) — used to POST `/api/push/dispatch` after marking a generation `completed` |
 
 `SUPABASE_URL` and `SUPABASE_SECRET_KEYS` are auto-injected. Legacy JWT keys

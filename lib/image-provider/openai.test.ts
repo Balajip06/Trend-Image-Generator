@@ -82,7 +82,11 @@ describe('openai generateImage', () => {
       status: 200,
       json: async () => ({ data: [{ b64_json: 'aGVsbG8=' }] }),
     })
-    await generateImage({ model: 'gpt-image-2', prompt: 'test', imageUrls: ['https://example.com/a.png'] })
+    await generateImage({
+      model: 'gpt-image-2',
+      prompt: 'test',
+      imageUrls: ['https://example.com/a.png'],
+    })
     const formBody = fetchMock.mock.calls[0][1].body as FormData
     expect(formBody.has('response_format')).toBe(false)
   })

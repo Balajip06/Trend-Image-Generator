@@ -68,7 +68,9 @@ describe('allowlist rejection error copy', () => {
     const source = readSource('app/(auth)/login/page.tsx')
     expect(source).toContain('not_invited:')
     // Must not fall through to the generic "Sign in failed" fallback.
-    const match = source.match(/not_invited: *(['"`])([\s\S]*?)\1/)
+    // `\s*` after the colon, not ` *` — Prettier wraps long entries onto the
+    // next line, which a same-line-only pattern silently reports as empty copy.
+    const match = source.match(/not_invited:\s*(['"`])([\s\S]*?)\1/)
     expect(match?.[2] ?? '').not.toBe('')
   })
 })

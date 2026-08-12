@@ -82,7 +82,9 @@ test.describe('Home', () => {
   // globals.css sets `scroll-behavior: smooth` for the CTA anchor jump. Without
   // this attribute the Next router also animates route-change scrolling, which
   // it warns about at runtime. Guard the opt-in so the pair can't drift apart.
-  test('declares data-scroll-behavior so route changes still scroll instantly', async ({ page }) => {
+  test('declares data-scroll-behavior so route changes still scroll instantly', async ({
+    page,
+  }) => {
     await page.goto('/')
     await expect(page.locator('html')).toHaveAttribute('data-scroll-behavior', 'smooth')
   })

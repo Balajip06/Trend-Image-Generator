@@ -64,7 +64,9 @@ export default async function EvalPage({ params, searchParams }: EvalPageProps) 
 
   const { data: runRows } = await supabase
     .from('trend_eval_runs')
-    .select('id, trend_id, prompt_version, eval_input_id, output_url, admin_rating, model, created_at')
+    .select(
+      'id, trend_id, prompt_version, eval_input_id, output_url, admin_rating, model, created_at'
+    )
     .eq('trend_id', id)
     .order('created_at', { ascending: false })
     .limit(inputs.length || 10)
