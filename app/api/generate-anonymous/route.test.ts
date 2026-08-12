@@ -74,7 +74,13 @@ function makeReq(body: unknown, idemKey = 'idem-key-0123456789'): NextRequest {
   } as unknown as NextRequest
 }
 
-process.env.NEXT_PUBLIC_SUPABASE_URL ??= 'https://test-project.supabase.co'
+// Assigned unconditionally, not with `??=`. assertStorageUrl() requires an
+// https: URL whose host matches NEXT_PUBLIC_SUPABASE_URL, so the fixture below
+// can only be valid if this test owns the value. With `??=` the assignment was
+// skipped whenever the environment already supplied one — CI sets
+// `http://localhost:54321`, which fails both the protocol and host checks and
+// made VALID_BODY reject with "invalid image URL" on CI while passing locally.
+process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test-project.supabase.co'
 const SUPABASE_HOST = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host
 
 const VALID_BODY = {
