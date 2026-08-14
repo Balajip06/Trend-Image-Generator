@@ -5,7 +5,9 @@ import { ConfirmDestructiveButton } from '@/components/admin/ConfirmDestructiveB
 import { FlashToasts } from '@/components/admin/FlashToasts'
 import { ActiveBadge, EvalBadge } from '@/components/admin/StatusBadges'
 import { Button } from '@/components/ui/button'
+import { adminReadOne } from '@/lib/admin/read'
 import { createServiceClient } from '@/lib/supabase/server'
+import type { Tables } from '@/lib/supabase/database.types'
 import { toggleActive, updateTrend } from '../../actions'
 import { TrendForm } from '../../TrendForm'
 
@@ -30,13 +32,19 @@ export default async function EditTrendPage({ params, searchParams }: EditTrendP
   // so drafts/clones (is_active=false) 404 for admins under the session client.
   // proxy.ts already gates /admin to admins.
   const supabase = createServiceClient()
-  const { data: row } = await supabase
-    .from('trends')
-    .select(
-      'id, slug, title, description, prompt_template, model, aspect_ratio, display_order, thumbnail_url, sample_before_url, sample_after_url, seo_title, seo_description, share_caption_template, input_schema, faq, is_active, eval_status, version, goes_live_at, is_featured, auto_deactivate_disabled, auto_deactivate_threshold'
-    )
-    .eq('id', id)
-    .maybeSingle()
+  const { row, error } = await adminReadOne<Tables<'trends'>>(
+    'trends.edit',
+    supabase
+      .from('trends')
+      .select(
+        'id, slug, title, description, prompt_template, model, aspect_ratio, display_order, thumbnail_url, sample_before_url, sample_after_url, seo_title, seo_description, share_caption_template, input_schema, faq, is_active, eval_status, version, goes_live_at, is_featured, auto_deactivate_disabled, auto_deactivate_threshold'
+      )
+      .eq('id', id)
+      .maybeSingle()
+  )
+  // A failed read is NOT a missing trend. Throwing surfaces it via the admin
+  // error boundary; notFound() would claim the trend does not exist.
+  if (error) throw new Error(`Could not load trend: ${error}`)
   const trend = row ?? null
   if (!trend) notFound()
 

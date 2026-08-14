@@ -1,10 +1,11 @@
-import { Search } from 'lucide-react'
+import { Search, TriangleAlert } from 'lucide-react'
 import Link from 'next/link'
 import { FlashToasts } from '@/components/admin/FlashToasts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { adminRead } from '@/lib/admin/read'
 import { createServiceClient } from '@/lib/supabase/server'
 import { RefundForm } from './RefundForm'
 
@@ -82,14 +83,21 @@ export default async function AdminRefundsPage({ searchParams }: RefundsPageProp
   }
 
   // ─── Recent credit grants ──────────────────────────────────────────────
-  const { data: grantRows } = await service
-    .from('admin_audit_log')
-    .select('id, admin_id, target_id, after, created_at')
-    .eq('action', 'credit_grant')
-    .order('created_at', { ascending: false })
-    .limit(GRANTS_LIMIT)
-
-  const grants = (grantRows as AuditGrantRow[] | null) ?? []
+  // Compliance surface: an unchecked read here rendered "No grants yet",
+  // i.e. "nothing happened", when the query had actually failed.
+  const grantsRead = await adminRead(
+    'refunds.grants',
+    service
+      .from('admin_audit_log')
+      .select('id, admin_id, target_id, after, created_at')
+      .eq('action', 'credit_grant')
+      .order('created_at', { ascending: false })
+      .limit(GRANTS_LIMIT)
+  )
+  // `after` is jsonb, typed as `Json` by the generated types; AuditGrantRow
+  // narrows it to the shape grant_credits() actually writes.
+  const grants = grantsRead.rows as unknown as AuditGrantRow[]
+  const grantsError = grantsRead.error
 
   const profileIds = Array.from(
     new Set([
@@ -99,11 +107,11 @@ export default async function AdminRefundsPage({ searchParams }: RefundsPageProp
   )
   const emailById = new Map<string, string>()
   if (profileIds.length > 0) {
-    const { data: profileRows } = await service
-      .from('profiles')
-      .select('id, email')
-      .in('id', profileIds)
-    for (const p of (profileRows as { id: string; email: string }[] | null) ?? []) {
+    const { rows: profileRows } = await adminRead<{ id: string; email: string }>(
+      'refunds.profiles',
+      service.from('profiles').select('id, email').in('id', profileIds)
+    )
+    for (const p of profileRows) {
       emailById.set(p.id, p.email)
     }
   }
@@ -214,7 +222,15 @@ export default async function AdminRefundsPage({ searchParams }: RefundsPageProp
           <CardTitle className="text-lg font-bold">Recent grants</CardTitle>
         </CardHeader>
         <CardContent className="px-6">
-          {grants.length === 0 ? (
+          {grantsError ? (
+            <div className="border-destructive/40 bg-destructive/5 flex items-start gap-3 rounded-xl border border-dashed p-3">
+              <TriangleAlert className="text-destructive mt-0.5 size-4 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold">Could not load grants</p>
+                <p className="text-muted-foreground mt-0.5 font-mono text-xs">{grantsError}</p>
+              </div>
+            </div>
+          ) : grants.length === 0 ? (
             <p className="text-muted-foreground text-sm">No grants yet.</p>
           ) : (
             <div className="overflow-x-auto">

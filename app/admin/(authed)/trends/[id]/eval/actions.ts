@@ -4,9 +4,12 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { logAdminAction } from '@/lib/admin/audit'
+import { checkAdminRole, requireAdminRole } from '@/lib/admin/require-role'
 import { fallbackModelFor, generateImage } from '@/lib/image-provider'
+import { checkModelCostLimit } from '@/lib/pricing/cost-limits'
+import { costForOutput } from '@/lib/pricing/models'
 import type { ImageModel } from '@/lib/image-provider/types'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { buildEvalValues } from '@/lib/trends/eval-values'
 import { TrendInputSchema, type TrendInput } from '@/lib/trends/input-schema'
 import { collectImageInputs, interpolatePrompt, REALISM_SUFFIX } from '@/lib/trends/interpolate'
@@ -24,6 +27,7 @@ function emptyToNull(v: FormDataEntryValue | null): string | null {
 }
 
 export async function addEvalInput(trendId: string, formData: FormData): Promise<void> {
+  await requireAdminRole('editor')
   const parsed = InputCreateSchema.safeParse({
     label: formData.get('label'),
     image_url: formData.get('image_url'),
@@ -52,6 +56,11 @@ export type EvalActionResult = { ok: true } | { ok: false; error: string }
 const FALLBACK_REASONS = new Set(['timeout', 'transient', 'invalid'])
 
 export async function removeEvalInput(trendId: string, inputId: string): Promise<EvalActionResult> {
+  // Typed result — use the non-redirecting guard so the contract holds.
+  // Deleting eval inputs destroys the proof backing a go-live decision.
+  const auth = await checkAdminRole('editor')
+  if (!auth.ok) return { ok: false, error: 'Not authorized.' }
+
   const supabase = createServiceClient()
   const { error } = await supabase.from('trend_eval_inputs').delete().eq('id', inputId)
   if (error) return { ok: false, error: error.message }
@@ -77,6 +86,10 @@ export async function runEval(
   inputId: string,
   modelOverride?: ImageModel
 ): Promise<EvalActionResult> {
+  // Spends real money on an image-generation call — must be authorized.
+  const auth = await checkAdminRole('editor')
+  if (!auth.ok) return { ok: false, error: 'Not authorized.' }
+
   const supabase = createServiceClient()
 
   const { data: trend } = await supabase
@@ -91,6 +104,14 @@ export async function runEval(
   // saved model. The run row records the model actually used, so results stay
   // attributable when comparing.
   const modelForRun: ImageModel = modelOverride ?? (trend.model as ImageModel)
+
+  // Eval spends real money on the same models as customer traffic, so it must
+  // respect the same ceiling — otherwise a capped model is still reachable
+  // from the admin console.
+  const gate = await checkModelCostLimit(supabase, modelForRun)
+  if (!gate.allowed) {
+    return { ok: false, error: `Cost limit: ${gate.reason}` }
+  }
 
   const schemaParsed = TrendInputSchema.safeParse(trend.input_schema)
   if (!schemaParsed.success) {
@@ -172,7 +193,16 @@ export async function runEval(
   const { data: publicUrl } = supabase.storage.from('outputs').getPublicUrl(path)
   // Record the model that actually succeeded (may differ from modelForRun if
   // fallback kicked in) so the result label + go-live proof reflect reality.
-  const update = { output_url: publicUrl.publicUrl, model: effectiveModel }
+  // `cost_usd` records what this run actually spent — eval calls the provider
+  // directly and previously recorded nothing, so admin eval was invisible to
+  // margin AND to the per-model cost ceiling.
+  // `cost_usd` records what this run actually spent, so admin eval counts
+  // toward the same per-model ceiling as customer traffic.
+  const update = {
+    output_url: publicUrl.publicUrl,
+    model: effectiveModel,
+    cost_usd: costForOutput(effectiveModel),
+  }
   const { error: updateErr } = await supabase.from('trend_eval_runs').update(update).eq('id', runId)
   if (updateErr) return { ok: false, error: updateErr.message }
 
@@ -185,6 +215,11 @@ export async function rateEvalRun(
   runId: string,
   rating: 'pass' | 'fail'
 ): Promise<EvalActionResult> {
+  // `admin_rating` is the direct input to the DB eval-proof trigger that gates
+  // go-live, so flipping it to 'pass' is the security-relevant act here.
+  const auth = await checkAdminRole('editor')
+  if (!auth.ok) return { ok: false, error: 'Not authorized.' }
+
   const supabase = createServiceClient()
   const update = { admin_rating: rating }
   const { error } = await supabase.from('trend_eval_runs').update(update).eq('id', runId)
@@ -203,6 +238,9 @@ export async function rateEvalRun(
  * ceremony when the admin has eyeballed the outputs and they look right.
  */
 export async function approveAndGoLive(trendId: string): Promise<void> {
+  // Publishes a trend to customers — 'admin', and the identity is reused for
+  // the audit stamp further down (previously read separately, after the write).
+  const { userId: actorId } = await requireAdminRole('admin')
   const supabase = createServiceClient()
 
   const { data: trend } = await supabase
@@ -291,12 +329,8 @@ export async function approveAndGoLive(trendId: string): Promise<void> {
     redirect(`/admin/trends/${trendId}/eval?error=${encodeURIComponent(error.message)}`)
   }
 
-  const authed = await createClient()
-  const {
-    data: { user },
-  } = await authed.auth.getUser()
   await logAdminAction({
-    adminId: user?.id ?? null,
+    adminId: actorId,
     action: 'trend_approve_and_go_live',
     targetTable: 'trends',
     targetId: trendId,
@@ -313,6 +347,9 @@ export async function markTrendEval(
   trendId: string,
   status: 'passed' | 'failed' | 'untested'
 ): Promise<void> {
+  // Marking 'passed' is what the DB eval-proof trigger checks before allowing
+  // activation, so gate it before the write.
+  const { userId: actorId } = await requireAdminRole('editor')
   const supabase = createServiceClient()
   const update = { eval_status: status }
   const { error } = await supabase.from('trends').update(update).eq('id', trendId)
@@ -320,12 +357,8 @@ export async function markTrendEval(
     redirect(`/admin/trends/${trendId}/eval?error=${encodeURIComponent(error.message)}`)
   }
 
-  const authed = await createClient()
-  const {
-    data: { user },
-  } = await authed.auth.getUser()
   await logAdminAction({
-    adminId: user?.id ?? null,
+    adminId: actorId,
     action: `mark_eval_${status}`,
     targetTable: 'trends',
     targetId: trendId,

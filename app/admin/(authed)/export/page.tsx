@@ -1,8 +1,10 @@
 import { Download } from 'lucide-react'
 import Link from 'next/link'
+import { LoadErrorBanner } from '@/components/admin/LoadErrorBanner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { adminRead } from '@/lib/admin/read'
 import { createServiceClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -78,29 +80,33 @@ export default async function AdminExportPage() {
   // defense in depth.
   const service = createServiceClient()
 
-  const { data: auditRows } = await service
-    .from('admin_audit_log')
-    .select('id, admin_id, target_table, after, created_at')
-    .eq('action', 'customer_export')
-    .order('created_at', { ascending: false })
-    .limit(RECENT_LIMIT)
-
-  const recent = (auditRows as ExportAuditRow[] | null) ?? []
+  const recentRead = await adminRead(
+    'export.audit',
+    service
+      .from('admin_audit_log')
+      .select('id, admin_id, target_table, after, created_at')
+      .eq('action', 'customer_export')
+      .order('created_at', { ascending: false })
+      .limit(RECENT_LIMIT)
+  )
+  const recent = recentRead.rows as unknown as ExportAuditRow[]
+  const loadError = recentRead.error
 
   const adminIds = Array.from(new Set(recent.map((r) => r.admin_id).filter(Boolean) as string[]))
   const emailById = new Map<string, string>()
   if (adminIds.length > 0) {
-    const { data: profileRows } = await service
-      .from('profiles')
-      .select('id, email')
-      .in('id', adminIds)
-    for (const p of (profileRows as { id: string; email: string }[] | null) ?? []) {
+    const { rows: profileRows } = await adminRead<{ id: string; email: string }>(
+      'export.profiles',
+      service.from('profiles').select('id, email').in('id', adminIds)
+    )
+    for (const p of profileRows) {
       emailById.set(p.id, p.email)
     }
   }
 
   return (
     <section className="flex flex-col gap-8">
+      <LoadErrorBanner error={loadError} label="recent exports" />
       <header className="flex flex-col gap-2">
         <p className="text-muted-foreground text-xs font-semibold tracking-[0.2em] uppercase">
           Diligence

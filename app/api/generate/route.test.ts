@@ -112,6 +112,13 @@ function makeAuthedClient() {
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: () => Promise.resolve(makeAuthedClient()),
+  // The cost-limit pre-flight reads app_settings + the spend RPC on the service
+  // client. Not the subject of these tests; the gate has its own suite in
+  // lib/pricing/cost-limits.test.ts.
+  createServiceClient: () => makeAuthedClient(),
+}))
+vi.mock('@/lib/pricing/cost-limits', () => ({
+  checkModelCostLimit: () => Promise.resolve({ allowed: true }),
 }))
 vi.mock('@/lib/rate-limit', () => ({
   generationIpLimiter: { limit: (identifier: string) => limiterLimit(identifier) },

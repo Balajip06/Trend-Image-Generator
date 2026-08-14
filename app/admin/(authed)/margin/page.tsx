@@ -241,17 +241,17 @@ export default async function AdminMarginPage({ searchParams }: MarginPageProps)
                   Margin split
                 </CardDescription>
                 <CardTitle className="text-xl font-bold">
-                  {margin.marginPct.toFixed(1)}% net
+                  {formatMarginPct(margin.marginPct)} net
                 </CardTitle>
                 <p className="text-muted-foreground text-xs">
-                  Prior week {priorMarginPct.toFixed(1)}% · avg cost {formatUsd(margin.avgCostUsd)}{' '}
-                  / gen
+                  Prior week {formatMarginPct(priorMarginPct)} · avg cost{' '}
+                  {formatUsd(margin.avgCostUsd)} / gen
                 </p>
               </CardHeader>
               <CardContent className="px-5">
                 <DonutChart
                   ariaLabel="Donut chart of revenue and spend share"
-                  centerValue={`${margin.marginPct.toFixed(0)}%`}
+                  centerValue={Number.isFinite(margin.marginPct) ? `${margin.marginPct.toFixed(0)}%` : '—'}
                   centerLabel="margin"
                   data={[
                     {
@@ -425,6 +425,11 @@ function LeaderboardSection({ rows, range }: LeaderboardSectionProps) {
               <CardTitle className="flex items-center gap-2 text-lg font-bold">
                 <Trophy className="size-4 text-[var(--brand-grad-1)]" />
                 Leaderboard
+                {rows.some((r) => r.isMock) && (
+                  <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold tracking-wide text-amber-700 uppercase dark:text-amber-300">
+                    demo data
+                  </span>
+                )}
               </CardTitle>
               <CardDescription className="text-xs">
                 {rows.length} trends · click row to open trend editor
@@ -475,7 +480,9 @@ const RANK_BADGE_TONE: Record<number, string> = {
 
 function LeaderboardRow({ row, rank, topGen }: LeaderboardRowProps) {
   const pct = topGen === 0 ? 0 : (row.genCount / topGen) * 100
-  const isMock = row.trendId.startsWith('mock-')
+  // Prefer the explicit flag; the id-prefix check is a legacy fallback for
+  // rows produced before `isMock` existed.
+  const isMock = row.isMock ?? row.trendId.startsWith('mock-')
   const trendCell = (
     <div className="flex min-w-0 flex-col gap-0.5">
       <p className="text-foreground truncate font-semibold">{row.title}</p>
@@ -651,8 +658,13 @@ function RevenueCohortsSection({ rows, range }: RevenueCohortsSectionProps) {
 
       <Card className="gap-3 py-5">
         <CardHeader className="px-5">
-          <CardDescription className="text-xs tracking-[0.18em] uppercase">
+          <CardDescription className="flex items-center gap-2 text-xs tracking-[0.18em] uppercase">
             Weekly net revenue · {range} weeks
+            {rows.some((r) => r.isMock) && (
+              <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold tracking-wide text-amber-700 normal-case dark:text-amber-300">
+                demo data
+              </span>
+            )}
           </CardDescription>
           <CardTitle className="text-lg font-bold">
             {formatUsd(totals.netUsd)} net · {formatUsd(totals.refundsUsd)} refunds
@@ -742,6 +754,16 @@ function RevenueCohortsSection({ rows, range }: RevenueCohortsSectionProps) {
 
 interface UnitEconomicsSectionProps {
   data: UnitEconomicsResult
+}
+
+/**
+ * Margin is non-finite when there is spend but no revenue — a real state
+ * pre-launch, and not the same as "0% net" (break-even). Render it as an
+ * explicit "no revenue" rather than "-Infinity%".
+ */
+function formatMarginPct(n: number, digits = 1): string {
+  if (!Number.isFinite(n)) return 'no revenue'
+  return `${n.toFixed(digits)}%`
 }
 
 function formatCac(n: number): string {

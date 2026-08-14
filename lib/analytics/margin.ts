@@ -13,6 +13,37 @@
 import * as Sentry from '@sentry/nextjs'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { MOCKS_ALLOWED } from '@/lib/dev/mock-data'
+import { fetchAllPaged } from './paged-fetch'
+import { CREDIT_PACKS } from '@/lib/payments/packs'
+import {
+  customerEmailFromEvent,
+  refundUsdFromEvent,
+  revenueUsdFromEvent,
+  userIdFromEvent,
+} from './stripe-payload'
+
+/**
+ * `cost_usd` is `numeric(10,5)`, which PostgREST may deliver as a string. A
+ * malformed or non-numeric value would become NaN and poison an entire running
+ * sum, turning every downstream figure into `$NaN`. Coerce defensively.
+ */
+function safeUsd(value: unknown): number {
+  const n = Number(value ?? 0)
+  return Number.isFinite(n) ? n : 0
+}
+
+/**
+ * USD value of one credit, for pricing clawed-back credits.
+ *
+ * Derived from the real pack table rather than the previous hardcoded $0.10,
+ * which matched no pack (actual rates run 6.665¢–9.98¢/credit). Blended across
+ * packs because the audit row records a credit count, not which pack it came
+ * from.
+ */
+const CREDIT_USD_RATE =
+  CREDIT_PACKS.reduce((sum, p) => sum + p.priceCents, 0) /
+  CREDIT_PACKS.reduce((sum, p) => sum + p.credits, 0) /
+  100
 
 export interface MarginSummary {
   weekSpendUsd: number
@@ -70,11 +101,23 @@ interface TrendBriefRow {
 }
 
 interface WebhookEventRow {
-  payload: { amount_total?: number } | null
+  /**
+   * The whole `Stripe.Event`. Money lives at `payload.data.object.*` — read it
+   * via the helpers in `./stripe-payload`, never off the top level.
+   */
+  payload: unknown
 }
 
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Lookback for the "has this user ever paid" heuristic on the leaderboard.
+ * Was literally "ever" (no date filter), which meant a full-table scan of
+ * `webhook_events` on every render, growing without bound. A year is well past
+ * any credit pack's useful life for this signal.
+ */
+const PAID_USER_LOOKBACK_DAYS = 365
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
 function startOfUtcDay(d: Date): Date {
@@ -133,27 +176,33 @@ function mockDailySeries(days: number): MarginDailyPoint[] {
 export async function getMarginSummary(supabase: SupabaseClient): Promise<MarginSummary> {
   const weekStart = new Date(Date.now() - ONE_WEEK_MS).toISOString()
 
-  const [{ data: genData }, { data: webhookData }, { data: anonCostRows }] = await Promise.all([
-    supabase
-      .from('generations')
-      .select('cost_usd, trend_id')
-      .eq('status', 'completed')
-      .gte('created_at', weekStart),
-    supabase
-      .from('webhook_events')
-      .select('payload')
-      .eq('source', 'stripe')
-      .gte('created_at', weekStart),
-    supabase
-      .from('anonymous_attempts')
-      .select('cost_usd')
-      .eq('status', 'completed')
-      .gte('created_at', weekStart),
+  const [genPage, webhookPage, anonPage] = await Promise.all([
+    fetchAllPaged<GenerationRow>('margin.summary.generations', () =>
+      supabase
+        .from('generations')
+        .select('cost_usd, trend_id')
+        .eq('status', 'completed')
+        .gte('created_at', weekStart)
+    ),
+    fetchAllPaged<WebhookEventRow>('margin.summary.webhooks', () =>
+      supabase
+        .from('webhook_events')
+        .select('payload')
+        .eq('source', 'stripe')
+        .gte('created_at', weekStart)
+    ),
+    fetchAllPaged<{ cost_usd: number | null }>('margin.summary.anonymous', () =>
+      supabase
+        .from('anonymous_attempts')
+        .select('cost_usd')
+        .eq('status', 'completed')
+        .gte('created_at', weekStart)
+    ),
   ])
 
-  const generations = (genData as unknown as GenerationRow[] | null) ?? []
-  const webhooks = (webhookData as unknown as WebhookEventRow[] | null) ?? []
-  const anonAttempts = (anonCostRows as unknown as Array<{ cost_usd: number | null }> | null) ?? []
+  const generations = genPage.rows
+  const webhooks = webhookPage.rows
+  const anonAttempts = anonPage.rows
 
   if (
     MOCKS_ALLOWED &&
@@ -164,24 +213,35 @@ export async function getMarginSummary(supabase: SupabaseClient): Promise<Margin
     return { ...MOCK_SUMMARY, isMock: true }
   }
 
-  const genSpendUsd = generations.reduce((sum, g) => sum + Number(g.cost_usd ?? 0), 0)
-  const anonSpendUsd = anonAttempts.reduce((sum, a) => sum + Number(a.cost_usd ?? 0), 0)
+  const genSpendUsd = generations.reduce((sum, g) => sum + safeUsd(g.cost_usd), 0)
+  const anonSpendUsd = anonAttempts.reduce((sum, a) => sum + safeUsd(a.cost_usd), 0)
   const weekSpendUsd = genSpendUsd + anonSpendUsd
   const weekGenerations = generations.length
   // avgCostUsd is a per-authenticated-generation metric. Use genSpendUsd only
   // (not the combined total) so anonymous spend does not inflate the average.
   const avgCostUsd = weekGenerations > 0 ? genSpendUsd / weekGenerations : 0
 
-  // Stripe `amount_total` is in cents on the checkout.session payload.
-  const weekRevenueUsd = webhooks.reduce((sum, e) => sum + (e.payload?.amount_total ?? 0), 0) / 100
+  // Refunds/disputes land in the same table. Net them off, but never let the
+  // headline go negative: a refund is not "negative income", and a clamp keeps
+  // the margin formula below meaningful.
+  const grossRevenueUsd = webhooks.reduce((sum, e) => sum + revenueUsdFromEvent(e.payload), 0)
+  const refundedUsd = webhooks.reduce((sum, e) => sum + refundUsdFromEvent(e.payload), 0)
+  const weekRevenueUsd = Math.max(0, grossRevenueUsd - refundedUsd)
 
+  // With no revenue, margin is not 0% (break-even) — it is undefined if there
+  // was also no spend, and deeply negative if we spent anything. Reporting 0
+  // made a money-losing week look neutral on the dashboard.
   const marginPct =
-    weekRevenueUsd > 0 ? ((weekRevenueUsd - weekSpendUsd) / weekRevenueUsd) * 100 : 0
+    weekRevenueUsd > 0
+      ? ((weekRevenueUsd - weekSpendUsd) / weekRevenueUsd) * 100
+      : weekSpendUsd > 0
+        ? Number.NEGATIVE_INFINITY
+        : 0
 
   // Spend per trend → top spender
   const spendByTrend = new Map<string, number>()
   for (const g of generations) {
-    spendByTrend.set(g.trend_id, (spendByTrend.get(g.trend_id) ?? 0) + Number(g.cost_usd ?? 0))
+    spendByTrend.set(g.trend_id, (spendByTrend.get(g.trend_id) ?? 0) + safeUsd(g.cost_usd))
   }
 
   let topTrendId: string | null = null
@@ -258,6 +318,12 @@ export interface TrendLeaderboardRow {
   shareTotal: number
   paidUsersCount: number
   revenueUsd: number
+  /**
+   * True when this row is demo data, not a real measurement. Without this the
+   * leaderboard rendered fabricated trends with no on-screen indication —
+   * unlike the summary tiles, which have always carried a "demo data" badge.
+   */
+  isMock?: boolean
 }
 
 interface GenerationLeaderboardRow {
@@ -273,7 +339,8 @@ interface TrendLeaderboardJoinRow {
 }
 
 interface WebhookEventMetadataRow {
-  payload: { metadata?: { user_id?: string } } | null
+  /** Whole Stripe event — read via `./stripe-payload` helpers. */
+  payload: unknown
 }
 
 const MOCK_LEADERBOARD: TrendLeaderboardRow[] = [
@@ -354,25 +421,40 @@ export async function getTrendLeaderboard(
   const limit = options.limit ?? 20
   const since = new Date(Date.now() - days * DAY_MS).toISOString()
 
-  const { data: genRows } = await supabase
-    .from('generations')
-    .select('trend_id, user_id, share_count')
-    .eq('status', 'completed')
-    .gte('created_at', since)
-  const generations = (genRows as unknown as GenerationLeaderboardRow[] | null) ?? []
+  const { rows: generations } = await fetchAllPaged<GenerationLeaderboardRow>(
+    'margin.leaderboard.generations',
+    () =>
+      supabase
+        .from('generations')
+        .select('trend_id, user_id, share_count')
+        .eq('status', 'completed')
+        .gte('created_at', since)
+  )
 
   if (MOCKS_ALLOWED && generations.length === 0) {
-    return MOCK_LEADERBOARD.slice(0, limit)
+    return MOCK_LEADERBOARD.slice(0, limit).map((row) => ({ ...row, isMock: true }))
   }
 
-  // Paid-users heuristic: any user with a Stripe checkout webhook ever.
-  const { data: webhookRows } = await supabase
-    .from('webhook_events')
-    .select('payload')
-    .eq('source', 'stripe')
+  // Paid users. This previously had NO date filter — it scanned every Stripe
+  // webhook ever received, on every page load, growing forever. Bounded to the
+  // paid-user lookback and paged so it neither truncates silently nor pulls an
+  // unbounded set into memory.
+  const paidSince = new Date(Date.now() - PAID_USER_LOOKBACK_DAYS * DAY_MS).toISOString()
+  const { rows: webhookRows } = await fetchAllPaged<WebhookEventMetadataRow>(
+    'margin.leaderboard.webhooks',
+    () =>
+      supabase
+        .from('webhook_events')
+        .select('payload')
+        .eq('source', 'stripe')
+        .gte('created_at', paidSince)
+  )
   const paidUserIds = new Set<string>()
-  for (const w of (webhookRows as unknown as WebhookEventMetadataRow[] | null) ?? []) {
-    const uid = w.payload?.metadata?.user_id
+  for (const w of webhookRows) {
+    // Only actual payments count, and attribution honours the webhook's own
+    // `metadata.user_id ?? client_reference_id` order (route.ts:156).
+    if (revenueUsdFromEvent(w.payload) <= 0) continue
+    const uid = userIdFromEvent(w.payload)
     if (uid) paidUserIds.add(uid)
   }
 
@@ -467,28 +549,35 @@ export async function getMarginDetail(
     }
   }
 
-  const [{ data: genRows }, { data: webhookRows }, { data: anonRows }] = await Promise.all([
-    supabase
-      .from('generations')
-      .select('cost_usd, trend_id, created_at')
-      .eq('status', 'completed')
-      .gte('created_at', priorStart.toISOString()),
-    supabase
-      .from('webhook_events')
-      .select('payload, created_at')
-      .eq('source', 'stripe')
-      .gte('created_at', priorStart.toISOString()),
-    supabase
-      .from('anonymous_attempts')
-      .select('cost_usd, created_at')
-      .eq('status', 'completed')
-      .gte('created_at', priorStart.toISOString()),
+  const [genPage, webhookPage, anonPage] = await Promise.all([
+    fetchAllPaged<GenerationRow>('margin.detail.generations', () =>
+      supabase
+        .from('generations')
+        .select('cost_usd, trend_id, created_at')
+        .eq('status', 'completed')
+        .gte('created_at', priorStart.toISOString())
+    ),
+    fetchAllPaged<WebhookEventRowWithDate>('margin.detail.webhooks', () =>
+      supabase
+        .from('webhook_events')
+        .select('payload, created_at')
+        .eq('source', 'stripe')
+        .gte('created_at', priorStart.toISOString())
+    ),
+    fetchAllPaged<{ cost_usd: number | null; created_at?: string }>(
+      'margin.detail.anonymous',
+      () =>
+        supabase
+          .from('anonymous_attempts')
+          .select('cost_usd, created_at')
+          .eq('status', 'completed')
+          .gte('created_at', priorStart.toISOString())
+    ),
   ])
 
-  const generations = (genRows as unknown as GenerationRow[] | null) ?? []
-  const webhooks = (webhookRows as unknown as WebhookEventRowWithDate[] | null) ?? []
-  const anonAttempts =
-    (anonRows as unknown as Array<{ cost_usd: number | null; created_at?: string }> | null) ?? []
+  const generations = genPage.rows
+  const webhooks = webhookPage.rows
+  const anonAttempts = anonPage.rows
 
   const daily = emptyDays(days)
   const byDate = new Map(daily.map((d) => [d.date, d]))
@@ -499,7 +588,7 @@ export async function getMarginDetail(
     const day = new Date(g.created_at)
     const key = startOfUtcDay(day).toISOString().slice(0, 10)
     const bucket = byDate.get(key)
-    const cost = Number(g.cost_usd ?? 0)
+    const cost = safeUsd(g.cost_usd)
     if (bucket) {
       bucket.spendUsd += cost
       bucket.generations += 1
@@ -514,7 +603,7 @@ export async function getMarginDetail(
     const day = new Date(a.created_at)
     const key = startOfUtcDay(day).toISOString().slice(0, 10)
     const bucket = byDate.get(key)
-    const cost = Number(a.cost_usd ?? 0)
+    const cost = safeUsd(a.cost_usd)
     if (bucket) {
       bucket.spendUsd += cost
     } else if (day.getTime() >= priorStart.getTime()) {
@@ -527,7 +616,8 @@ export async function getMarginDetail(
     const day = new Date(w.created_at)
     const key = startOfUtcDay(day).toISOString().slice(0, 10)
     const bucket = byDate.get(key)
-    const rev = (w.payload?.amount_total ?? 0) / 100
+    // Net of refunds/disputes, which arrive as their own rows in this table.
+    const rev = revenueUsdFromEvent(w.payload) - refundUsdFromEvent(w.payload)
     if (bucket) {
       bucket.revenueUsd += rev
     } else if (day.getTime() >= priorStart.getTime()) {
@@ -541,7 +631,7 @@ export async function getMarginDetail(
     if (!g.created_at) continue
     if (new Date(g.created_at).getTime() < windowStart.getTime()) continue
     const cur = spendByTrend.get(g.trend_id) ?? { spendUsd: 0, generations: 0 }
-    cur.spendUsd += Number(g.cost_usd ?? 0)
+    cur.spendUsd += safeUsd(g.cost_usd)
     cur.generations += 1
     spendByTrend.set(g.trend_id, cur)
   }
@@ -587,16 +677,26 @@ export interface RevenueCohortRow {
   uniqueCustomers: number
   /** refundsUsd / revenueUsd. 0 when revenue is 0. */
   refundRate: number
+  /**
+   * True when this row is demo data, not a real measurement. The cohorts tab
+   * previously rendered fabricated weekly revenue with no on-screen badge.
+   */
+  isMock?: boolean
 }
 
 interface WebhookRevenueRow {
-  payload: { amount_total?: number; customer_email?: string } | null
+  /** Whole Stripe event — read via `./stripe-payload` helpers. */
+  payload: unknown
   created_at: string | null
 }
 
-interface AuditCreditGrantRow {
+interface AuditClawbackRow {
   action: string
-  after: { credits?: number } | null
+  /**
+   * `claw_back_credits()` writes `{ amount, bucket, reason }`
+   * (migration 20260604000003:42-46). The key is `amount`, never `credits`.
+   */
+  after: { amount?: number } | null
   created_at: string | null
 }
 
@@ -675,24 +775,34 @@ export async function getRevenueCohorts(
   ).toISOString()
 
   try {
-    const [{ data: webhookRows }, { data: auditRows }] = await Promise.all([
-      supabase
-        .from('webhook_events')
-        .select('payload, created_at')
-        .eq('source', 'stripe')
-        .gte('created_at', since),
-      supabase
-        .from('admin_audit_log')
-        .select('action, after, created_at')
-        .eq('action', 'credit_grant')
-        .gte('created_at', since),
+    const [webhookPage, auditPage] = await Promise.all([
+      fetchAllPaged<WebhookRevenueRow>('margin.cohorts.webhooks', () =>
+        supabase
+          .from('webhook_events')
+          .select('payload, created_at')
+          .eq('source', 'stripe')
+          .gte('created_at', since)
+      ),
+      fetchAllPaged<AuditClawbackRow>('margin.cohorts.clawbacks', () =>
+        supabase
+          .from('admin_audit_log')
+          .select('action, after, created_at')
+          .eq('action', 'credit_clawback')
+          .gte('created_at', since)
+      ),
     ])
 
-    const webhooks = (webhookRows as unknown as WebhookRevenueRow[] | null) ?? []
-    const audits = (auditRows as unknown as AuditCreditGrantRow[] | null) ?? []
+    // A failed read must NOT fall through to the mock branch below — that would
+    // render fabricated revenue behind no badge at all. `fetchAllPaged` reports
+    // failures instead of throwing, so re-raise into this function's catch.
+    if (webhookPage.error) throw new Error(webhookPage.error)
+    if (auditPage.error) throw new Error(auditPage.error)
+
+    const webhooks = webhookPage.rows
+    const audits = auditPage.rows
 
     if (MOCKS_ALLOWED && webhooks.length === 0) {
-      return mockRevenueCohorts(weeks)
+      return mockRevenueCohorts(weeks).map((row) => ({ ...row, isMock: true }))
     }
 
     const buckets = new Map<string, RevenueCohortRow>()
@@ -706,9 +816,14 @@ export async function getRevenueCohorts(
       const key = startOfUtcWeek(new Date(w.created_at)).toISOString().slice(0, 10)
       const bucket = buckets.get(key)
       if (!bucket) continue
-      bucket.revenueUsd += (w.payload?.amount_total ?? 0) / 100
+      const revenue = revenueUsdFromEvent(w.payload)
+      // Stripe refunds/disputes are stored in this same table; count them on
+      // the refund side rather than as income.
+      bucket.refundsUsd += refundUsdFromEvent(w.payload)
+      if (revenue <= 0) continue
+      bucket.revenueUsd += revenue
       bucket.txCount += 1
-      const email = w.payload?.customer_email
+      const email = customerEmailFromEvent(w.payload)
       if (email) {
         const set = customersByWeek.get(key) ?? new Set<string>()
         set.add(email)
@@ -716,16 +831,16 @@ export async function getRevenueCohorts(
       }
     }
 
-    // Refund proxy via admin_audit_log credit_grant rows. $0.10 per credit
-    // is a placeholder rate — wire real Stripe charge.refunded amounts here
-    // once those webhooks flow (TODO above).
-    const CREDIT_USD_RATE = 0.1
+    // Credit clawbacks (`claw_back_credits()`, migration 20260604000003) are
+    // the credit-side refund signal — distinct from the Stripe-side amounts
+    // above. NOTE: `credit_grant` rows are GRANTS (purchases, comps, referral
+    // bonuses); counting those here would book every sale as a refund.
     for (const a of audits) {
       if (!a.created_at) continue
       const key = startOfUtcWeek(new Date(a.created_at)).toISOString().slice(0, 10)
       const bucket = buckets.get(key)
       if (!bucket) continue
-      const credits = Number(a.after?.credits ?? 0)
+      const credits = safeUsd(a.after?.amount)
       if (credits <= 0) continue
       bucket.refundsUsd += credits * CREDIT_USD_RATE
     }
@@ -753,7 +868,11 @@ export async function getRevenueCohorts(
     Sentry.captureException(err, {
       tags: { component: 'margin', op: 'getRevenueCohorts' },
     })
-    return mockRevenueCohorts(weeks)
+    // Return honest zeros, NOT mock data. Returning `mockRevenueCohorts()` here
+    // meant a DB outage rendered fabricated revenue that was visually identical
+    // to real figures — an error must never be indistinguishable from a
+    // healthy read.
+    return emptyWeeks(weeks)
   }
 }
 
@@ -803,7 +922,8 @@ interface AcquisitionProfileRow {
 }
 
 interface CohortRevenueRow {
-  payload: { amount_total?: number; metadata?: { user_id?: string } } | null
+  /** Whole Stripe event — read via `./stripe-payload` helpers. */
+  payload: unknown
   created_at: string | null
 }
 
@@ -888,36 +1008,46 @@ export async function getUnitEconomics(
   const ltvRevenueSince = cohortSince
 
   try {
-    const [
-      { data: spendRows },
-      { data: profileRows },
-      { data: revenueRows },
-      { data: generationRows },
-    ] = await Promise.all([
-      supabase
-        .from('admin_marketing_spend')
-        .select('channel, usd_spent, week_start')
-        .gte('week_start', cacSince.slice(0, 10)),
-      supabase
-        .from('profiles')
-        .select('id, created_at, acquisition_source')
-        .gte('created_at', cohortSince),
-      supabase
-        .from('webhook_events')
-        .select('payload, created_at')
-        .eq('source', 'stripe')
-        .gte('created_at', ltvRevenueSince),
-      supabase
-        .from('generations')
-        .select('user_id, cost_usd, created_at')
-        .eq('status', 'completed')
-        .gte('created_at', ltvRevenueSince),
+    const [spendPage, profilePage, revenuePage, generationPage] = await Promise.all([
+      fetchAllPaged<MarketingSpendRow>('margin.unit.spend', () =>
+        supabase
+          .from('admin_marketing_spend')
+          .select('channel, usd_spent, week_start')
+          .gte('week_start', cacSince.slice(0, 10))
+      ),
+      fetchAllPaged<AcquisitionProfileRow>('margin.unit.profiles', () =>
+        supabase
+          .from('profiles')
+          .select('id, created_at, acquisition_source')
+          .gte('created_at', cohortSince)
+      ),
+      fetchAllPaged<CohortRevenueRow>('margin.unit.revenue', () =>
+        supabase
+          .from('webhook_events')
+          .select('payload, created_at')
+          .eq('source', 'stripe')
+          .gte('created_at', ltvRevenueSince)
+      ),
+      fetchAllPaged<CohortGenerationRow>('margin.unit.generations', () =>
+        supabase
+          .from('generations')
+          .select('user_id, cost_usd, created_at')
+          .eq('status', 'completed')
+          .gte('created_at', ltvRevenueSince)
+      ),
     ])
 
-    const spends = (spendRows as unknown as MarketingSpendRow[] | null) ?? []
-    const profiles = (profileRows as unknown as AcquisitionProfileRow[] | null) ?? []
-    const revenue = (revenueRows as unknown as CohortRevenueRow[] | null) ?? []
-    const generations = (generationRows as unknown as CohortGenerationRow[] | null) ?? []
+    // Same reasoning as getRevenueCohorts: a failed read must reach the catch
+    // below rather than looking like an empty table and rendering mock data.
+    if (spendPage.error) throw new Error(spendPage.error)
+    if (profilePage.error) throw new Error(profilePage.error)
+    if (revenuePage.error) throw new Error(revenuePage.error)
+    if (generationPage.error) throw new Error(generationPage.error)
+
+    const spends = spendPage.rows
+    const profiles = profilePage.rows
+    const revenue = revenuePage.rows
+    const generations = generationPage.rows
 
     if (MOCKS_ALLOWED && spends.length === 0 && profiles.length === 0) {
       return mockUnitEconomics(cohortWeeks)
@@ -926,7 +1056,7 @@ export async function getUnitEconomics(
     // CAC by channel (last 30d) ----------------------------------------
     const spendByChannel = new Map<string, number>()
     for (const s of spends) {
-      const usd = Number(s.usd_spent ?? 0)
+      const usd = safeUsd(s.usd_spent)
       spendByChannel.set(s.channel, (spendByChannel.get(s.channel) ?? 0) + usd)
     }
     const signupsByChannel = new Map<string, number>()
@@ -980,7 +1110,7 @@ export async function getUnitEconomics(
 
     for (const r of revenue) {
       if (!r.created_at) continue
-      const uid = r.payload?.metadata?.user_id
+      const uid = userIdFromEvent(r.payload)
       if (!uid) continue
       const cohortKey = userToCohort.get(uid)
       if (!cohortKey) continue
@@ -988,7 +1118,7 @@ export async function getUnitEconomics(
       if (!bucket) continue
       const eventMs = new Date(r.created_at).getTime()
       const daysSince = (eventMs - bucket.cohortStartMs) / DAY_MS
-      const usd = (r.payload?.amount_total ?? 0) / 100
+      const usd = revenueUsdFromEvent(r.payload) - refundUsdFromEvent(r.payload)
       if (daysSince <= 7) bucket.revenueByDayBucket.d7 += usd
       if (daysSince <= 30) bucket.revenueByDayBucket.d30 += usd
       if (daysSince <= 60) bucket.revenueByDayBucket.d60 += usd
@@ -1000,7 +1130,7 @@ export async function getUnitEconomics(
       if (!cohortKey) continue
       const bucket = cohorts.get(cohortKey)
       if (!bucket) continue
-      bucket.costUsd += Number(g.cost_usd ?? 0)
+      bucket.costUsd += safeUsd(g.cost_usd)
     }
 
     const ltvByCohort: LtvByCohortRow[] = []
@@ -1049,6 +1179,17 @@ export async function getUnitEconomics(
     Sentry.captureException(err, {
       tags: { component: 'margin', op: 'getUnitEconomics' },
     })
-    return mockUnitEconomics(cohortWeeks)
+    // Honest empty, NOT mock data — see the note in getRevenueCohorts. A failed
+    // read must not render as plausible-looking unit economics.
+    return {
+      cacByChannel: [],
+      ltvByCohort: [],
+      blendedCac: 0,
+      blendedLtv30: 0,
+      // Infinity renders as "—" via formatPayback, which is the honest display
+      // for "no data" — 0 would read as "instant payback".
+      paybackDays: Number.POSITIVE_INFINITY,
+      isMock: false,
+    }
   }
 }

@@ -17,6 +17,7 @@ import {
   Receipt,
   Settings,
   Shield,
+  ShieldX,
   Sparkles,
   Users,
   X,
@@ -86,6 +87,8 @@ const NAV_GROUPS: readonly NavGroup[] = [
         countKey: 'generationsActive',
         badgeTone: 'live',
       },
+      // Was reachable only via a dashboard drilldown — no sidebar entry at all.
+      { href: '/admin/quota-blocks', label: 'Quota blocks', icon: <ShieldX className="size-4" /> },
     ],
   },
   {

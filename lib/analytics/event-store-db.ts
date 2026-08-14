@@ -86,7 +86,9 @@ async function readBatch(
       const cur = out.get(row.trend_slug)
       if (!cur) continue
       if (row.type === 'impression') cur.impressions += 1
-      else cur.clicks += 1
+      else if (row.type === 'click_generate') cur.clicks += 1
+      // `quota_blocked` (and any future type) is neither an impression nor a
+      // click — an `else clicks++` here counted every quota block as a click.
     }
   } catch (err: unknown) {
     Sentry.captureException(err, {
@@ -159,7 +161,9 @@ export async function getDailySeriesDb(
       const idx = dateIndex.get(key)
       if (idx === undefined) continue
       if (row.type === 'impression') series[idx].impressions += 1
-      else series[idx].clicks += 1
+      else if (row.type === 'click_generate') series[idx].clicks += 1
+      // `quota_blocked` (and any future type) is neither an impression nor a
+      // click — an `else clicks++` here counted every quota block as a click.
     }
   } catch (err: unknown) {
     Sentry.captureException(err, {
@@ -167,6 +171,61 @@ export async function getDailySeriesDb(
     })
   }
   return series
+}
+
+/**
+ * Per-slug daily series from ONE query.
+ *
+ * `/admin/engagement` previously built this with
+ * `Promise.all(slugs.map((s) => getDailySeries([s], 7)))` — one Supabase
+ * round-trip per trend (N+1). The rows are identical to what a single batched
+ * query returns; only the grouping differed, so the fan-out bought nothing.
+ */
+export async function getDailySeriesBySlugDb(
+  slugs: readonly string[],
+  days: number
+): Promise<Map<string, DailyPoint[]>> {
+  const labels = buildDateLabels(days)
+  const out = new Map<string, DailyPoint[]>()
+  for (const slug of slugs) {
+    out.set(
+      slug,
+      labels.map((l) => ({ ...l, impressions: 0, clicks: 0 }))
+    )
+  }
+  if (slugs.length === 0) return out
+
+  const sinceIso = new Date(Date.now() - days * DAY_MS).toISOString()
+  try {
+    const supabase = createServiceClient()
+    const { data, error } = await supabase
+      .from('trend_events')
+      .select('trend_slug, type, occurred_at')
+      .in('trend_slug', slugs as string[])
+      .gte('occurred_at', sinceIso)
+    if (error) {
+      Sentry.captureMessage('trend_events.daily-series-by-slug failed', {
+        level: 'warning',
+        tags: { component: 'event-store', op: 'dailySeriesBySlug' },
+        extra: { code: error.code, message: error.message },
+      })
+      return out
+    }
+    const dateIndex = new Map(labels.map((l, i) => [l.date, i]))
+    for (const row of (data as EventRow[] | null) ?? []) {
+      const series = out.get(row.trend_slug)
+      if (!series) continue
+      const idx = dateIndex.get(row.occurred_at.slice(0, 10))
+      if (idx === undefined) continue
+      if (row.type === 'impression') series[idx].impressions += 1
+      else if (row.type === 'click_generate') series[idx].clicks += 1
+    }
+  } catch (err: unknown) {
+    Sentry.captureException(err, {
+      tags: { component: 'event-store', op: 'dailySeriesBySlug' },
+    })
+  }
+  return out
 }
 
 function zeroedDailySeries(days: number): { date: string; label: string; count: number }[] {

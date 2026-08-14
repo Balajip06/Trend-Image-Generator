@@ -1,7 +1,9 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { FlashToasts } from '@/components/admin/FlashToasts'
+import { LoadErrorBanner } from '@/components/admin/LoadErrorBanner'
 import { Button } from '@/components/ui/button'
+import { adminRead, adminReadOne } from '@/lib/admin/read'
 import { createServiceClient } from '@/lib/supabase/server'
 import { EvalWorkflow } from './EvalWorkflow'
 import { addEvalInput } from './actions'
@@ -47,30 +49,52 @@ export default async function EvalPage({ params, searchParams }: EvalPageProps) 
   // admins; service-role is the correct read for this admin-only workflow.
   const supabase = createServiceClient()
 
-  const { data: trendRow } = await supabase
-    .from('trends')
-    .select('id, slug, title, model, version, eval_status, is_active')
-    .eq('id', id)
-    .maybeSingle()
+  const { row: trendRow, error: trendError } = await adminReadOne<{
+    id: string
+    slug: string
+    title: string
+    model: string
+    version: number
+    eval_status: 'untested' | 'passed' | 'failed'
+    is_active: boolean
+  }>(
+    'eval.trend',
+    supabase
+      .from('trends')
+      .select('id, slug, title, model, version, eval_status, is_active')
+      .eq('id', id)
+      .maybeSingle()
+  )
+  // A failed read is NOT a missing trend — see the note on the edit page.
+  if (trendError) throw new Error(`Could not load trend: ${trendError}`)
   const trend = trendRow
   if (!trend) notFound()
 
-  const { data: inputRows } = await supabase
-    .from('trend_eval_inputs')
-    .select('id, label, image_url, created_at')
-    .eq('trend_id', id)
-    .order('created_at', { ascending: true })
-  const inputs = (inputRows ?? []).filter(Boolean)
+  const { rows: inputRows, error: inputsError } = await adminRead(
+    'eval.inputs',
+    supabase
+      .from('trend_eval_inputs')
+      .select('id, label, image_url, created_at')
+      .eq('trend_id', id)
+      .order('created_at', { ascending: true })
+  )
+  const inputs = inputRows.filter(Boolean)
 
-  const { data: runRows } = await supabase
-    .from('trend_eval_runs')
-    .select(
-      'id, trend_id, prompt_version, eval_input_id, output_url, admin_rating, model, created_at'
-    )
-    .eq('trend_id', id)
-    .order('created_at', { ascending: false })
-    .limit(inputs.length || 10)
-  const latestRuns = (runRows ?? []).reduce<Record<string, EvalRunRow>>((acc, run) => {
+  const { rows: runRows, error: runsError } = await adminRead(
+    'eval.runs',
+    supabase
+      .from('trend_eval_runs')
+      .select(
+        'id, trend_id, prompt_version, eval_input_id, output_url, admin_rating, model, created_at'
+      )
+      .eq('trend_id', id)
+      .order('created_at', { ascending: false })
+      .limit(inputs.length || 10)
+  )
+  // Eval proof gates go-live; silently showing "no runs" on a failed read
+  // could prompt an admin to re-run evals that already passed.
+  const loadError = inputsError ?? runsError
+  const latestRuns = runRows.reduce<Record<string, EvalRunRow>>((acc, run) => {
     if (!acc[run.eval_input_id]) acc[run.eval_input_id] = run
     return acc
   }, {})
@@ -82,6 +106,7 @@ export default async function EvalPage({ params, searchParams }: EvalPageProps) 
 
   return (
     <section className="flex flex-col gap-6">
+      <LoadErrorBanner error={loadError} label="eval history" />
       <FlashToasts
         flashes={[
           { key: 'error', level: 'error' },

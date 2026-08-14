@@ -8,6 +8,11 @@ vi.mock('next/navigation', () => ({
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 const logAdminAction = vi.fn<(arg: unknown) => Promise<void>>(async () => undefined)
+vi.mock('@/lib/admin/require-role', () => ({
+  requireAdminRole: vi.fn(async () => ({ userId: 'admin-1', role: 'admin' })),
+  checkAdminRole: vi.fn(async () => ({ ok: true, userId: 'admin-1', role: 'admin' })),
+}))
+
 vi.mock('@/lib/admin/audit', () => ({
   logAdminAction: (arg: unknown) => logAdminAction(arg),
 }))
@@ -51,6 +56,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 
 import { recordMarketingSpend } from './actions'
+import { requireAdminRole } from '@/lib/admin/require-role'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 
@@ -135,10 +141,19 @@ describe('recordMarketingSpend — happy path', () => {
     expect(lastUpsertPayload?.usd_spent).toBe(0)
   })
 
-  it('stamps null recorded_by when there is no authed admin', async () => {
-    resetState({ authUser: null })
+  it('stamps the acting admin as recorded_by', async () => {
+    resetState({})
     await expect(recordMarketingSpend(makeForm())).rejects.toThrow(/NEXT_REDIRECT:/)
-    expect(lastUpsertPayload?.recorded_by).toBeNull()
+    expect(lastUpsertPayload?.recorded_by).toBe('admin-1')
+  })
+
+  it('refuses to record spend when the caller is not an admin', async () => {
+    // Previously wrote `recorded_by: null` for an unauthenticated caller,
+    // producing an unattributable spend row that feeds CAC.
+    vi.mocked(requireAdminRole).mockRejectedValueOnce(new Error('NEXT_REDIRECT: /admin/login'))
+    resetState({})
+    await expect(recordMarketingSpend(makeForm())).rejects.toThrow(/NEXT_REDIRECT:/)
+    expect(lastUpsertPayload).toBeNull()
   })
 })
 

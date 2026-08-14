@@ -7,6 +7,11 @@ vi.mock('next/navigation', () => ({
 }))
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
+vi.mock('@/lib/admin/require-role', () => ({
+  requireAdminRole: vi.fn(async () => ({ userId: 'admin-1', role: 'admin' })),
+  checkAdminRole: vi.fn(async () => ({ ok: true, userId: 'admin-1', role: 'admin' })),
+}))
+
 // Default Gemini mock — overridden per test by reassigning mockGenerateImageImpl.
 let mockGenerateImageImpl: (args: unknown) => Promise<unknown> = async () => ({
   ok: true,

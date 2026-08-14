@@ -1,6 +1,9 @@
 import { Coins, Gift, ShieldCheck, Users } from 'lucide-react'
+import { LoadErrorBanner } from '@/components/admin/LoadErrorBanner'
+import { RealtimeRefresh } from '@/components/admin/RealtimeRefresh'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { adminRead } from '@/lib/admin/read'
 import {
   MOCK_REFERRAL_EVENTS,
   MOCK_REFERRERS,
@@ -23,6 +26,8 @@ interface PageData {
   topReferrers: MockReferrer[]
   recentEvents: MockReferralEvent[]
   isMock: boolean
+  /** Set only when the read failed, so the page can distinguish it from empty. */
+  loadError?: string | null
 }
 
 interface ReferralJoinRow {
@@ -47,14 +52,31 @@ async function loadData(): Promise<PageData> {
   // Service client: admins must see ALL referrals; the authed client is bound by
   // `referrals_self_read` and would return only the admin's own referrals.
   const supabase = createServiceClient()
-  const { data: rawRows } = await supabase
-    .from('referrals')
-    .select(
-      'id, status, created_at, rewarded_at, referrer:referrer_id(id, email, referral_code), referred:referred_id(id, email)'
-    )
-    .order('created_at', { ascending: false })
-    .limit(50)
-  const rows = (rawRows as unknown as ReferralJoinRow[] | null) ?? []
+  const read = await adminRead(
+    'referrals.list',
+    supabase
+      .from('referrals')
+      .select(
+        'id, status, created_at, rewarded_at, referrer:referrer_id(id, email, referral_code), referred:referred_id(id, email)'
+      )
+      .order('created_at', { ascending: false })
+      .limit(50)
+  )
+  const loadError = read.error
+  const rows = read.rows as unknown as ReferralJoinRow[]
+
+  // A failed read must NOT fall through to the mock branch below — that would
+  // render fabricated referral figures behind a "demo data" badge and hide the
+  // outage entirely.
+  if (loadError) {
+    return {
+      totals: { total: 0, pending: 0, rewarded: 0, bonusCredited: 0 },
+      topReferrers: [],
+      recentEvents: [],
+      isMock: false,
+      loadError,
+    }
+  }
 
   if (rows.length === 0) {
     if (MOCKS_ALLOWED) {
@@ -142,10 +164,12 @@ function formatRelative(iso: string): string {
 }
 
 export default async function AdminReferralsPage() {
-  const { totals, topReferrers, recentEvents, isMock } = await loadData()
+  const { totals, topReferrers, recentEvents, isMock, loadError } = await loadData()
 
   return (
     <section className="flex flex-col gap-8">
+      <LoadErrorBanner error={loadError} label="referrals" />
+      <RealtimeRefresh tables={['referrals']} debounceMs={2000} />
       <header className="flex flex-col gap-2">
         <p className="text-muted-foreground text-xs font-semibold tracking-[0.2em] uppercase">
           Growth

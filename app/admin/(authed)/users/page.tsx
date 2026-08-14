@@ -145,8 +145,11 @@ export default async function AdminUsersPage({ searchParams }: UsersPageProps) {
               value={formatNumber(counts.wau)}
               delta={<Delta current={counts.wau} previous={counts.priorWau} />}
               tone="text-[var(--brand-cyan)]"
+              // Shared DAU trend line: there is no WAU/MAU series to plot
+              // (getDailyActiveSeries returns daily actives only). The label
+              // says so rather than claiming this is a weekly series.
               series={dauSparkline}
-              ariaLabel="Weekly active users sparkline"
+              ariaLabel="Daily active users trend, last 7 days"
             />
             <KpiCard
               icon={<Activity className="size-4" />}
@@ -154,8 +157,9 @@ export default async function AdminUsersPage({ searchParams }: UsersPageProps) {
               value={formatNumber(counts.mau)}
               delta={<Delta current={counts.mau} previous={counts.priorMau} />}
               tone="text-[var(--brand-violet)]"
+              // Shared DAU trend line — see the WAU card above.
               series={dauSparkline}
-              ariaLabel="Monthly active users sparkline"
+              ariaLabel="Daily active users trend, last 7 days"
             />
           </div>
 
@@ -450,12 +454,20 @@ function FunnelSection({ funnel }: { funnel: FunnelStep[] }) {
         </ul>
       </Card>
 
+      {/*
+        No delta on these three: `getFunnel` returns a single window with no
+        prior-period comparison, so there is nothing honest to compare against.
+        They previously passed `previous={current * 0.92}` (and 0.88 / 0.85),
+        which is the current value scaled by a constant — that always rendered
+        a fixed fake uptick (+8.7% / +13.6% / +17.6%) no matter what the real
+        numbers did. Restore a delta only once getFunnel returns a prior window.
+      */}
       <div className="grid gap-4 sm:grid-cols-3">
         <KpiCard
           icon={<Sparkles className="size-4" />}
           label="Signup → First gen"
           value={formatPct(signupToGen)}
-          delta={<Delta current={signupToGen} previous={signupToGen * 0.92} />}
+          delta={null}
           tone="text-[var(--brand-grad-1)]"
           series={[]}
           ariaLabel="Signup to first generation conversion"
@@ -464,7 +476,7 @@ function FunnelSection({ funnel }: { funnel: FunnelStep[] }) {
           icon={<Crown className="size-4" />}
           label="First gen → Paid"
           value={formatPct(genToPaid)}
-          delta={<Delta current={genToPaid} previous={genToPaid * 0.88} />}
+          delta={null}
           tone="text-[var(--brand-violet)]"
           series={[]}
           ariaLabel="First generation to paid conversion"
@@ -473,7 +485,7 @@ function FunnelSection({ funnel }: { funnel: FunnelStep[] }) {
           icon={<Repeat2 className="size-4" />}
           label="Paid → Repeat"
           value={formatPct(paidToRepeat)}
-          delta={<Delta current={paidToRepeat} previous={paidToRepeat * 0.85} />}
+          delta={null}
           tone="text-[var(--brand-cyan)]"
           series={[]}
           ariaLabel="Paid to repeat purchase conversion"

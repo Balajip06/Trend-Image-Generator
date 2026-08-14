@@ -2,8 +2,16 @@ import { BarChart3, Eye, MousePointerClick, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { BarChart, Delta, Sparkline } from '@/components/admin/Charts'
 import { KpiCard } from '@/components/admin/KpiCard'
+import { LoadErrorBanner } from '@/components/admin/LoadErrorBanner'
+import { RealtimeRefresh } from '@/components/admin/RealtimeRefresh'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { getCountsBatch, getDailySeries, getPeriodTotals } from '@/lib/analytics/event-store'
+import { adminRead } from '@/lib/admin/read'
+import {
+  getCountsBatch,
+  getDailySeries,
+  getDailySeriesBySlug,
+  getPeriodTotals,
+} from '@/lib/analytics/event-store'
 import { createServiceClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -20,20 +28,28 @@ function ctrPct(impressions: number, clicks: number): string {
 export default async function AdminEngagementPage() {
   // Service client so engagement covers every trend, not just RLS-visible active ones.
   const supabase = createServiceClient()
-  const { data: rows } = await supabase
-    .from('trends')
-    .select('id, slug, title, is_active')
-    .order('display_order', { ascending: true })
+  const { rows, error: loadError } = await adminRead<{
+    id: string
+    slug: string
+    title: string
+    is_active: boolean
+  }>(
+    'engagement.trends',
+    supabase.from('trends').select('id, slug, title, is_active').order('display_order', {
+      ascending: true,
+    })
+  )
 
-  const trends = rows ?? []
+  const trends = rows
   const slugs = trends.map((t) => t.slug)
-  const [dailyEngagement, period, perTrend, perTrendSeries] = await Promise.all([
+  const [dailyEngagement, period, perTrend, dailyByTrend] = await Promise.all([
     getDailySeries(slugs, 7),
     getPeriodTotals(slugs, 7),
     getCountsBatch(slugs),
-    Promise.all(slugs.map((slug) => getDailySeries([slug], 7))),
+    // One batched query. Previously `slugs.map((s) => getDailySeries([s], 7))`,
+    // which issued a round-trip per trend for rows the first call already read.
+    getDailySeriesBySlug(slugs, 7),
   ])
-  const dailyByTrend = new Map(slugs.map((slug, i) => [slug, perTrendSeries[i] ?? []]))
 
   const ctrCurrent =
     period.current.impressions === 0
@@ -56,10 +72,16 @@ export default async function AdminEngagementPage() {
         series,
       }
     })
-    .sort((a, b) => b.impressions - a.impressions)
+    // Slug is the tiebreak: impressions alone is unstable (ties are common at
+    // zero), so rows visibly reshuffled between renders.
+    .sort((a, b) => b.impressions - a.impressions || a.slug.localeCompare(b.slug))
 
   return (
     <section className="flex flex-col gap-8">
+      <LoadErrorBanner error={loadError} label="trends" />
+      {/* Engagement aggregates trend_events across every trend — keep the
+          debounce generous so an impression burst causes one refetch. */}
+      <RealtimeRefresh tables={['trend_events', 'trends']} debounceMs={5000} />
       <header className="flex flex-col gap-2">
         <p className="text-muted-foreground text-xs font-semibold tracking-[0.2em] uppercase">
           Growth

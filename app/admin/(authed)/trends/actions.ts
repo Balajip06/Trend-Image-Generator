@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { logAdminAction } from '@/lib/admin/audit'
+import { checkAdminRole, requireAdminRole } from '@/lib/admin/require-role'
 import {
   DEFAULT_TREND_INPUT,
   FAQSchema,
@@ -13,22 +14,26 @@ import {
   type FAQ,
   type TrendInput,
 } from '@/lib/trends/input-schema'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/database.types'
 
 /**
- * Resolve the acting admin's id for the audit trail. Trend writes run on the
- * service client (the `trends` table has RLS enabled with read-only public
- * policies and no admin write policy, so the authed client cannot write), but
- * the audit log still needs the real actor — read it from the authed session.
- * /admin is gated to admins upstream in proxy.ts.
+ * Authorize the caller AND resolve the acting admin's id for the audit trail.
+ *
+ * Trend writes run on the service client (the `trends` table has RLS enabled
+ * with read-only public policies and no admin write policy), so RLS provides no
+ * defence here — this guard is the only in-process authorization. It replaces a
+ * previous `adminActorId()` helper that read the session purely to stamp the
+ * audit row and relied on proxy.ts alone to gate access; that gate has a
+ * documented `MOCK_TRENDS=true` bypass, so a single misconfiguration exposed
+ * every trend mutation.
+ *
+ * Redirects on denial, which is correct for the redirect-style actions in this
+ * file. `uploadTrendImage` returns a typed result and uses `checkAdminRole`.
  */
-async function adminActorId(): Promise<string | null> {
-  const authed = await createClient()
-  const {
-    data: { user },
-  } = await authed.auth.getUser()
-  return user?.id ?? null
+async function adminActorId(): Promise<string> {
+  const { userId } = await requireAdminRole('editor')
+  return userId
 }
 
 const TrendUpsertSchema = z.object({
@@ -111,6 +116,9 @@ function datetimeLocalToIso(v: FormDataEntryValue | null): string | null {
 // naive check and, served from the same origin as `outputs`, execute as
 // stored XSS). Sniffing the real bytes and hard-rejecting SVG/HTML-capable
 // types closes that off without pulling in a library for 4 signatures.
+/** Trend art is display-sized; 10MB is generous and bounds the public bucket. */
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
 const IMAGE_SIGNATURES: Array<{ mime: string; ext: string; magic: number[] }> = [
   { mime: 'image/jpeg', ext: '.jpg', magic: [0xff, 0xd8, 0xff] },
   { mime: 'image/png', ext: '.png', magic: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
@@ -142,9 +150,22 @@ function sniffImageType(bytes: Uint8Array): { mime: string; ext: string } | null
 export async function uploadTrendImage(
   formData: FormData
 ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  // This action had NO authorization: it writes to the public `outputs` bucket
+  // with the service client, so anyone able to reach it could upload
+  // arbitrarily many files. Non-redirecting guard because the caller is a
+  // client component expecting a typed result, not a redirect.
+  const auth = await checkAdminRole('editor')
+  if (!auth.ok) return { ok: false, error: 'Not authorized.' }
+
   const file = formData.get('file')
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, error: 'No file provided.' }
+  }
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return {
+      ok: false,
+      error: `Image must be under ${Math.floor(MAX_UPLOAD_BYTES / 1024 / 1024)}MB.`,
+    }
   }
 
   const head = new Uint8Array(await file.slice(0, 16).arrayBuffer())
@@ -216,6 +237,7 @@ function readTrendForm(formData: FormData): z.infer<typeof TrendUpsertSchema> {
 }
 
 export async function createTrend(formData: FormData): Promise<void> {
+  await requireAdminRole('editor')
   const supabase = createServiceClient()
   let data
   try {
@@ -258,6 +280,9 @@ export async function createTrend(formData: FormData): Promise<void> {
 }
 
 export async function updateTrend(id: string, formData: FormData): Promise<void> {
+  // Guard BEFORE the write. `adminActorId()` below also authorizes, but it runs
+  // after the mutation — too late to be a gate.
+  await requireAdminRole('editor')
   const supabase = createServiceClient()
   let data
   try {
@@ -321,6 +346,7 @@ interface SourceTrendForClone {
  * future analytics + the audit trail.
  */
 export async function cloneTrend(formData: FormData): Promise<void> {
+  await requireAdminRole('editor')
   const idParse = IdSchema.safeParse(formData.get('id'))
   if (!idParse.success) {
     redirect('/admin/trends?error=invalid_id')
@@ -417,6 +443,7 @@ const ToggleFeaturedSchema = z.object({
 })
 
 export async function toggleFeatured(formData: FormData): Promise<void> {
+  await requireAdminRole('editor')
   const parsed = ToggleFeaturedSchema.safeParse({
     id: formData.get('id'),
     featured: formData.get('featured'),
@@ -455,6 +482,7 @@ const BumpOrderSchema = z.object({
  * failure of the second, we attempt a best-effort revert. Audit-logged.
  */
 export async function bumpOrder(formData: FormData): Promise<void> {
+  await requireAdminRole('editor')
   const parsed = BumpOrderSchema.safeParse({
     id: formData.get('id'),
     direction: formData.get('direction'),
@@ -533,7 +561,13 @@ export async function toggleActive(
   nextValue: boolean,
   returnPath?: string
 ): Promise<void> {
-  const base = returnPath ?? `/admin/trends/${id}/edit`
+  await requireAdminRole('editor')
+  // `returnPath` is interpolated into redirect() below. Every current caller
+  // passes a literal, but constrain it to an internal /admin path so it can
+  // never become an open redirect if a caller ever forwards user input.
+  const safeReturn =
+    returnPath && /^\/admin(\/|$)/.test(returnPath) ? returnPath : `/admin/trends/${id}/edit`
+  const base = safeReturn
   const supabase = createServiceClient()
   const update = { is_active: nextValue }
   const { error } = await supabase.from('trends').update(update).eq('id', id)

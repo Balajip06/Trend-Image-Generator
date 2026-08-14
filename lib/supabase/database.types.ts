@@ -1,11 +1,12 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: '14.5'
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -77,8 +78,8 @@ export type Database = {
           id: string
           kimp_client_id: string | null
           model_used: string | null
-          status: Database['public']['Enums']['generation_status']
-          tier: Database['public']['Enums']['generation_tier'] | null
+          status: Database["public"]["Enums"]["generation_status"]
+          tier: Database["public"]["Enums"]["generation_tier"] | null
           trend_id: string | null
           trend_slug: string | null
           updated_at: string
@@ -94,8 +95,8 @@ export type Database = {
           id: string
           kimp_client_id?: string | null
           model_used?: string | null
-          status: Database['public']['Enums']['generation_status']
-          tier?: Database['public']['Enums']['generation_tier'] | null
+          status: Database["public"]["Enums"]["generation_status"]
+          tier?: Database["public"]["Enums"]["generation_tier"] | null
           trend_id?: string | null
           trend_slug?: string | null
           updated_at?: string
@@ -111,8 +112,8 @@ export type Database = {
           id?: string
           kimp_client_id?: string | null
           model_used?: string | null
-          status?: Database['public']['Enums']['generation_status']
-          tier?: Database['public']['Enums']['generation_tier'] | null
+          status?: Database["public"]["Enums"]["generation_status"]
+          tier?: Database["public"]["Enums"]["generation_tier"] | null
           trend_id?: string | null
           trend_slug?: string | null
           updated_at?: string
@@ -120,11 +121,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'admin_generations_feed_generation_id_fkey'
-            columns: ['generation_id']
+            foreignKeyName: "admin_generations_feed_generation_id_fkey"
+            columns: ["generation_id"]
             isOneToOne: true
-            referencedRelation: 'generations'
-            referencedColumns: ['id']
+            referencedRelation: "generations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -158,28 +159,28 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'admin_marketing_spend_recorded_by_fkey'
-            columns: ['recorded_by']
+            foreignKeyName: "admin_marketing_spend_recorded_by_fkey"
+            columns: ["recorded_by"]
             isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
         ]
       }
       admin_users: {
         Row: {
           created_at: string
-          role: Database['public']['Enums']['admin_role']
+          role: Database["public"]["Enums"]["admin_role"]
           user_id: string
         }
         Insert: {
           created_at?: string
-          role?: Database['public']['Enums']['admin_role']
+          role?: Database["public"]["Enums"]["admin_role"]
           user_id: string
         }
         Update: {
           created_at?: string
-          role?: Database['public']['Enums']['admin_role']
+          role?: Database["public"]["Enums"]["admin_role"]
           user_id?: string
         }
         Relationships: []
@@ -189,45 +190,54 @@ export type Database = {
           completed_at: string | null
           cost_usd: number
           created_at: string
+          error_message: string | null
           expires_at: string
           fingerprint_hash: string
           id: string
+          input_payload: Json | null
           ip_hash: string
+          model_key: string | null
           output_image_url: string | null
-          status: Database['public']['Enums']['generation_status']
+          status: Database["public"]["Enums"]["generation_status"]
           trend_id: string
         }
         Insert: {
           completed_at?: string | null
           cost_usd?: number
           created_at?: string
+          error_message?: string | null
           expires_at?: string
           fingerprint_hash: string
           id?: string
+          input_payload?: Json | null
           ip_hash: string
+          model_key?: string | null
           output_image_url?: string | null
-          status?: Database['public']['Enums']['generation_status']
+          status?: Database["public"]["Enums"]["generation_status"]
           trend_id: string
         }
         Update: {
           completed_at?: string | null
           cost_usd?: number
           created_at?: string
+          error_message?: string | null
           expires_at?: string
           fingerprint_hash?: string
           id?: string
+          input_payload?: Json | null
           ip_hash?: string
+          model_key?: string | null
           output_image_url?: string | null
-          status?: Database['public']['Enums']['generation_status']
+          status?: Database["public"]["Enums"]["generation_status"]
           trend_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: 'anonymous_attempts_trend_id_fkey'
-            columns: ['trend_id']
+            foreignKeyName: "anonymous_attempts_trend_id_fkey"
+            columns: ["trend_id"]
             isOneToOne: false
-            referencedRelation: 'trends'
-            referencedColumns: ['id']
+            referencedRelation: "trends"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -236,19 +246,37 @@ export type Database = {
           key: string
           updated_at: string
           updated_by: string | null
-          value: Json
+          value: Json | null
         }
         Insert: {
           key: string
           updated_at?: string
           updated_by?: string | null
-          value: Json
+          value?: Json | null
         }
         Update: {
           key?: string
           updated_at?: string
           updated_by?: string | null
-          value?: Json
+          value?: Json | null
+        }
+        Relationships: []
+      }
+      e2e_log: {
+        Row: {
+          id: number
+          rec_id: string | null
+          tbl: string | null
+        }
+        Insert: {
+          id?: number
+          rec_id?: string | null
+          tbl?: string | null
+        }
+        Update: {
+          id?: number
+          rec_id?: string | null
+          tbl?: string | null
         }
         Relationships: []
       }
@@ -266,13 +294,14 @@ export type Database = {
           is_favorite: boolean
           is_public: boolean
           kimp_client_id: string | null
+          model_key: string | null
           model_used: string | null
           monthly_cycle_reset_at: string | null
           output_image_url: string | null
           purge_at: string | null
           share_count: number
-          status: Database['public']['Enums']['generation_status']
-          tier_at_generation: Database['public']['Enums']['generation_tier']
+          status: Database["public"]["Enums"]["generation_status"]
+          tier_at_generation: Database["public"]["Enums"]["generation_tier"]
           trend_id: string
           trend_version: number
           user_id: string
@@ -290,13 +319,14 @@ export type Database = {
           is_favorite?: boolean
           is_public?: boolean
           kimp_client_id?: string | null
+          model_key?: string | null
           model_used?: string | null
           monthly_cycle_reset_at?: string | null
           output_image_url?: string | null
           purge_at?: string | null
           share_count?: number
-          status?: Database['public']['Enums']['generation_status']
-          tier_at_generation: Database['public']['Enums']['generation_tier']
+          status?: Database["public"]["Enums"]["generation_status"]
+          tier_at_generation: Database["public"]["Enums"]["generation_tier"]
           trend_id: string
           trend_version: number
           user_id: string
@@ -314,31 +344,32 @@ export type Database = {
           is_favorite?: boolean
           is_public?: boolean
           kimp_client_id?: string | null
+          model_key?: string | null
           model_used?: string | null
           monthly_cycle_reset_at?: string | null
           output_image_url?: string | null
           purge_at?: string | null
           share_count?: number
-          status?: Database['public']['Enums']['generation_status']
-          tier_at_generation?: Database['public']['Enums']['generation_tier']
+          status?: Database["public"]["Enums"]["generation_status"]
+          tier_at_generation?: Database["public"]["Enums"]["generation_tier"]
           trend_id?: string
           trend_version?: number
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: 'generations_trend_id_fkey'
-            columns: ['trend_id']
+            foreignKeyName: "generations_trend_id_fkey"
+            columns: ["trend_id"]
             isOneToOne: false
-            referencedRelation: 'trends'
-            referencedColumns: ['id']
+            referencedRelation: "trends"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'generations_user_id_fkey'
-            columns: ['user_id']
+            foreignKeyName: "generations_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -408,11 +439,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'kimp_verifications_user_id_fkey'
-            columns: ['user_id']
+            foreignKeyName: "kimp_verifications_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -440,11 +471,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'monthly_credit_grants_user_id_fkey'
-            columns: ['user_id']
+            foreignKeyName: "monthly_credit_grants_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -464,7 +495,7 @@ export type Database = {
           id: string
           is_vip: boolean
           kimp_client_id: string | null
-          kimp_client_status: Database['public']['Enums']['kimp_client_status']
+          kimp_client_status: Database["public"]["Enums"]["kimp_client_status"]
           kimp_linked_at: string | null
           kimp_subject_id: string | null
           kimp_unlimited: boolean
@@ -497,7 +528,7 @@ export type Database = {
           id: string
           is_vip?: boolean
           kimp_client_id?: string | null
-          kimp_client_status?: Database['public']['Enums']['kimp_client_status']
+          kimp_client_status?: Database["public"]["Enums"]["kimp_client_status"]
           kimp_linked_at?: string | null
           kimp_subject_id?: string | null
           kimp_unlimited?: boolean
@@ -530,7 +561,7 @@ export type Database = {
           id?: string
           is_vip?: boolean
           kimp_client_id?: string | null
-          kimp_client_status?: Database['public']['Enums']['kimp_client_status']
+          kimp_client_status?: Database["public"]["Enums"]["kimp_client_status"]
           kimp_linked_at?: string | null
           kimp_subject_id?: string | null
           kimp_unlimited?: boolean
@@ -550,18 +581,57 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'profiles_referred_by_fkey'
-            columns: ['referred_by']
+            foreignKeyName: "profiles_referred_by_fkey"
+            columns: ["referred_by"]
             isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'profiles_vip_granted_by_fkey'
-            columns: ['vip_granted_by']
+            foreignKeyName: "profiles_vip_granted_by_fkey"
+            columns: ["vip_granted_by"]
             isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_rewards: {
+        Row: {
+          id: string
+          referee_email_hash: string
+          referrer_id: string | null
+          rewarded_at: string
+          source_referral_id: string | null
+        }
+        Insert: {
+          id?: string
+          referee_email_hash: string
+          referrer_id?: string | null
+          rewarded_at?: string
+          source_referral_id?: string | null
+        }
+        Update: {
+          id?: string
+          referee_email_hash?: string
+          referrer_id?: string | null
+          rewarded_at?: string
+          source_referral_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_rewards_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_rewards_source_referral_id_fkey"
+            columns: ["source_referral_id"]
+            isOneToOne: false
+            referencedRelation: "referrals"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -572,7 +642,7 @@ export type Database = {
           referred_id: string
           referrer_id: string
           rewarded_at: string | null
-          status: Database['public']['Enums']['referral_status']
+          status: Database["public"]["Enums"]["referral_status"]
         }
         Insert: {
           created_at?: string
@@ -580,7 +650,7 @@ export type Database = {
           referred_id: string
           referrer_id: string
           rewarded_at?: string | null
-          status?: Database['public']['Enums']['referral_status']
+          status?: Database["public"]["Enums"]["referral_status"]
         }
         Update: {
           created_at?: string
@@ -588,22 +658,22 @@ export type Database = {
           referred_id?: string
           referrer_id?: string
           rewarded_at?: string | null
-          status?: Database['public']['Enums']['referral_status']
+          status?: Database["public"]["Enums"]["referral_status"]
         }
         Relationships: [
           {
-            foreignKeyName: 'referrals_referred_id_fkey'
-            columns: ['referred_id']
+            foreignKeyName: "referrals_referred_id_fkey"
+            columns: ["referred_id"]
             isOneToOne: true
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'referrals_referrer_id_fkey'
-            columns: ['referrer_id']
+            foreignKeyName: "referrals_referrer_id_fkey"
+            columns: ["referrer_id"]
             isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -615,8 +685,8 @@ export type Database = {
           current_period_start: string | null
           id: string
           monthly_credit_allotment: number
-          plan: Database['public']['Enums']['subscription_plan']
-          status: Database['public']['Enums']['subscription_status']
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          status: Database["public"]["Enums"]["subscription_status"]
           stripe_customer_id: string | null
           stripe_subscription_id: string
           updated_at: string
@@ -629,8 +699,8 @@ export type Database = {
           current_period_start?: string | null
           id?: string
           monthly_credit_allotment: number
-          plan: Database['public']['Enums']['subscription_plan']
-          status: Database['public']['Enums']['subscription_status']
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          status: Database["public"]["Enums"]["subscription_status"]
           stripe_customer_id?: string | null
           stripe_subscription_id: string
           updated_at?: string
@@ -643,8 +713,8 @@ export type Database = {
           current_period_start?: string | null
           id?: string
           monthly_credit_allotment?: number
-          plan?: Database['public']['Enums']['subscription_plan']
-          status?: Database['public']['Enums']['subscription_status']
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          status?: Database["public"]["Enums"]["subscription_status"]
           stripe_customer_id?: string | null
           stripe_subscription_id?: string
           updated_at?: string
@@ -652,11 +722,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'subscriptions_user_id_fkey'
-            columns: ['user_id']
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: 'profiles'
-            referencedColumns: ['id']
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -687,17 +757,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'trend_eval_inputs_trend_id_fkey'
-            columns: ['trend_id']
+            foreignKeyName: "trend_eval_inputs_trend_id_fkey"
+            columns: ["trend_id"]
             isOneToOne: false
-            referencedRelation: 'trends'
-            referencedColumns: ['id']
+            referencedRelation: "trends"
+            referencedColumns: ["id"]
           },
         ]
       }
       trend_eval_runs: {
         Row: {
           admin_rating: string | null
+          cost_usd: number
           created_at: string
           eval_input_id: string
           id: string
@@ -709,6 +780,7 @@ export type Database = {
         }
         Insert: {
           admin_rating?: string | null
+          cost_usd?: number
           created_at?: string
           eval_input_id: string
           id?: string
@@ -720,6 +792,7 @@ export type Database = {
         }
         Update: {
           admin_rating?: string | null
+          cost_usd?: number
           created_at?: string
           eval_input_id?: string
           id?: string
@@ -731,18 +804,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'trend_eval_runs_eval_input_id_fkey'
-            columns: ['eval_input_id']
+            foreignKeyName: "trend_eval_runs_eval_input_id_fkey"
+            columns: ["eval_input_id"]
             isOneToOne: false
-            referencedRelation: 'trend_eval_inputs'
-            referencedColumns: ['id']
+            referencedRelation: "trend_eval_inputs"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: 'trend_eval_runs_trend_id_fkey'
-            columns: ['trend_id']
+            foreignKeyName: "trend_eval_runs_trend_id_fkey"
+            columns: ["trend_id"]
             isOneToOne: false
-            referencedRelation: 'trends'
-            referencedColumns: ['id']
+            referencedRelation: "trends"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -774,8 +847,8 @@ export type Database = {
           payload: Json
           reviewed_at: string | null
           reviewed_by: string | null
-          source: Database['public']['Enums']['suggestion_source']
-          status: Database['public']['Enums']['suggestion_status']
+          source: Database["public"]["Enums"]["suggestion_source"]
+          status: Database["public"]["Enums"]["suggestion_status"]
         }
         Insert: {
           created_at?: string
@@ -783,8 +856,8 @@ export type Database = {
           payload: Json
           reviewed_at?: string | null
           reviewed_by?: string | null
-          source: Database['public']['Enums']['suggestion_source']
-          status?: Database['public']['Enums']['suggestion_status']
+          source: Database["public"]["Enums"]["suggestion_source"]
+          status?: Database["public"]["Enums"]["suggestion_status"]
         }
         Update: {
           created_at?: string
@@ -792,15 +865,15 @@ export type Database = {
           payload?: Json
           reviewed_at?: string | null
           reviewed_by?: string | null
-          source?: Database['public']['Enums']['suggestion_source']
-          status?: Database['public']['Enums']['suggestion_status']
+          source?: Database["public"]["Enums"]["suggestion_source"]
+          status?: Database["public"]["Enums"]["suggestion_status"]
         }
         Relationships: []
       }
       trends: {
         Row: {
           activated_at: string | null
-          aspect_ratio: Database['public']['Enums']['trend_aspect_ratio']
+          aspect_ratio: Database["public"]["Enums"]["trend_aspect_ratio"]
           auto_deactivate_disabled: boolean
           auto_deactivate_threshold: number
           cloned_from: string | null
@@ -808,7 +881,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           display_order: number
-          eval_status: Database['public']['Enums']['eval_status']
+          eval_status: Database["public"]["Enums"]["eval_status"]
           expires_at: string | null
           faq: Json
           goes_live_at: string | null
@@ -816,7 +889,7 @@ export type Database = {
           input_schema: Json
           is_active: boolean
           is_featured: boolean
-          model: Database['public']['Enums']['trend_model']
+          model: Database["public"]["Enums"]["trend_model"]
           model_pinned: boolean
           prompt_template: string
           prompt_template_history: Json
@@ -834,7 +907,7 @@ export type Database = {
         }
         Insert: {
           activated_at?: string | null
-          aspect_ratio?: Database['public']['Enums']['trend_aspect_ratio']
+          aspect_ratio?: Database["public"]["Enums"]["trend_aspect_ratio"]
           auto_deactivate_disabled?: boolean
           auto_deactivate_threshold?: number
           cloned_from?: string | null
@@ -842,7 +915,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           display_order?: number
-          eval_status?: Database['public']['Enums']['eval_status']
+          eval_status?: Database["public"]["Enums"]["eval_status"]
           expires_at?: string | null
           faq?: Json
           goes_live_at?: string | null
@@ -850,7 +923,7 @@ export type Database = {
           input_schema?: Json
           is_active?: boolean
           is_featured?: boolean
-          model?: Database['public']['Enums']['trend_model']
+          model?: Database["public"]["Enums"]["trend_model"]
           model_pinned?: boolean
           prompt_template: string
           prompt_template_history?: Json
@@ -868,7 +941,7 @@ export type Database = {
         }
         Update: {
           activated_at?: string | null
-          aspect_ratio?: Database['public']['Enums']['trend_aspect_ratio']
+          aspect_ratio?: Database["public"]["Enums"]["trend_aspect_ratio"]
           auto_deactivate_disabled?: boolean
           auto_deactivate_threshold?: number
           cloned_from?: string | null
@@ -876,7 +949,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           display_order?: number
-          eval_status?: Database['public']['Enums']['eval_status']
+          eval_status?: Database["public"]["Enums"]["eval_status"]
           expires_at?: string | null
           faq?: Json
           goes_live_at?: string | null
@@ -884,7 +957,7 @@ export type Database = {
           input_schema?: Json
           is_active?: boolean
           is_featured?: boolean
-          model?: Database['public']['Enums']['trend_model']
+          model?: Database["public"]["Enums"]["trend_model"]
           model_pinned?: boolean
           prompt_template?: string
           prompt_template_history?: Json
@@ -902,11 +975,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: 'trends_cloned_from_fkey'
-            columns: ['cloned_from']
+            foreignKeyName: "trends_cloned_from_fkey"
+            columns: ["cloned_from"]
             isOneToOne: false
-            referencedRelation: 'trends'
-            referencedColumns: ['id']
+            referencedRelation: "trends"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -953,6 +1026,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      email_to_hash: { Args: { p_email: string }; Returns: string }
       grant_credits: {
         Args: {
           p_amount: number
@@ -981,22 +1055,44 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      model_spend_usd: {
+        Args: { p_model: string }
+        Returns: {
+          daily_usd: number
+          monthly_usd: number
+        }[]
+      }
+      purge_expired_anonymous: { Args: never; Returns: undefined }
+      purge_expired_generations: { Args: never; Returns: undefined }
+      purge_soft_deleted_profiles: { Args: never; Returns: undefined }
+      reset_free_weekly: { Args: never; Returns: undefined }
+      sweep_stale_pending_generations: { Args: never; Returns: undefined }
       trend_discovery_heartbeat: { Args: never; Returns: undefined }
       zero_monthly_credits: { Args: { p_user_id: string }; Returns: undefined }
     }
     Enums: {
-      admin_role: 'admin' | 'editor'
-      eval_status: 'untested' | 'passed' | 'failed'
-      generation_status: 'pending' | 'processing' | 'completed' | 'failed' | 'failed_retryable'
-      generation_tier: 'free' | 'credit' | 'vip' | 'monthly' | 'kimp'
-      kimp_client_status: 'active' | 'inactive' | 'unverified'
-      referral_status: 'pending' | 'rewarded'
-      subscription_plan: 'starter50' | 'pro200' | 'studio600'
-      subscription_status: 'active' | 'past_due' | 'canceled' | 'incomplete' | 'trialing'
-      suggestion_source: 'auto' | 'user'
-      suggestion_status: 'pending' | 'approved' | 'rejected'
-      trend_aspect_ratio: '1:1' | '3:4' | '16:9' | '9:16'
-      trend_model: 'nano-banana-2' | 'nano-banana-2-lite' | 'gpt-image-2'
+      admin_role: "admin" | "editor"
+      eval_status: "untested" | "passed" | "failed"
+      generation_status:
+        | "pending"
+        | "processing"
+        | "completed"
+        | "failed"
+        | "failed_retryable"
+      generation_tier: "free" | "credit" | "vip" | "monthly" | "kimp"
+      kimp_client_status: "active" | "inactive" | "unverified"
+      referral_status: "pending" | "rewarded"
+      subscription_plan: "starter50" | "pro200" | "studio600"
+      subscription_status:
+        | "active"
+        | "past_due"
+        | "canceled"
+        | "incomplete"
+        | "trialing"
+      suggestion_source: "auto" | "user"
+      suggestion_status: "pending" | "approved" | "rejected"
+      trend_aspect_ratio: "1:1" | "3:4" | "16:9" | "9:16"
+      trend_model: "nano-banana-2" | "nano-banana-2-lite" | "gpt-image-2"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1004,31 +1100,33 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
-    ? (DefaultSchema['Tables'] & DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -1037,23 +1135,23 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema['Tables']
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -1062,23 +1160,23 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema['Tables']
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
-    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -1087,36 +1185,36 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema['Enums']
+    | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
-    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema['CompositeTypes']
+    | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
-    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {
@@ -1125,18 +1223,31 @@ export const Constants = {
   },
   public: {
     Enums: {
-      admin_role: ['admin', 'editor'],
-      eval_status: ['untested', 'passed', 'failed'],
-      generation_status: ['pending', 'processing', 'completed', 'failed', 'failed_retryable'],
-      generation_tier: ['free', 'credit', 'vip', 'monthly', 'kimp'],
-      kimp_client_status: ['active', 'inactive', 'unverified'],
-      referral_status: ['pending', 'rewarded'],
-      subscription_plan: ['starter50', 'pro200', 'studio600'],
-      subscription_status: ['active', 'past_due', 'canceled', 'incomplete', 'trialing'],
-      suggestion_source: ['auto', 'user'],
-      suggestion_status: ['pending', 'approved', 'rejected'],
-      trend_aspect_ratio: ['1:1', '3:4', '16:9', '9:16'],
-      trend_model: ['nano-banana-2', 'nano-banana-2-lite', 'gpt-image-2'],
+      admin_role: ["admin", "editor"],
+      eval_status: ["untested", "passed", "failed"],
+      generation_status: [
+        "pending",
+        "processing",
+        "completed",
+        "failed",
+        "failed_retryable",
+      ],
+      generation_tier: ["free", "credit", "vip", "monthly", "kimp"],
+      kimp_client_status: ["active", "inactive", "unverified"],
+      referral_status: ["pending", "rewarded"],
+      subscription_plan: ["starter50", "pro200", "studio600"],
+      subscription_status: [
+        "active",
+        "past_due",
+        "canceled",
+        "incomplete",
+        "trialing",
+      ],
+      suggestion_source: ["auto", "user"],
+      suggestion_status: ["pending", "approved", "rejected"],
+      trend_aspect_ratio: ["1:1", "3:4", "16:9", "9:16"],
+      trend_model: ["nano-banana-2", "nano-banana-2-lite", "gpt-image-2"],
     },
   },
 } as const
+

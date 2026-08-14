@@ -18,6 +18,13 @@
 // @ts-expect-error Deno-only import; not resolved by Node typecheck.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+// Pricing comes from the GENERATED copy of lib/pricing/models.ts. Both tables
+// used to be maintained by hand behind "keep in sync" comments, and only this
+// one is on the customer path — so drift silently made margins and cost limits
+// disagree with what was actually charged. Regenerate with `pnpm sync:pricing`;
+// lib/pricing/pricing-sync.test.ts fails CI on drift.
+import { COST_USD } from './pricing.generated.ts'
+
 // Supabase auto-injects the platform secret key as SUPABASE_SECRET_KEYS, a
 // JSON object ({"default": "sb_secret_..."}), replacing the legacy
 // SUPABASE_SERVICE_ROLE_KEY JWT var now that legacy keys are disabled on this
@@ -120,6 +127,20 @@ interface TrendRow {
   version: number
 }
 
+/**
+ * Anonymous trial row. Narrower than GenerationRow: no user, no quota, no
+ * retries — one shot per fingerprint+IP, lifetime.
+ */
+interface AnonymousAttemptRow {
+  id: string
+  trend_id: string
+  input_payload: {
+    values: Record<string, string | string[]>
+    image_urls?: string[]
+  } | null
+  status: GenerationStatus
+}
+
 interface WebhookPayload {
   type: 'INSERT' | 'UPDATE' | 'DELETE'
   table: string
@@ -135,15 +156,14 @@ const MAX_ATTEMPTS = 3
 // a hard 150s wall-clock ceiling, so 130s here + 140s wall leaves 10s margin.
 const GEMINI_TIMEOUT_MS = 130_000
 const WALL_TIMEOUT_MS = 140_000
+/**
+ * Don't start a fallback attempt with less than this much wall clock left —
+ * it cannot finish, and being killed mid-call strands the row in `processing`
+ * with no terminal write and no quota refund. Returning the primary failure
+ * instead lets the normal retry/refund path run.
+ */
+const MIN_FALLBACK_BUDGET_MS = 20_000
 
-// See also: lib/gemini/cost.ts COST_USD_PER_IMAGE (Node copy — keep in sync)
-// gpt-image rate is a PLACEHOLDER carried over from gpt-image-1 pricing, not
-// confirmed for gpt-image-2 (now the default) — likely an underestimate.
-const COST_USD: Record<EdgeImageModel, number> = {
-  'nano-banana-2': 0.0039,
-  'nano-banana-2-lite': 0.002,
-  'gpt-image-2': 0.04,
-}
 
 // Gemini model IDs — not used for OpenAI
 const GEMINI_MODEL_ID: Record<'nano-banana-2' | 'nano-banana-2-lite', string> = {
@@ -178,7 +198,13 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'invalid json' }, 400)
   }
 
-  if (payload.type !== 'INSERT' || payload.table !== 'generations') {
+  // Two row shapes reach this function: authenticated `generations` and
+  // anonymous `anonymous_attempts` (dispatched by the trigger added in
+  // migration 20260814000004). They share the provider call and the cost gate
+  // but differ in columns and completion handling, so they are processed by
+  // separate functions rather than one branching path.
+  const isAnonymous = payload.table === 'anonymous_attempts'
+  if (payload.type !== 'INSERT' || (payload.table !== 'generations' && !isAnonymous)) {
     return jsonResponse({ ignored: true })
   }
 
@@ -186,23 +212,46 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false },
   })
 
-  const wallTimer = setTimeout(() => {
-    // No-op; consumed by individual fetch AbortControllers.
-  }, WALL_TIMEOUT_MS)
+  // Absolute deadline for this invocation, threaded down to every provider
+  // call. The previous implementation set a timer whose callback was a no-op
+  // and which nothing read — so the "wall clock" it claimed to enforce did not
+  // exist. With a per-call budget of GEMINI_TIMEOUT_MS (130s), a primary
+  // timeout followed by a fallback attempt totalled 260s against Supabase's
+  // hard 150s ceiling: the invocation was killed mid-call, leaving the row
+  // stuck in `processing` with no terminal write and no quota refund.
+  const deadlineMs = Date.now() + WALL_TIMEOUT_MS
 
   try {
-    await process(supabase, payload.record)
+    if (isAnonymous) {
+      await processAnonymous(
+        supabase,
+        payload.record as unknown as AnonymousAttemptRow,
+        deadlineMs
+      )
+    } else {
+      await process(supabase, payload.record, deadlineMs)
+    }
     return jsonResponse({ ok: true })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'unknown'
     await reportToSentry(err, { generation_id: payload.record?.id })
     return jsonResponse({ error: message }, 500)
-  } finally {
-    clearTimeout(wallTimer)
   }
 })
 
-async function process(supabase: ReturnType<typeof createClient>, gen: GenerationRow) {
+/**
+ * Milliseconds left before the invocation must return, floored at 0.
+ * Providers use this so a retry can never outlive the platform wall clock.
+ */
+function remainingMs(deadlineMs: number): number {
+  return Math.max(0, deadlineMs - Date.now())
+}
+
+async function process(
+  supabase: ReturnType<typeof createClient>,
+  gen: GenerationRow,
+  deadlineMs: number
+) {
   // 1. Claim the row by transitioning pending -> processing.
   //    Conditional update prevents double-processing if Supabase retries the webhook.
   const { data: claimed, error: claimError } = await supabase
@@ -228,13 +277,28 @@ async function process(supabase: ReturnType<typeof createClient>, gen: Generatio
     return
   }
 
-  // 3. Build prompt + collect image URLs.
+  // 3. Cost gate — the authoritative one.
+  //
+  // This is the only place that knows the model AND sits before the spend.
+  // /api/generate never calls a provider (a DB trigger dispatches here), so a
+  // check there is advisory only; anything that reaches this function must be
+  // gated here or it is not gated at all.
+  //
+  // Failing terminally routes through refund_quota_on_failure, so the user's
+  // quota is returned rather than being consumed by a call we refused to make.
+  const gate = await checkCostLimit(supabase, trendData.model)
+  if (!gate.allowed) {
+    await terminalFail(supabase, gen, `cost_limit: ${gate.reason}`)
+    return
+  }
+
+  // 4. Build prompt + collect image URLs.
   const prompt = interpolate(trendData.prompt_template, gen.input_payload.values) + REALISM_SUFFIX
   const imageUrls =
     gen.input_payload.image_urls ?? collectImagesFromValues(gen.input_payload.values)
 
-  // 4. Call provider (Gemini or OpenAI depending on model).
-  const result = await callProvider(trendData.model, prompt, imageUrls)
+  // 5. Call provider (Gemini or OpenAI depending on model).
+  const result = await callProvider(trendData.model, prompt, imageUrls, deadlineMs, supabase)
 
   if (!result.ok) {
     if (result.reason === 'safety') {
@@ -288,6 +352,10 @@ async function process(supabase: ReturnType<typeof createClient>, gen: Generatio
       status: 'completed',
       output_image_url: publicUrl.publicUrl,
       cost_usd: COST_USD[result.modelUsed],
+      // `model_used` is the provider WIRE id; `model_key` is the logical model
+      // the cost limits are keyed on. Storing both means spend attribution
+      // never depends on reverse-mapping a wire id that can change.
+      model_key: result.modelUsed,
       model_used:
         result.modelUsed === 'gpt-image-2'
           ? (Deno.env.get('OPENAI_IMAGE_MODEL') ?? 'gpt-image-2')
@@ -300,6 +368,114 @@ async function process(supabase: ReturnType<typeof createClient>, gen: Generatio
   //    failure here does not roll back the completed generation; user can
   //    still poll via Realtime or open /me/creations.
   await dispatchNotification(gen.id)
+}
+
+/**
+ * Anonymous trial generation.
+ *
+ * Separate from `process()` because the shapes genuinely differ: there is no
+ * user, no quota to consume or refund, and no retry budget — an anonymous
+ * attempt is one shot per fingerprint+IP for life, so a failure is terminal.
+ *
+ * Before this existed, anonymous rows were never dispatched at all and sat at
+ * `pending` forever while /api/anonymous/[id]/status polled a status that
+ * could never change.
+ */
+async function processAnonymous(
+  supabase: ReturnType<typeof createClient>,
+  attempt: AnonymousAttemptRow,
+  deadlineMs: number
+) {
+  // Claim the row. Conditional on `pending` so a duplicate webhook delivery is
+  // a no-op rather than a second paid generation.
+  const { data: claimed } = await supabase
+    .from('anonymous_attempts')
+    .update({ status: 'processing' })
+    .eq('id', attempt.id)
+    .eq('status', 'pending')
+    .select()
+    .maybeSingle()
+  if (!claimed) return
+
+  if (!attempt.input_payload) {
+    await failAnonymous(supabase, attempt.id, 'missing input payload')
+    return
+  }
+
+  const { data: trendData } = await supabase
+    .from('trends')
+    .select('id, prompt_template, model, aspect_ratio, version')
+    .eq('id', attempt.trend_id)
+    .maybeSingle<TrendRow>()
+  if (!trendData) {
+    await failAnonymous(supabase, attempt.id, 'trend not found')
+    return
+  }
+
+  // Same per-model ceiling as customer traffic — anonymous spend is real spend.
+  // The route's separate $20/day anonymous budget is an independent second bound.
+  const gate = await checkCostLimit(supabase, trendData.model)
+  if (!gate.allowed) {
+    await failAnonymous(supabase, attempt.id, `cost_limit: ${gate.reason}`)
+    return
+  }
+
+  const prompt = interpolate(trendData.prompt_template, attempt.input_payload.values) + REALISM_SUFFIX
+  const imageUrls =
+    attempt.input_payload.image_urls ?? collectImagesFromValues(attempt.input_payload.values)
+
+  const result = await callProvider(trendData.model, prompt, imageUrls, deadlineMs, supabase)
+
+  if (!result.ok) {
+    // No retries on this path: the unique (fingerprint_hash, ip_hash)
+    // constraint means the visitor cannot try again anyway.
+    await failAnonymous(
+      supabase,
+      attempt.id,
+      result.reason === 'safety' ? `safety: ${result.message}` : result.message
+    )
+    return
+  }
+
+  const outputPath = `anonymous/${attempt.id}.png`
+  const { error: uploadError } = await supabase.storage
+    .from('outputs')
+    .upload(outputPath, result.outputPng, { contentType: 'image/png', upsert: true })
+  if (uploadError) {
+    await failAnonymous(supabase, attempt.id, `upload failed: ${uploadError.message}`)
+    return
+  }
+
+  const { data: publicUrl } = supabase.storage.from('outputs').getPublicUrl(outputPath)
+
+  // `cost_usd` + `model_key` are what make anonymous spend visible to BOTH the
+  // $20/day anonymous budget and the per-model ceiling. Neither was ever
+  // written before, so both bounds were summing zeros.
+  await supabase
+    .from('anonymous_attempts')
+    .update({
+      status: 'completed',
+      output_image_url: publicUrl.publicUrl,
+      cost_usd: COST_USD[result.modelUsed],
+      model_key: result.modelUsed,
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', attempt.id)
+}
+
+async function failAnonymous(
+  supabase: ReturnType<typeof createClient>,
+  id: string,
+  message: string
+) {
+  await supabase
+    .from('anonymous_attempts')
+    .update({
+      status: 'failed',
+      error_message: message,
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', id)
 }
 
 async function dispatchNotification(generationId: string): Promise<void> {
@@ -387,7 +563,8 @@ interface GeminiFail {
 async function callGemini(
   model: 'nano-banana-2' | 'nano-banana-2-lite',
   prompt: string,
-  imageUrls: string[]
+  imageUrls: string[],
+  budgetMs: number = GEMINI_TIMEOUT_MS
 ): Promise<GeminiOk | GeminiFail> {
   const apiKey = Deno.env.get('GEMINI_API_KEY')
   if (!apiKey) return { ok: false, reason: 'invalid', message: 'GEMINI_API_KEY missing' }
@@ -396,9 +573,9 @@ async function callGemini(
 
   // Controller created before the image fetches below so they share the
   // same timeout — without this, a hung/stalled image fetch blocks forever
-  // with no timeout at all.
+  // with no timeout at all. `budgetMs` is the caller's remaining wall clock.
   const controller = new AbortController()
-  const t = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS)
+  const t = setTimeout(() => controller.abort(), budgetMs)
 
   try {
     const imageParts = await Promise.all(
@@ -467,14 +644,18 @@ async function callGemini(
  * OpenAI image generation (Deno).
  * See also: lib/image-provider/openai.ts (Node copy — keep failure taxonomy in sync)
  */
-async function callOpenAI(prompt: string, imageUrls: string[]): Promise<GeminiOk | GeminiFail> {
+async function callOpenAI(
+  prompt: string,
+  imageUrls: string[],
+  budgetMs: number = GEMINI_TIMEOUT_MS
+): Promise<GeminiOk | GeminiFail> {
   const apiKey = Deno.env.get('OPENAI_API_KEY')
   const modelId = Deno.env.get('OPENAI_IMAGE_MODEL') ?? 'gpt-image-2'
 
   if (!apiKey) return { ok: false, reason: 'invalid', message: 'OPENAI_API_KEY missing' }
 
   const controller = new AbortController()
-  const t = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS)
+  const t = setTimeout(() => controller.abort(), budgetMs)
 
   try {
     let res: Response
@@ -561,11 +742,12 @@ async function callOpenAI(prompt: string, imageUrls: string[]): Promise<GeminiOk
 async function callOneProvider(
   model: EdgeImageModel,
   prompt: string,
-  imageUrls: string[]
+  imageUrls: string[],
+  budgetMs: number
 ): Promise<GeminiOk | GeminiFail> {
   const provider = MODEL_PROVIDER[model]
-  if (provider === 'openai') return callOpenAI(prompt, imageUrls)
-  return callGemini(model as 'nano-banana-2' | 'nano-banana-2-lite', prompt, imageUrls)
+  if (provider === 'openai') return callOpenAI(prompt, imageUrls, budgetMs)
+  return callGemini(model as 'nano-banana-2' | 'nano-banana-2-lite', prompt, imageUrls, budgetMs)
 }
 
 // Reasons worth retrying on a DIFFERENT model. Mirrors lib/image-provider
@@ -583,19 +765,108 @@ function edgeFallbackModelFor(model: EdgeImageModel): EdgeImageModel {
  * produced it (so cost + model_used reflect reality). Keep the reason set +
  * fallback choice in sync with lib/image-provider/index.ts.
  */
+interface CostLimitEntry {
+  daily_usd?: number | null
+  monthly_usd?: number | null
+  enabled?: boolean
+}
+
+/**
+ * Is this model still within its admin-configured budget?
+ *
+ * Limits live in `app_settings.model_cost_limits`; spend comes from the
+ * `model_spend_usd` RPC, which counts customer generations AND admin eval runs
+ * so both paths share one ceiling.
+ *
+ * FAILS OPEN on a missing/unreadable config: a limits-lookup outage must not
+ * take down generation for every customer. It fails CLOSED only on an explicit
+ * `enabled: false` or a breached numeric cap. A null bound means "no limit",
+ * matching the established app_settings convention.
+ */
+async function checkCostLimit(
+  supabase: ReturnType<typeof createClient>,
+  model: EdgeImageModel
+): Promise<{ allowed: true } | { allowed: false; reason: string }> {
+  try {
+    const { data: setting, error: settingError } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'model_cost_limits')
+      .maybeSingle()
+    if (settingError || !setting?.value) return { allowed: true }
+
+    const limits = (setting.value as Record<string, CostLimitEntry>)[model]
+    if (!limits) return { allowed: true }
+
+    if (limits.enabled === false) {
+      return { allowed: false, reason: `${model} is disabled` }
+    }
+
+    const { data: spendRows, error: spendError } = await supabase.rpc('model_spend_usd', {
+      p_model: model,
+    })
+    if (spendError) return { allowed: true }
+
+    const spend = Array.isArray(spendRows) ? spendRows[0] : spendRows
+    const daily = Number(spend?.daily_usd ?? 0)
+    const monthly = Number(spend?.monthly_usd ?? 0)
+
+    if (limits.daily_usd != null && daily >= limits.daily_usd) {
+      return {
+        allowed: false,
+        reason: `${model} daily cap reached ($${daily.toFixed(4)} of $${limits.daily_usd})`,
+      }
+    }
+    if (limits.monthly_usd != null && monthly >= limits.monthly_usd) {
+      return {
+        allowed: false,
+        reason: `${model} monthly cap reached ($${monthly.toFixed(2)} of $${limits.monthly_usd})`,
+      }
+    }
+    return { allowed: true }
+  } catch {
+    // Fail open — see the note above.
+    return { allowed: true }
+  }
+}
+
 async function callProvider(
   model: EdgeImageModel,
   prompt: string,
-  imageUrls: string[]
+  imageUrls: string[],
+  deadlineMs: number,
+  supabase: ReturnType<typeof createClient>
 ): Promise<(GeminiOk & { modelUsed: EdgeImageModel }) | GeminiFail> {
-  const primary = await callOneProvider(model, prompt, imageUrls)
+  // Primary gets the smaller of its own budget and whatever is left of the
+  // invocation's wall clock.
+  const primary = await callOneProvider(
+    model,
+    prompt,
+    imageUrls,
+    Math.min(GEMINI_TIMEOUT_MS, remainingMs(deadlineMs))
+  )
   if (primary.ok) return { ...primary, modelUsed: model }
   if (!EDGE_FALLBACK_REASONS.has(primary.reason)) return primary
 
   const fallback = edgeFallbackModelFor(model)
   if (fallback === model) return primary
 
-  const fb = await callOneProvider(fallback, prompt, imageUrls)
+  // Only attempt the fallback if enough wall clock remains for it to plausibly
+  // finish. Starting a second 130s call after a 130s timeout guaranteed the
+  // platform killed us mid-flight, stranding the row in `processing` with no
+  // refund — strictly worse than returning the primary's failure, which at
+  // least reaches terminalFail/markRetryable and refunds quota.
+  const budget = remainingMs(deadlineMs)
+  if (budget < MIN_FALLBACK_BUDGET_MS) return primary
+
+  // Re-gate on the FALLBACK model. Without this, a capped or disabled model is
+  // still reachable indirectly whenever the primary fails — and the fallback
+  // can be the more expensive of the pair, so the escalation is exactly the
+  // case a budget is meant to stop.
+  const fallbackGate = await checkCostLimit(supabase, fallback)
+  if (!fallbackGate.allowed) return primary
+
+  const fb = await callOneProvider(fallback, prompt, imageUrls, budget)
   if (fb.ok) return { ...fb, modelUsed: fallback }
   return fb
 }

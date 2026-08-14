@@ -8,6 +8,11 @@ vi.mock('next/navigation', () => ({
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 const logAdminAction = vi.fn<(arg: unknown) => Promise<void>>(async () => undefined)
+vi.mock('@/lib/admin/require-role', () => ({
+  requireAdminRole: vi.fn(async () => ({ userId: 'admin-1', role: 'admin' })),
+  checkAdminRole: vi.fn(async () => ({ ok: true, userId: 'admin-1', role: 'admin' })),
+}))
+
 vi.mock('@/lib/admin/audit', () => ({
   logAdminAction: (arg: unknown) => logAdminAction(arg),
 }))

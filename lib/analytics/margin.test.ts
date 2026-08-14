@@ -26,6 +26,8 @@ function makeEmptyClient(): SupabaseClient {
   chain.order = vi.fn(passthrough)
   chain.limit = vi.fn(passthrough)
   chain.maybeSingle = vi.fn(() => Promise.resolve(emptyResult))
+  // fetchAllPaged drives reads through .range(); it must RESOLVE, not chain.
+  chain.range = vi.fn(() => Promise.resolve(emptyResult))
   chain.then = (resolve: (v: typeof emptyResult) => unknown) =>
     Promise.resolve(emptyResult).then(resolve)
   return chain as unknown as SupabaseClient

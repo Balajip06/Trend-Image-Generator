@@ -125,3 +125,70 @@ export async function setBannerTrend(formData: FormData): Promise<void> {
   revalidatePath('/admin/settings')
   revalidatePath('/')
 }
+
+/**
+ * Per-model USD cost ceilings.
+ *
+ * Mirrors `setGlobalDefaultModel`: 'admin' role, Zod-validated, service-role
+ * write, audited, revalidated. Empty inputs mean "no limit" and are stored as
+ * SQL NULL — the established app_settings convention (see migration
+ * 20260714000001, which also documents the double-encoding trap: pass raw
+ * values to supabase-js, never JSON.stringify).
+ */
+const CostLimitSchema = z.object({
+  daily_usd: z.number().nonnegative().nullable(),
+  monthly_usd: z.number().nonnegative().nullable(),
+  enabled: z.boolean(),
+})
+
+/** Blank/whitespace → null ("no limit"); otherwise a non-negative number. */
+function parseLimitField(raw: FormDataEntryValue | null): number | null {
+  if (typeof raw !== 'string' || raw.trim() === '') return null
+  const n = Number(raw)
+  return Number.isFinite(n) && n >= 0 ? n : null
+}
+
+export async function setModelCostLimits(formData: FormData): Promise<void> {
+  // Ceilings govern spend — same bar as changing the global model.
+  const { userId } = await requireAdminRole('admin')
+
+  const service = createServiceClient()
+
+  const { data: current } = await service
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'model_cost_limits')
+    .maybeSingle()
+  const before = (current?.value as Record<string, unknown> | null) ?? {}
+
+  const next: Record<string, z.infer<typeof CostLimitSchema>> = {}
+  for (const model of ModelSchema.options) {
+    const parsed = CostLimitSchema.safeParse({
+      daily_usd: parseLimitField(formData.get(`${model}__daily`)),
+      monthly_usd: parseLimitField(formData.get(`${model}__monthly`)),
+      // An unchecked checkbox submits nothing at all.
+      enabled: formData.get(`${model}__enabled`) === 'on',
+    })
+    if (!parsed.success) continue
+    next[model] = parsed.data
+  }
+
+  // Raw value — supabase-js JSON-encodes the body, so JSON.stringify here would
+  // double-encode it (the bug migration 20260714000001 had to repair).
+  const { error: writeError } = await service
+    .from('app_settings')
+    .update({ value: next, updated_by: userId, updated_at: new Date().toISOString() })
+    .eq('key', 'model_cost_limits')
+  if (writeError) throw new Error(`Failed to save cost limits: ${writeError.message}`)
+
+  await logAdminAction({
+    adminId: userId,
+    action: 'model_cost_limits_changed',
+    targetTable: 'app_settings',
+    targetId: 'model_cost_limits',
+    before,
+    after: next,
+  })
+
+  revalidatePath('/admin/settings')
+}

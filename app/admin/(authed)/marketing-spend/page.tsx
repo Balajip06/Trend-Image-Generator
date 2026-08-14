@@ -1,9 +1,12 @@
 import { DollarSign } from 'lucide-react'
 import { FlashToasts } from '@/components/admin/FlashToasts'
+import { LoadErrorBanner } from '@/components/admin/LoadErrorBanner'
+import { RealtimeRefresh } from '@/components/admin/RealtimeRefresh'
 import { GradientButton } from '@/components/brand/GradientButton'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { adminRead } from '@/lib/admin/read'
 import { createServiceClient } from '@/lib/supabase/server'
 import { recordMarketingSpend } from './actions'
 
@@ -31,13 +34,17 @@ export default async function AdminMarketingSpendPage({ searchParams }: Marketin
   await searchParams
 
   const service = createServiceClient()
-  const { data: rows } = await service
-    .from('admin_marketing_spend')
-    .select('id, week_start, channel, usd_spent, notes, created_at')
-    .order('week_start', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(10)
-  const spend = rows ?? []
+  // Unchecked, a failed read rendered "No spend recorded yet" — which could
+  // prompt an admin to double-enter spend rows that already exist.
+  const { rows: spend, error: loadError } = await adminRead(
+    'marketing-spend.list',
+    service
+      .from('admin_marketing_spend')
+      .select('id, week_start, channel, usd_spent, notes, created_at')
+      .order('week_start', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(10)
+  )
 
   return (
     <section className="flex flex-col gap-8">
@@ -47,6 +54,8 @@ export default async function AdminMarketingSpendPage({ searchParams }: Marketin
           { key: 'error', level: 'error' },
         ]}
       />
+      <LoadErrorBanner error={loadError} label="recorded spend" />
+      <RealtimeRefresh tables={['admin_marketing_spend']} debounceMs={2000} />
 
       <header className="flex flex-col gap-2">
         <p className="text-muted-foreground text-xs font-semibold tracking-[0.2em] uppercase">

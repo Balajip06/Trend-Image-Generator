@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
+import { requireAdminRole } from '@/lib/admin/require-role'
 import { grantCredits } from '@/lib/payments/credits'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -25,6 +26,11 @@ function back(params: URLSearchParams): never {
 }
 
 export async function issueRefund(formData: FormData): Promise<void> {
+  // Grants up to 1000 credits on the service client — RLS offers no protection
+  // here, so this guard is the only in-process authorization. 'admin' because
+  // it moves money.
+  await requireAdminRole('admin')
+
   const parsed = RefundFormSchema.safeParse({
     email: formData.get('email'),
     amount: formData.get('amount'),

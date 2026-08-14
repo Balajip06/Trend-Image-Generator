@@ -4,7 +4,8 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { logAdminAction } from '@/lib/admin/audit'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { requireAdminRole } from '@/lib/admin/require-role'
+import { createServiceClient } from '@/lib/supabase/server'
 
 const RecordSchema = z.object({
   week_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'week_start must be YYYY-MM-DD'),
@@ -34,10 +35,9 @@ export async function recordMarketingSpend(formData: FormData): Promise<void> {
     back(new URLSearchParams({ error: msg }))
   }
 
-  const authed = await createClient()
-  const {
-    data: { user: adminUser },
-  } = await authed.auth.getUser()
+  // Authorize AND resolve the actor. `recorded_by` previously fell back to
+  // null when the session was missing, writing an unattributable spend row.
+  const { userId: adminUserId } = await requireAdminRole('editor')
 
   const service = createServiceClient()
   const insertPayload = {
@@ -45,7 +45,7 @@ export async function recordMarketingSpend(formData: FormData): Promise<void> {
     channel: parsed.data.channel,
     usd_spent: parsed.data.usd_spent,
     notes: parsed.data.notes ?? null,
-    recorded_by: adminUser?.id ?? null,
+    recorded_by: adminUserId,
   }
   const { error } = await service
     .from('admin_marketing_spend')
@@ -56,7 +56,7 @@ export async function recordMarketingSpend(formData: FormData): Promise<void> {
   }
 
   await logAdminAction({
-    adminId: adminUser?.id ?? null,
+    adminId: adminUserId,
     action: 'marketing_spend_recorded',
     targetTable: 'admin_marketing_spend',
     targetId: null,

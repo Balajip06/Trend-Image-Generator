@@ -1,11 +1,14 @@
 import { Shield } from 'lucide-react'
 import { ConfirmDestructiveButton } from '@/components/admin/ConfirmDestructiveButton'
 import { FlashToasts } from '@/components/admin/FlashToasts'
+import { LoadErrorBanner } from '@/components/admin/LoadErrorBanner'
+import { RealtimeRefresh } from '@/components/admin/RealtimeRefresh'
 import { GradientButton } from '@/components/brand/GradientButton'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { adminRead } from '@/lib/admin/read'
 import { createServiceClient } from '@/lib/supabase/server'
 import { addAllowlistEntry, deactivateAllowlistEntry, reactivateAllowlistEntry } from './actions'
 
@@ -24,13 +27,16 @@ interface AllowlistRow {
 export default async function AdminKimpPage() {
   const service = createServiceClient()
 
-  const { data: rows } = await service
-    .from('kimp_client_allowlist')
-    .select('id, email, kimp_subject_id, is_active, note, created_at, updated_at')
-    .order('created_at', { ascending: false })
-    .limit(200)
+  const { rows, error: loadError } = await adminRead(
+    'kimp.allowlist',
+    service
+      .from('kimp_client_allowlist')
+      .select('id, email, kimp_subject_id, is_active, note, created_at, updated_at')
+      .order('created_at', { ascending: false })
+      .limit(200)
+  )
 
-  const entries = (rows ?? []) as AllowlistRow[]
+  const entries = rows as unknown as AllowlistRow[]
   const activeCount = entries.filter((e) => e.is_active).length
 
   return (
@@ -41,6 +47,8 @@ export default async function AdminKimpPage() {
           { key: 'error', level: 'error' },
         ]}
       />
+      <LoadErrorBanner error={loadError} label="the allowlist" />
+      <RealtimeRefresh tables={['kimp_client_allowlist']} debounceMs={2000} />
 
       <header className="flex flex-col gap-2">
         <p className="text-muted-foreground text-xs font-semibold tracking-[0.2em] uppercase">

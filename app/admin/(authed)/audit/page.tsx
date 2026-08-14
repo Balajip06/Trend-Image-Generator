@@ -1,6 +1,8 @@
 import { Archive, TriangleAlert, User } from 'lucide-react'
+import { RealtimeRefresh } from '@/components/admin/RealtimeRefresh'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { adminRead } from '@/lib/admin/read'
 import { createServiceClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -65,11 +67,14 @@ export default async function AuditPage() {
   const adminIds = Array.from(new Set(audit.map((r) => r.admin_id).filter(Boolean) as string[]))
   const emailById = new Map<string, string>()
   if (adminIds.length > 0) {
-    const { data: profileRows } = await service
-      .from('profiles')
-      .select('id, email')
-      .in('id', adminIds)
-    for (const p of (profileRows as { id: string; email: string }[] | null) ?? []) {
+    // Enrichment is best-effort — a failure here degrades to showing the
+    // truncated actor id rather than blanking the log — but it must still be
+    // reported, not silently discarded.
+    const { rows: profileRows } = await adminRead<{ id: string; email: string }>(
+      'audit.profiles',
+      service.from('profiles').select('id, email').in('id', adminIds)
+    )
+    for (const p of profileRows) {
       emailById.set(p.id, p.email)
     }
   }
@@ -85,7 +90,12 @@ export default async function AuditPage() {
         <p className="text-muted-foreground text-xs font-semibold tracking-[0.2em] uppercase">
           Compliance
         </p>
-        <h1 className="text-3xl font-extrabold tracking-tight">Audit log</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-extrabold tracking-tight">Audit log</h1>
+          {/* Entries stream in as admins act. Short debounce: this page runs two
+              bounded reads, so a refetch is cheap. */}
+          <RealtimeRefresh tables={['admin_audit_log']} debounceMs={1000} showStatus />
+        </div>
         <p className="text-muted-foreground text-sm">
           {audit.length === PAGE_LIMIT ? `Latest ${PAGE_LIMIT}` : audit.length} entries · admin
           actions + system credit grants are appended here automatically.

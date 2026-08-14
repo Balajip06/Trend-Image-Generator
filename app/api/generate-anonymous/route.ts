@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { parseIdempotencyKey } from '@/lib/idempotency'
 import { anonymousFingerprintLimiter } from '@/lib/rate-limit'
 import { isAnonymousBudgetExceeded } from '@/lib/gemini/cost'
+import { checkModelCostLimit } from '@/lib/pricing/cost-limits'
 import {
   collectImageInputs,
   interpolatePrompt,
@@ -99,14 +100,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Trend input_schema corrupt' }, { status: 500 })
   }
   const values = body.values as TrendInputValues
+  let imageUrls: string[]
   try {
-    collectImageInputs(schemaCheck.data, values)
+    // Keep the collected URLs — they go into input_payload below so the Edge
+    // Function has the images to generate from.
+    imageUrls = collectImageInputs(schemaCheck.data, values)
     interpolatePrompt('', schemaCheck.data, values)
   } catch (err: unknown) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'invalid input' },
       { status: 400 }
     )
+  }
+
+  // 7b. Per-model cost ceiling. Independent of the $20/day anonymous budget
+  // above: that bounds anonymous spend as a whole, this bounds the model. Both
+  // apply, so an anonymous surge can exhaust neither the anon budget nor a
+  // model's daily cap on its own.
+  {
+    const gate = await checkModelCostLimit(supabase, trend.model)
+    if (!gate.allowed) {
+      return NextResponse.json(
+        { error: 'Free trial is paused right now — please try again later.' },
+        { status: 503 }
+      )
+    }
   }
 
   // 8. SSRF guard: re-check image URLs at the API boundary so raw callers that
@@ -125,11 +143,18 @@ export async function POST(request: NextRequest) {
 
   // 9. Insert anonymous_attempts row. UNIQUE (fingerprint_hash, ip_hash) blocks 2nd attempt lifetime.
   const ipHash = await sha256Hex(ip)
+  // `input_payload` is what the Edge Function generates from. It was omitted
+  // entirely before — the validated photo and field values were discarded, so
+  // even once a dispatcher existed there would have been nothing to render.
+  // `input_payload` is what the Edge Function generates from. It was omitted
+  // entirely before — the validated photo and field values were discarded, so
+  // even once a dispatcher existed there would have been nothing to render.
   const insertRow = {
     fingerprint_hash: body.fingerprint_hash,
     ip_hash: ipHash,
     trend_id: trend.id,
     status: 'pending' as const,
+    input_payload: { values: body.values, image_urls: imageUrls },
   }
 
   const { data: inserted, error: insertError } = await supabase

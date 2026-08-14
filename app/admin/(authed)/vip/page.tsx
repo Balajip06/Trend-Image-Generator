@@ -1,11 +1,13 @@
 import { Crown, Search } from 'lucide-react'
 import { ConfirmDestructiveButton } from '@/components/admin/ConfirmDestructiveButton'
 import { FlashToasts } from '@/components/admin/FlashToasts'
+import { LoadErrorBanner } from '@/components/admin/LoadErrorBanner'
 import { GradientButton } from '@/components/brand/GradientButton'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { adminRead, adminReadOne } from '@/lib/admin/read'
 import { createServiceClient } from '@/lib/supabase/server'
 import { findUserForVip, setVip } from './actions'
 
@@ -29,24 +31,31 @@ export default async function AdminVipPage({ searchParams }: VipPageProps) {
     vip_reason: string | null
     vip_granted_at: string | null
   } | null
+  let lookupError: string | null = null
   if (targetEmail) {
-    const { data: row } = await service
-      .from('profiles')
-      .select('id, email, is_vip, vip_reason, vip_granted_at')
-      .eq('email', targetEmail)
-      .maybeSingle()
-    target = row ?? null
+    const { row, error } = await adminReadOne<NonNullable<typeof target>>(
+      'vip.lookup',
+      service
+        .from('profiles')
+        .select('id, email, is_vip, vip_reason, vip_granted_at')
+        .eq('email', targetEmail)
+        .maybeSingle()
+    )
+    target = row
+    lookupError = error
   }
 
   // List of current VIPs.
-  const { data: vipRows } = await service
-    .from('profiles')
-    .select('id, email, vip_reason, vip_granted_at')
-    .eq('is_vip', true)
-    .order('vip_granted_at', { ascending: false })
-    .limit(100)
-
-  const vips = vipRows ?? []
+  const { rows: vips, error: listError } = await adminRead(
+    'vip.list',
+    service
+      .from('profiles')
+      .select('id, email, vip_reason, vip_granted_at')
+      .eq('is_vip', true)
+      .order('vip_granted_at', { ascending: false })
+      .limit(100)
+  )
+  const loadError = lookupError ?? listError
 
   return (
     <section className="flex flex-col gap-8">
@@ -56,6 +65,7 @@ export default async function AdminVipPage({ searchParams }: VipPageProps) {
           { key: 'error', level: 'error' },
         ]}
       />
+      <LoadErrorBanner error={loadError} label="VIP data" />
 
       <header className="flex flex-col gap-2">
         <p className="text-muted-foreground text-xs font-semibold tracking-[0.2em] uppercase">

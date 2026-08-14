@@ -18,6 +18,7 @@
 import {
   getCountsBatchDb,
   getCountsDb,
+  getDailySeriesBySlugDb,
   getDailySeriesDb,
   getOverallDb,
   getPeriodTotalsDb,
@@ -76,9 +77,11 @@ function recordEventMemory(slug: string, type: TrendEventType): void {
   const cur = readMemory(slug)
   if (type === 'impression') {
     store.set(slug, { ...cur, impressions: cur.impressions + 1 })
-  } else {
+  } else if (type === 'click_generate') {
     store.set(slug, { ...cur, clicks: cur.clicks + 1 })
   }
+  // `quota_blocked` is neither — it must not inflate the click count. Keeps
+  // this backend consistent with the Supabase one in event-store-db.ts.
 }
 
 function getCountsMemory(slug: string): Counts {
@@ -226,6 +229,18 @@ export async function getOverall(slugs: readonly string[]): Promise<Counts> {
 export async function getDailySeries(slugs: readonly string[], days = 7): Promise<DailyPoint[]> {
   if (supabaseBackendActive()) return getDailySeriesDb(slugs, days)
   return getDailySeriesMemory(slugs, days)
+}
+
+/**
+ * Per-slug daily series. Prefer this over calling `getDailySeries([slug])` in a
+ * loop — on the Supabase backend that is one round-trip per slug (N+1).
+ */
+export async function getDailySeriesBySlug(
+  slugs: readonly string[],
+  days = 7
+): Promise<Map<string, DailyPoint[]>> {
+  if (supabaseBackendActive()) return getDailySeriesBySlugDb(slugs, days)
+  return new Map(slugs.map((slug) => [slug, getDailySeriesMemory([slug], days)]))
 }
 
 export async function getPeriodTotals(

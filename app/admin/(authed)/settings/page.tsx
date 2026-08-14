@@ -1,4 +1,9 @@
+import { LoadErrorBanner } from '@/components/admin/LoadErrorBanner'
+import { adminRead, adminReadOne } from '@/lib/admin/read'
+import { IMAGE_MODELS, MODEL_LABELS } from '@/lib/image-provider/types'
+import { readModelCostLimits, readModelSpend } from '@/lib/pricing/cost-limits'
 import { createServiceClient } from '@/lib/supabase/server'
+import { ModelCostLimitsSection } from './ModelCostLimits'
 import { setBannerTrend, setGlobalDefaultModel } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -6,29 +11,47 @@ export const dynamic = 'force-dynamic'
 export default async function SettingsPage() {
   const service = createServiceClient()
 
-  const { data: setting } = await service
-    .from('app_settings')
-    .select('value')
-    .eq('key', 'default_image_model')
-    .maybeSingle()
+  const { row: setting, error: modelError } = await adminReadOne<{ value: unknown }>(
+    'settings.default-model',
+    service.from('app_settings').select('value').eq('key', 'default_image_model').maybeSingle()
+  )
 
   const currentModel = (setting?.value as string | undefined)?.replace(/"/g, '') ?? 'gpt-image-2'
 
-  const { data: bannerSetting } = await service
-    .from('app_settings')
-    .select('value')
-    .eq('key', 'banner_trend_id')
-    .maybeSingle()
+  const { row: bannerSetting, error: bannerError } = await adminReadOne<{ value: unknown }>(
+    'settings.banner-trend',
+    service.from('app_settings').select('value').eq('key', 'banner_trend_id').maybeSingle()
+  )
   const currentBannerTrendId = bannerSetting?.value ? String(bannerSetting.value) : null
 
-  const { data: activeTrends } = await service
-    .from('trends')
-    .select('id, title, slug')
-    .eq('is_active', true)
-    .order('display_order', { ascending: true })
+  const { rows: activeTrends, error: trendsError } = await adminRead<{
+    id: string
+    title: string
+    slug: string
+  }>(
+    'settings.active-trends',
+    service
+      .from('trends')
+      .select('id, title, slug')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+  )
+
+  // A failed settings read would otherwise render the FALLBACK default as if
+  // it were the saved value — an admin could "confirm" a model that isn't set.
+  const loadError = modelError ?? bannerError ?? trendsError
+
+  // Cost limits + live spend. Spend comes from the same RPC the enforcement
+  // gate reads, so the meters cannot disagree with what actually blocks.
+  const costLimits = await readModelCostLimits(service)
+  const spendEntries = await Promise.all(
+    IMAGE_MODELS.map(async (model) => [model, await readModelSpend(service, model)] as const)
+  )
+  const spendByModel = Object.fromEntries(spendEntries)
 
   return (
     <div className="mx-auto max-w-2xl space-y-8 p-6">
+      <LoadErrorBanner error={loadError} label="settings" />
       <div>
         <h1 className="text-xl font-semibold">Settings</h1>
         <p className="text-muted-foreground mt-1 text-sm">Global configuration for all trends.</p>
@@ -43,8 +66,12 @@ export default async function SettingsPage() {
           </p>
         </div>
 
+        {/* Driven by IMAGE_MODELS/MODEL_LABELS, which lib/image-provider/types.ts
+            documents as the single source of truth for exactly this form. The
+            list and its labels were previously hardcoded here and would drift
+            silently whenever a model was added or renamed. */}
         <form action={setGlobalDefaultModel} className="space-y-3">
-          {(['gpt-image-2', 'nano-banana-2', 'nano-banana-2-lite'] as const).map((model) => (
+          {IMAGE_MODELS.map((model) => (
             <label key={model} className="flex cursor-pointer items-center gap-3">
               <input
                 type="radio"
@@ -53,22 +80,8 @@ export default async function SettingsPage() {
                 defaultChecked={currentModel === model}
                 className="h-4 w-4"
               />
-              <span className="text-sm font-medium">{model}</span>
-              {model === 'gpt-image-2' && (
-                <span className="text-muted-foreground text-xs">
-                  (ChatGPT Images 2.0 — default, requires OPENAI_API_KEY)
-                </span>
-              )}
-              {model === 'nano-banana-2' && (
-                <span className="text-muted-foreground text-xs">
-                  (Nano Banana 2 — Gemini 3.1 Flash)
-                </span>
-              )}
-              {model === 'nano-banana-2-lite' && (
-                <span className="text-muted-foreground text-xs">
-                  (Nano Banana 2 Lite — Gemini 3.1 Flash-Lite)
-                </span>
-              )}
+              <span className="text-sm font-medium">{MODEL_LABELS[model]}</span>
+              <span className="text-muted-foreground font-mono text-xs">{model}</span>
             </label>
           ))}
 
@@ -80,6 +93,8 @@ export default async function SettingsPage() {
           </button>
         </form>
       </section>
+
+      <ModelCostLimitsSection limits={costLimits} spend={spendByModel} />
 
       <section className="space-y-4">
         <div>

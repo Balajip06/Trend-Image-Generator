@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { z } from 'zod'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { checkModelCostLimit } from '@/lib/pricing/cost-limits'
+import { COST_USD_PER_IMAGE } from '@/lib/pricing/models'
 import { parseIdempotencyKey } from '@/lib/idempotency'
 import { generationIpLimiter } from '@/lib/rate-limit'
 import {
@@ -66,7 +68,15 @@ export async function POST(request: NextRequest) {
   // rather than sum costs.
   {
     const env = getServerEnv()
-    const UNLIMITED_GEN_CAP = Math.round(env.UNLIMITED_DAILY_BUDGET_USD * 10) // $50 default → 500
+    // Convert the USD budget into a generation count using the REAL per-image
+    // cost of the priciest model. The previous `* 10` hardcoded $0.10/gen,
+    // which matched no model — actual rates span $0.002–$0.04, a 20x spread,
+    // so the cap was wrong for every model and wildly wrong for the cheap ones.
+    const worstCaseCostUsd = Math.max(...Object.values(COST_USD_PER_IMAGE))
+    const UNLIMITED_GEN_CAP = Math.max(
+      1,
+      Math.floor(env.UNLIMITED_DAILY_BUDGET_USD / worstCaseCostUsd)
+    )
     const dayStart = new Date()
     dayStart.setUTCHours(0, 0, 0, 0)
     const { count } = await supabase
@@ -134,6 +144,21 @@ export async function POST(request: NextRequest) {
   const trend = await getActiveTrendBySlug(parsedBody.trend_slug)
   if (!trend) {
     return NextResponse.json({ error: 'Trend not found or inactive' }, { status: 404 })
+  }
+
+  // 6b. Cost-limit pre-flight (UX only — the Edge Function holds the
+  // authoritative gate). Without this the request is accepted, the row is
+  // inserted, quota is consumed, and the user waits ~2 minutes before the Edge
+  // gate fails it. Rejecting here turns that into an immediate, honest error.
+  {
+    const service = createServiceClient()
+    const gate = await checkModelCostLimit(service, trend.model)
+    if (!gate.allowed) {
+      return NextResponse.json(
+        { error: 'This trend is temporarily unavailable — daily capacity reached.' },
+        { status: 503 }
+      )
+    }
   }
 
   // 7. Validate values against the trend's input_schema (defence in depth — DB also checks).

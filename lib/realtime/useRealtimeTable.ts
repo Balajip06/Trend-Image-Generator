@@ -13,12 +13,11 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { openAuthedChannel, type RealtimeStatus } from './authedChannel'
 
 export type RealtimeEvent = 'INSERT' | 'UPDATE' | 'DELETE' | '*'
 
-/** Connection state for a live indicator. */
-export type RealtimeStatus = 'connecting' | 'live' | 'reconnecting'
+export type { RealtimeStatus }
 
 export interface RealtimeResult<Row> {
   rows: Row[]
@@ -128,46 +127,45 @@ export function useRealtimeTable<
 
   useEffect(() => {
     mountedRef.current = true
-    const supabase = createClient()
     const channelName = filter ? `rt-${table}-${filter}` : `rt-${table}`
 
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        { event, schema, table, ...(filter ? { filter } : {}) },
-        (payload) => {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const r = payload.new as Row
-            upsert(r)
-            flash(r.id)
-            if (r.created_at && (!highWaterRef.current || r.created_at > highWaterRef.current)) {
-              highWaterRef.current = r.created_at
+    // openAuthedChannel pushes the session token onto the socket BEFORE
+    // subscribing. Without that the RLS check runs as `anon` and this
+    // subscription silently receives nothing — see lib/realtime/authedChannel.ts.
+    const close = openAuthedChannel({
+      channelName,
+      configure: (channel) =>
+        channel.on(
+          'postgres_changes',
+          { event, schema, table, ...(filter ? { filter } : {}) },
+          (payload) => {
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+              const r = payload.new as Row
+              upsert(r)
+              flash(r.id)
+              if (r.created_at && (!highWaterRef.current || r.created_at > highWaterRef.current)) {
+                highWaterRef.current = r.created_at
+              }
+            } else if (payload.eventType === 'DELETE') {
+              remove((payload.old as { id: string }).id)
             }
-          } else if (payload.eventType === 'DELETE') {
-            remove((payload.old as { id: string }).id)
           }
-        }
-      )
-      .subscribe((channelStatus) => {
-        if (channelStatus === 'SUBSCRIBED') {
-          setStatus('live')
+        ),
+      onStatus: (channelStatus) => {
+        if (!mountedRef.current) return
+        setStatus(channelStatus)
+        if (channelStatus === 'live') {
           // First subscribe covers the RSC→SUBSCRIBED gap (H-R2); a later one is
           // a reconnect backfill (H-R3). Either way, reconcile.
           wasSubscribedRef.current = true
           void reconcile()
-        } else if (
-          channelStatus === 'CHANNEL_ERROR' ||
-          channelStatus === 'TIMED_OUT' ||
-          channelStatus === 'CLOSED'
-        ) {
-          setStatus(wasSubscribedRef.current ? 'reconnecting' : 'connecting')
         }
-      })
+      },
+    })
 
     return () => {
       mountedRef.current = false
-      void supabase.removeChannel(channel)
+      close()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [table, schema, event, filter, syncUrl])

@@ -71,6 +71,11 @@ export async function listActiveTrends(): Promise<PublicTrend[]> {
   const { data, error } = await supabase
     .from('trends')
     .select(COLUMNS)
+    // `display_order` is the admin's manual ordering (maintained by the
+    // reorder controls in /admin/trends). Ordering by `created_at` alone meant
+    // that column was written but never read, so reordering had no visible
+    // effect. `created_at` stays as the tiebreak so equal orders are stable.
+    .order('display_order', { ascending: true })
     .order('created_at', { ascending: false })
 
   // Distinguish "DB error" (must surface) from "no rows" (legit empty state).
@@ -119,6 +124,10 @@ export async function listActiveTrendsPaged(
   let query = supabase
     .from('trends')
     .select(COLUMNS, { count: 'exact' })
+    // Same ordering as listActiveTrends — admin `display_order` first, with
+    // `created_at` as a stable tiebreak. Paging over an unstable sort can
+    // otherwise repeat or skip rows between pages.
+    .order('display_order', { ascending: true })
     .order('created_at', { ascending: false })
     .range(from, to)
 

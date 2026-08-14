@@ -4,7 +4,8 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { logAdminAction } from '@/lib/admin/audit'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { requireAdminRole } from '@/lib/admin/require-role'
+import { createServiceClient } from '@/lib/supabase/server'
 
 const FindSchema = z.object({
   email: z.string().email(),
@@ -28,6 +29,8 @@ function back(params: URLSearchParams): never {
  * same query param whether the admin typed it or we redirected).
  */
 export async function findUserForVip(formData: FormData): Promise<void> {
+  // Read-only, but it discloses whether an email has an account — gate it.
+  await requireAdminRole('editor')
   const parsed = FindSchema.safeParse({ email: formData.get('email') })
   if (!parsed.success) {
     back(new URLSearchParams({ error: 'invalid email' }))
@@ -71,19 +74,18 @@ export async function setVip(formData: FormData): Promise<void> {
 
   const enable = parsed.data.enable === '1'
 
-  // Use the authed client to read the admin's identity (admin gating is
-  // already enforced by proxy.ts on /admin/*).
-  const authed = await createClient()
-  const {
-    data: { user: adminUser },
-  } = await authed.auth.getUser()
+  // Authorize AND resolve the acting admin in one step. VIP comps the quota
+  // paying users hit, so this is 'admin'. Previously this only read the
+  // session for attribution and relied on proxy.ts for the gate — which has a
+  // documented MOCK_TRENDS bypass.
+  const { userId: adminUserId } = await requireAdminRole('admin')
 
   const service = createServiceClient()
   const updatePayload = enable
     ? {
         is_vip: true,
         vip_reason: parsed.data.reason ?? null,
-        vip_granted_by: adminUser?.id ?? null,
+        vip_granted_by: adminUserId,
         vip_granted_at: new Date().toISOString(),
       }
     : {
@@ -103,7 +105,7 @@ export async function setVip(formData: FormData): Promise<void> {
   }
 
   await logAdminAction({
-    adminId: adminUser?.id ?? null,
+    adminId: adminUserId,
     action: enable ? 'vip_grant' : 'vip_revoke',
     targetTable: 'profiles',
     targetId: parsed.data.user_id,

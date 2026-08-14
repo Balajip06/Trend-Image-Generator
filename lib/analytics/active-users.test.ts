@@ -44,6 +44,8 @@ function makeEmptyClient(): SupabaseClient {
   chain.order = vi.fn(passthrough)
   chain.limit = vi.fn(passthrough)
   chain.maybeSingle = vi.fn(() => Promise.resolve(emptyResult))
+  // fetchAllPaged drives reads through .range(); it must RESOLVE, not chain.
+  chain.range = vi.fn(() => Promise.resolve(emptyResult))
   chain.then = (resolve: (v: typeof emptyResult) => unknown) =>
     Promise.resolve(emptyResult).then(resolve)
   return chain as unknown as SupabaseClient
@@ -208,6 +210,11 @@ function makeCacClient(fixtures: CacFixtures): SupabaseClient {
     chain.order = vi.fn(passthrough)
     chain.limit = vi.fn(passthrough)
     chain.maybeSingle = vi.fn(() => Promise.resolve(result))
+    // fetchAllPaged reads via .range(from, to). Serve the whole fixture on the
+    // first page and an empty slice afterwards, so paging terminates.
+    chain.range = vi.fn((from: number) =>
+      Promise.resolve(from === 0 ? result : { data: [], error: null, count: 0 })
+    )
     chain.then = (resolve: (v: typeof result) => unknown) => Promise.resolve(result).then(resolve)
     return chain
   }

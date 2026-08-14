@@ -1,11 +1,14 @@
 import { ArrowDown, ArrowUp, Copy, Plus, Sparkles, Star } from 'lucide-react'
 import Link from 'next/link'
 import { FlashToasts } from '@/components/admin/FlashToasts'
+import { LoadErrorBanner } from '@/components/admin/LoadErrorBanner'
+import { RealtimeRefresh } from '@/components/admin/RealtimeRefresh'
 import { ActiveBadge, EvalBadge } from '@/components/admin/StatusBadges'
 import { GradientButton } from '@/components/brand/GradientButton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { adminRead } from '@/lib/admin/read'
 import { getCountsBatch } from '@/lib/analytics/event-store'
 import { createServiceClient } from '@/lib/supabase/server'
 import { bumpOrder, cloneTrend, toggleFeatured } from './actions'
@@ -42,19 +45,22 @@ export default async function AdminTrendsList({ searchParams }: AdminTrendsListP
   // hide drafts from the admin list. Admin gate is enforced upstream in proxy.ts.
   const supabase = createServiceClient()
   // Featured first (DESC NULLS LAST), then explicit display_order ASC.
-  const { data: rows } = await supabase
-    .from('trends')
-    .select(
-      'id, slug, title, is_active, eval_status, model, display_order, version, updated_at, is_featured, goes_live_at, auto_deactivate_disabled'
-    )
-    .order('is_featured', { ascending: false, nullsFirst: false })
-    .order('display_order', { ascending: true })
-
-  const trends = rows ?? []
+  const { rows: trends, error: loadError } = await adminRead(
+    'trends.list',
+    supabase
+      .from('trends')
+      .select(
+        'id, slug, title, is_active, eval_status, model, display_order, version, updated_at, is_featured, goes_live_at, auto_deactivate_disabled'
+      )
+      .order('is_featured', { ascending: false, nullsFirst: false })
+      .order('display_order', { ascending: true })
+  )
   const metricsMap = await getCountsBatch(trends.map((t) => t.slug))
 
   return (
     <section className="flex flex-col gap-6">
+      <LoadErrorBanner error={loadError} label="trends" />
+      <RealtimeRefresh tables={['trends', 'trend_events']} debounceMs={2000} />
       <FlashToasts
         flashes={[
           { key: 'error', level: 'error' },

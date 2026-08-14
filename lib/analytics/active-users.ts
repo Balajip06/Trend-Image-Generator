@@ -17,6 +17,8 @@
 import * as Sentry from '@sentry/nextjs'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { MOCKS_ALLOWED } from '@/lib/dev/mock-data'
+import { fetchAllPaged } from './paged-fetch'
+import { revenueUsdFromEvent, userIdFromEvent } from './stripe-payload'
 
 export interface ActiveUserCounts {
   dau: number
@@ -113,7 +115,11 @@ interface ProfileRow {
 
 interface WebhookRow {
   created_at: string
-  payload: { metadata?: { user_id?: string } } | null
+  /**
+   * The whole `Stripe.Event`. Money and attribution live at
+   * `payload.data.object.*` — read via the `./stripe-payload` helpers.
+   */
+  payload: unknown
 }
 
 // -----------------------------------------------------------------------------
@@ -218,79 +224,37 @@ async function fetchGenerationsSince(
   supabase: SupabaseClient,
   sinceIso: string
 ): Promise<GenRow[]> {
-  try {
-    const { data, error } = await supabase
-      .from('generations')
-      .select('user_id, created_at')
-      .gte('created_at', sinceIso)
-    if (error) {
-      Sentry.captureMessage('active-users.generations select failed', {
-        level: 'warning',
-        tags: { component: 'active-users', op: 'fetchGenerationsSince' },
-        extra: { code: error.code, message: error.message },
-      })
-      return []
-    }
-    return (data as unknown as GenRow[] | null) ?? []
-  } catch (err: unknown) {
-    Sentry.captureException(err, {
-      tags: { component: 'active-users', op: 'fetchGenerationsSince' },
-    })
-    return []
-  }
+  // Paged: this window reaches 112 days for cohort retention, far past
+  // PostgREST's 1000-row cap. An unpaged read silently returned the first
+  // page and every derived figure was quietly wrong.
+  const { rows } = await fetchAllPaged<GenRow>('active-users.generations', () =>
+    supabase.from('generations').select('user_id, created_at').gte('created_at', sinceIso)
+  )
+  return rows
 }
 
 async function fetchProfilesSince(
   supabase: SupabaseClient,
   sinceIso: string
 ): Promise<ProfileRow[]> {
-  try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, created_at, acquisition_source')
-      .gte('created_at', sinceIso)
-    if (error) {
-      Sentry.captureMessage('active-users.profiles select failed', {
-        level: 'warning',
-        tags: { component: 'active-users', op: 'fetchProfilesSince' },
-        extra: { code: error.code, message: error.message },
-      })
-      return []
-    }
-    return (data as unknown as ProfileRow[] | null) ?? []
-  } catch (err: unknown) {
-    Sentry.captureException(err, {
-      tags: { component: 'active-users', op: 'fetchProfilesSince' },
-    })
-    return []
-  }
+  const { rows } = await fetchAllPaged<ProfileRow>('active-users.profiles', () =>
+    supabase.from('profiles').select('id, created_at, acquisition_source').gte('created_at', sinceIso)
+  )
+  return rows
 }
 
 async function fetchStripeWebhooksSince(
   supabase: SupabaseClient,
   sinceIso: string
 ): Promise<WebhookRow[]> {
-  try {
-    const { data, error } = await supabase
+  const { rows } = await fetchAllPaged<WebhookRow>('active-users.webhook_events', () =>
+    supabase
       .from('webhook_events')
       .select('created_at, payload')
       .eq('source', 'stripe')
       .gte('created_at', sinceIso)
-    if (error) {
-      Sentry.captureMessage('active-users.webhook_events select failed', {
-        level: 'warning',
-        tags: { component: 'active-users', op: 'fetchStripeWebhooksSince' },
-        extra: { code: error.code, message: error.message },
-      })
-      return []
-    }
-    return (data as unknown as WebhookRow[] | null) ?? []
-  } catch (err: unknown) {
-    Sentry.captureException(err, {
-      tags: { component: 'active-users', op: 'fetchStripeWebhooksSince' },
-    })
-    return []
-  }
+  )
+  return rows
 }
 
 function distinctUsersSince(rows: readonly GenRow[], sinceMs: number): number {
@@ -421,9 +385,15 @@ export async function getFunnel(supabase: SupabaseClient, days: number): Promise
   for (const g of gens) if (g.user_id) firstGenUsers.add(g.user_id)
   const firstGen = firstGenUsers.size
 
+  // Count PURCHASES, not webhook rows. Stripe emits several event types per
+  // checkout (session.completed, payment_intent.succeeded, charge.succeeded…),
+  // so counting rows made one purchase look like a repeat buyer. Only
+  // revenue-bearing events count, and attribution honours the webhook's own
+  // `metadata.user_id ?? client_reference_id` order.
   const purchaseCountByUser = new Map<string, number>()
   for (const w of webhooks) {
-    const uid = w.payload?.metadata?.user_id
+    if (revenueUsdFromEvent(w.payload) <= 0) continue
+    const uid = userIdFromEvent(w.payload)
     if (!uid) continue
     purchaseCountByUser.set(uid, (purchaseCountByUser.get(uid) ?? 0) + 1)
   }

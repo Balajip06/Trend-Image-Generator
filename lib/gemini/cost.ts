@@ -1,33 +1,22 @@
 /**
- * Per-output USD cost for each image model.
- * Numbers anchor to public 2026-01 pricing; revisit on price change.
- * Source: cost_usd column on `generations` for margin tracking.
+ * Back-compat surface for image-model costs.
  *
- * See also: supabase/functions/generate-image/index.ts COST_USD (Deno copy)
+ * The pricing table itself moved to `lib/pricing/models.ts` (single source of
+ * truth, with the Edge Function's Deno copy generated from it). This module
+ * stays so existing importers keep working.
  */
-
-import type { ImageModel } from '@/lib/image-provider/types'
 
 // Keep GeminiModel export for backward compat (Edge Function imports it)
 // nano-banana-2      → Gemini 3.1 Flash Image (Nano Banana 2)
 // nano-banana-2-lite → Gemini 3.1 Flash-Lite Image (Nano Banana 2 Lite)
 export type GeminiModel = 'nano-banana-2' | 'nano-banana-2-lite'
 
-const COST_USD_PER_IMAGE: Record<ImageModel, number> = {
-  'nano-banana-2': 0.0039, // Gemini 3.1 Flash Image — workhorse
-  'nano-banana-2-lite': 0.002, // Gemini 3.1 Flash-Lite Image — cheapest/fastest
-  // PLACEHOLDER — not confirmed for gpt-image-2 (the default model in
-  // openai.ts / generate-image Edge Function). A single 1024x1536 test call
-  // used 8146 output image tokens, roughly 2x a typical gpt-image-1 call at
-  // similar resolution — this rate is likely an underestimate. Replace with
-  // the real per-image cost from OpenAI billing before trusting margins.
-  // See also: supabase/functions/generate-image/index.ts COST_USD (Deno copy)
-  'gpt-image-2': 0.04,
-}
-
-export function costForOutput(model: ImageModel): number {
-  return COST_USD_PER_IMAGE[model] ?? 0
-}
+// Pricing now lives in ONE place: lib/pricing/models.ts. This module re-exports
+// it so existing importers keep working. The Edge Function's Deno copy is
+// generated from that same file (`pnpm sync:pricing`), with a test asserting
+// the two match — previously both tables were hand-synced and could drift
+// apart silently, which meant margins disagreed with what was actually charged.
+export { COST_USD_PER_IMAGE, costForOutput } from '@/lib/pricing/models'
 
 /**
  * Daily anonymous budget breach check.

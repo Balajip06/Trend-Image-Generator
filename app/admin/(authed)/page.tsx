@@ -13,6 +13,7 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import Link from 'next/link'
+import { RealtimeRefresh } from '@/components/admin/RealtimeRefresh'
 import { AutoRefresh } from '@/lib/realtime/AutoRefresh'
 import { AdminTile } from '@/components/admin/AdminTile'
 import { BarChart, Delta, DonutChart } from '@/components/admin/Charts'
@@ -227,7 +228,11 @@ export default async function AdminHome() {
           <CardContent className="px-5">
             <DonutChart
               ariaLabel="Donut chart of revenue and spend share for the past 7 days"
-              centerValue={`${margin.marginPct.toFixed(1)}%`}
+              centerValue={
+                // Non-finite when there is spend but no revenue — real
+                // pre-launch state, and not the same as 0% (break-even).
+                Number.isFinite(margin.marginPct) ? `${margin.marginPct.toFixed(1)}%` : '—'
+              }
               centerLabel="margin"
               data={[
                 {
@@ -363,7 +368,12 @@ export default async function AdminHome() {
           />
         </div>
       </div>
-      <AutoRefresh intervalMs={15_000} />
+      {/* Realtime is the primary signal; the poll is a slow backstop for a
+          dropped socket. Previously this polled every 15s with no realtime at
+          all. The dashboard aggregates several unbounded queries, so the
+          debounce is deliberately long. */}
+      <RealtimeRefresh tables={['generations', 'profiles', 'trend_events']} debounceMs={5000} />
+      <AutoRefresh intervalMs={60_000} />
     </section>
   )
 }

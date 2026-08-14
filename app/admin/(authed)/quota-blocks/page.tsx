@@ -1,7 +1,9 @@
 import { ShieldX } from 'lucide-react'
 import Link from 'next/link'
+import { RealtimeRefresh } from '@/components/admin/RealtimeRefresh'
 import { AutoRefresh } from '@/lib/realtime/AutoRefresh'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { adminRead } from '@/lib/admin/read'
 import { createServiceClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -70,20 +72,27 @@ async function loadQuotaBlocks(): Promise<EnrichedRow[]> {
       block_count: agg.block_count,
       last_block: agg.last_block,
     }))
-    .sort((a, b) => b.block_count - a.block_count)
+    // Slug tiebreak: block_count ties are common (most slugs have 1-2), and an
+    // unstable sort visibly reshuffles rows on every 15s refresh.
+    .sort((a, b) => b.block_count - a.block_count || a.trend_slug.localeCompare(b.trend_slug))
     .slice(0, ROW_LIMIT)
 
   if (aggregated.length === 0) return []
 
-  const { data: trendRows } = await supabase
-    .from('trends')
-    .select('id, slug, title')
-    .in(
-      'slug',
-      aggregated.map((r) => r.trend_slug)
-    )
+  // Title lookup is enrichment: on failure rows still render, but with slugs
+  // instead of titles and no edit links. Report it rather than discarding it.
+  const { rows: trendRows } = await adminRead<TrendBriefRow>(
+    'quota-blocks.trends',
+    supabase
+      .from('trends')
+      .select('id, slug, title')
+      .in(
+        'slug',
+        aggregated.map((r) => r.trend_slug)
+      )
+  )
   const trendIndex = new Map<string, TrendBriefRow>()
-  for (const t of trendRows ?? []) {
+  for (const t of trendRows) {
     trendIndex.set(t.slug, t)
   }
 
@@ -181,7 +190,10 @@ export default async function QuotaBlocksPage() {
         <code className="font-mono">consume_quota_on_generation_insert</code> trigger when a
         free-tier user with 5/week used + 0 credits attempts a generation.
       </p>
-      <AutoRefresh intervalMs={15_000} />
+      {/* Blocks arrive via the quota trigger writing trend_events. Realtime is
+          primary; the slow poll covers a dropped socket. */}
+      <RealtimeRefresh tables={['trend_events']} debounceMs={3000} />
+      <AutoRefresh intervalMs={60_000} />
     </section>
   )
 }

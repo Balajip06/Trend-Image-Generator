@@ -8,6 +8,11 @@ vi.mock('next/navigation', () => ({
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
 const logAdminAction = vi.fn<(arg: unknown) => Promise<void>>(async () => undefined)
+vi.mock('@/lib/admin/require-role', () => ({
+  requireAdminRole: vi.fn(async () => ({ userId: 'admin-1', role: 'admin' })),
+  checkAdminRole: vi.fn(async () => ({ ok: true, userId: 'admin-1', role: 'admin' })),
+}))
+
 vi.mock('@/lib/admin/audit', () => ({
   logAdminAction: (arg: unknown) => logAdminAction(arg),
 }))
@@ -73,6 +78,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 
 import { setVip, findUserForVip } from './actions'
+import { requireAdminRole } from '@/lib/admin/require-role'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 
@@ -177,14 +183,25 @@ describe('setVip — input validation', () => {
 })
 
 describe('setVip — admin attribution', () => {
-  it('stamps null admin_id when there is no authed admin', async () => {
-    resetState({ authUser: null })
+  it('stamps the acting admin on the grant and the audit row', async () => {
+    resetState({})
     await expect(setVip(makeForm())).rejects.toThrow(/NEXT_REDIRECT:/)
     expect(lastUpdatePayload).toMatchObject({
       is_vip: true,
-      vip_granted_by: null,
+      vip_granted_by: 'admin-1',
     })
-    expect(logAdminAction).toHaveBeenCalledWith(expect.objectContaining({ adminId: null }))
+    expect(logAdminAction).toHaveBeenCalledWith(expect.objectContaining({ adminId: 'admin-1' }))
+  })
+
+  it('refuses to grant VIP when the caller is not an admin', async () => {
+    // Previously this action wrote with `vip_granted_by: null` for an
+    // unauthenticated caller — an unattributable comp of the quota paying
+    // users hit. requireAdminRole now redirects before any write.
+    vi.mocked(requireAdminRole).mockRejectedValueOnce(new Error('NEXT_REDIRECT: /admin/login'))
+    resetState({})
+    await expect(setVip(makeForm())).rejects.toThrow(/NEXT_REDIRECT:/)
+    expect(lastUpdatePayload).toBeNull()
+    expect(logAdminAction).not.toHaveBeenCalled()
   })
 })
 
